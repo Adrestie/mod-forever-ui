@@ -13,16 +13,12 @@
     ],
     "extensions": [
       ".blp",
-      ".m2",
       ".lua",
       ".xml",
       ".toc"
     ],
     "owned_folders": [
       "Interface/ForeverUI"
-    ],
-    "replaces": [
-      "Interface/Glues/Models"
     ]
   },
   "dbc": [

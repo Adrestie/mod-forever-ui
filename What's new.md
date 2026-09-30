@@ -161,8 +161,6 @@ client's language: English and French are provided.
   and name, with camera buttons. With the `Wow.exe` patch, appearance choices
   are numbered, show their color swatch (skin tinted by the scene's light) and
   open as a list.
-- The scenery models are scaled down so the characters keep their size on the
-  wider modern scene.
 
 ## Server and optional parts
 

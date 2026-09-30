@@ -53,12 +53,10 @@ that contains `Wow.exe` and `Data`), and remembers them. It shows what it finds,
 then installs after Enter:
 
 - it copies `data/addon/ForeverUI` into the game's `Interface\AddOns\ForeverUI`;
-- it writes into the last custom archive the game reads (a new
-  `Data\patch-Z.MPQ` when there is none): the art (`Interface\ForeverUI`, and
-  the group member arrow of the minimap), the login screens
-  (`Interface\GlueXML`) and their scenery models (`Interface\Glues\Models`,
-  over those of another archive, such as an HD pack), with a receipt,
-  `WoW-mods\mod-forever-ui.receipt`, listing what it wrote;
+- it writes into the archive the game reads last (usually `Data\patch-Z.MPQ`,
+  created if there is none): the art (`Interface\ForeverUI`, and the group
+  member arrow of the minimap) and the login screens (`Interface\GlueXML`),
+  with a receipt, `WoW-mods\mod-forever-ui.receipt`, listing what it wrote;
 - it adds the 18 statistics to `Achievement.dbc` and `Achievement_Criteria.dbc`,
   in the game's archive and in the server's `dbc` folder;
 - it reads everything back to check it.
@@ -78,8 +76,8 @@ and a DBC editor for step 3. This gives the same result as the installer.
 2. **The files of the archive.** Open `Data\patch-Z.MPQ` in the game folder, or
    create an empty archive with that name if there is none. At the root of the
    archive, create a folder `interface`, then drop into it these folders
-   themselves (not their content): `foreverui`, `Minimap` and `Glues`, taken
-   from `data/art/interface`, and `GlueXML`, taken from `data/glue/Interface`.
+   themselves (not their content): `foreverui` and `Minimap`, taken from
+   `data/art/interface`, and `GlueXML`, taken from `data/glue/Interface`.
    At the end the archive shows, under `interface`:
    - `foreverui\`, and in it 58 folders (`auctionframe`, `bankframe`, `bars`...
      `unknown`) holding 645 `.blp` files, for example
@@ -87,10 +85,7 @@ and a DBC editor for step 3. This gives the same result as the installer.
    - `Minimap\ROTATING-MINIMAPGROUPARROW.blp`: the arrow of a group member at
      the edge of the minimap, resized for the larger map;
    - `GlueXML\`, holding 24 files (`GlueXML.toc`, `ForeverUIGlue.xml`...): the
-     login screens in the camelot style;
-   - `Glues\Models\`, holding 9 folders (`UI_BloodElf`... `UI_Tauren`), each with
-     its `.m2`: the login screens show a wider scene than the client's, which
-     would enlarge the characters, so these scenery models are scaled down.
+     login screens in the camelot style.
 3. **The statistics.** The Statistics tab of the character sheet lists the
    client's statistics; `data/dbc/statistics.json` adds 18 that the camelot
    client has and 3.3.5 lacks, on content 3.3.5 has: boss kills in classic
@@ -148,7 +143,7 @@ Run `installer.exe` again on this folder. It finds ForeverUI and, after you type
 `Interface\AddOns\ForeverUI`, its files in the game's archives (those its
 receipt lists, and everything under `Interface\ForeverUI`), and the statistics'
 rows in the game's and the server's DBC files. An archive it no longer changes
-is deleted, and scenery models of another archive show again. It also finishes
+is deleted. It also finishes
 an uninstallation started by hand. It removes neither the optional parts (see
 below) nor the addon's settings (step 4 below).
 
@@ -156,9 +151,10 @@ below) nor the addon's settings (step 4 below).
 
 1. Delete the folder `Interface\AddOns\ForeverUI` of the game.
 2. In `patch-Z.MPQ`, under `interface`, delete the folder `foreverui`, the file
-   `Minimap\ROTATING-MINIMAPGROUPARROW.blp`, the 9 `UI_...` folders of
-   `Glues\Models` and the 24 files of `GlueXML` added at installation. If the
-   installer was used, delete its receipt too, `WoW-mods\mod-forever-ui.receipt`.
+   `Minimap\ROTATING-MINIMAPGROUPARROW.blp`, the 24 files of `GlueXML` added at
+   installation, and the 9 `UI_...` folders of `Glues\Models` left by an older
+   version. If the installer was used, delete its receipt too,
+   `WoW-mods\mod-forever-ui.receipt`.
 3. Delete the statistics' rows, in the copies of the two files inside
    `patch-Z.MPQ` and in the server's `dbc` folder: in `Achievement.dbc` the rows
    6137, 6139 to 6146, 6786, 15027 to 15030, 64183 to 64185 and 64300; in

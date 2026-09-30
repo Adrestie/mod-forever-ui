@@ -31,13 +31,14 @@ end
 -- GlueParent is scaled 768 / height: everything in it counts in camelot units.
 G.CAMELOT_HEIGHT = math.min(math.max(screenHeight(), 768), 1200)
 G.SCALE = 768 / G.CAMELOT_HEIGHT
-G.MAX_RATIO = 2
+G.MAX_RATIO = 16 / 9
 
 GlueParent:SetScale(G.SCALE)
 
 -- ---------- 2. Usable area
--- GlueParent_OnLoad (3.3.5) bounds it to 16:9; camelot's is 2:1 (version text 10 units
--- from the left edge, Quit 24 from the right).
+-- Bounded to 16:9 like GlueParent_OnLoad (3.3.5), not 2:1 like camelot: a wider area widens
+-- the 3D scene, whose camera then enlarges the characters. Version text 10 units from the
+-- left edge, Quit 24 from the right.
 
 function G.FitScreen()
 	local width = GetScreenWidth() / G.SCALE
