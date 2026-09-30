@@ -45,7 +45,7 @@ the server reads its DBC files only when it starts.
 ### With the installer
 
 Download `installer.exe` from the
-[releases of this repository](https://github.com/Adrestie/WoW-mods/releases),
+[releases of WoW-mods-installer](https://github.com/Adrestie/WoW-mods-installer/releases),
 run it and give it this folder, the one that contains `installer.json` (or drop
 the folder on `installer.exe`). The first time, it asks for the worldserver
 folder (the one that contains `worldserver.exe`) and the game folder (the one
