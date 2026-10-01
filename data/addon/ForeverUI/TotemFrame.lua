@@ -2,7 +2,8 @@
 -- camelot's family): one 37 button per active totem slot, in the shaman's order (earth, fire,
 -- water, air) or slot order for other classes, side by side 6 px overlapped, centered where
 -- camelot stacks it under the player frame. Each button: the icon, round, 22 in the totem
--- ring (30), the time left under it, and a reverse sweep showing what remains.
+-- ring (30), the time left under it, and a reverse sweep showing what remains; its tooltip
+-- on hover, and a right click destroys the totem.
 -- Movable in edit mode; until the player moves it, it follows the player frame.
 -- 3.3.5 has no texture masks: SetPortraitToTexture rounds the icon. The sweep stays the
 -- client's square, 21 wide so its corners stay under the ring.
@@ -42,8 +43,12 @@ frame:Hide()
 
 local buttons = {}
 
--- AuraButtonMixin:UpdateDuration: the buff duration setting decides; white under 90 s
+-- AuraButtonMixin:UpdateDuration: the buff duration setting decides; white under 90 s.
+-- An open tooltip follows the time left, as TotemButtonMixin:OnUpdate does.
 local function updateDuration(button)
+	if GameTooltip:IsOwned(button) then
+		GameTooltip:SetTotem(button.slot)
+	end
 	local timeLeft = GetTotemTimeLeft(button.slot)
 	if timeLeft and SHOW_BUFF_DURATIONS == "1" then
 		timeLeft = math.ceil(timeLeft)
@@ -57,7 +62,7 @@ local function updateDuration(button)
 end
 
 local function createButton(rank)
-	local button = CreateFrame("Frame", "ForeverUITotemFrameTotem" .. rank, frame)
+	local button = CreateFrame("Button", "ForeverUITotemFrameTotem" .. rank, frame)
 	button:SetWidth(BUTTON_SIZE)
 	button:SetHeight(BUTTON_SIZE)
 
@@ -89,6 +94,20 @@ local function createButton(rank)
 	button.duration = duration
 
 	button:SetScript("OnUpdate", updateDuration)
+	-- TotemButtonMixin: the totem's tooltip on hover, a right click destroys it
+	button:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
+		GameTooltip:SetTotem(self.slot)
+	end)
+	button:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	button:RegisterForClicks("RightButtonUp")
+	button:SetScript("OnClick", function(self, mouseButton)
+		if mouseButton == "RightButton" and self.slot then
+			DestroyTotem(self.slot)
+		end
+	end)
 	button:Hide()
 	buttons[rank] = button
 	return button
