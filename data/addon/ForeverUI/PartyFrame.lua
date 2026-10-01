@@ -484,11 +484,15 @@ local function updateDisconnected(m)
 end
 
 function G.updateMember(m)
-	if not UnitExists(m.unit) then return end
+	-- m.unit may still name the vehicle the member has left (partypetN, gone with it): test
+	-- the member's own token, or the frame never updates again
+	local member = "party" .. m:GetID()
+	if not UnitExists(member) then return end
 	local display, pet, vehicle = units(m)
 	m.unit, m.petUnit, m.vehicle = display, pet, vehicle
 	updateArt(m)
-	m.name:SetText(GetUnitName(display, true))
+	-- the member's name, not the vehicle's (PartyMemberFrame_ToVehicleArt: overrideName)
+	m.name:SetText(GetUnitName(member, true))
 	updatePortrait(m)
 	updateHealth(m)
 	updateResource(m)

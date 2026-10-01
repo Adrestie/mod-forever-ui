@@ -324,9 +324,11 @@ local function updateTexts()
 		return
 	end
 
-	local powerType = UnitPowerType("player")
-	healthText:SetText(formatValue(UnitHealth("player"), UnitHealthMax("player")))
-	powerText:SetText(formatValue(UnitPower("player", powerType), UnitPowerMax("player", powerType)))
+	-- the values of the bars: the vehicle's while in one
+	local unit = displayedUnit()
+	local powerType = UnitPowerType(unit)
+	healthText:SetText(formatValue(UnitHealth(unit), UnitHealthMax(unit)))
+	powerText:SetText(formatValue(UnitPower(unit, powerType), UnitPowerMax(unit, powerType)))
 	healthText:Show()
 	powerText:Show()
 end
@@ -445,6 +447,10 @@ frame:SetScript("OnEvent", function(self, event, unit)
 
 	if event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
 		self.onHateList = (event == "PLAYER_REGEN_DISABLED")
+		-- Skipped when PLAYER_ENTERING_WORLD came in combat (reload, reconnect): done now
+		if event == "PLAYER_REGEN_ENABLED" then
+			hideDefaultPlayerFrame()
+		end
 		updateStatus()
 		updateThreat()
 		return
@@ -476,7 +482,8 @@ frame:SetScript("OnEvent", function(self, event, unit)
 		return
 	end
 
-	if unit ~= "player" then
+	-- In a vehicle the bars show "vehicle": its health and power events carry that token
+	if unit ~= "player" and unit ~= displayedUnit() then
 		return
 	end
 

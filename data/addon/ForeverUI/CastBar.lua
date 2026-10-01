@@ -73,11 +73,11 @@ end
 
 -- Starts the bar from the client's current cast. channel: true for a channeled spell
 local function startCast(channel)
-	local name, _subtext, text, texture, startTime, endTime, _isTrade, _castID, notInterruptible
+	local name, _subtext, text, texture, startTime, endTime, _isTrade, castID, notInterruptible
 	if channel then
 		name, _subtext, text, texture, startTime, endTime, _isTrade, notInterruptible = UnitChannelInfo("player")
 	else
-		name, _subtext, text, texture, startTime, endTime, _isTrade, _castID, notInterruptible = UnitCastingInfo("player")
+		name, _subtext, text, texture, startTime, endTime, _isTrade, castID, notInterruptible = UnitCastingInfo("player")
 	end
 
 	if not name then
@@ -87,6 +87,7 @@ local function startCast(channel)
 
 	frame.casting = not channel
 	frame.channeling = channel and true or false
+	frame.castID = castID
 	frame.startTime = startTime / 1000
 	frame.endTime = endTime / 1000
 	frame.holdUntil = nil
@@ -101,7 +102,7 @@ local function startCast(channel)
 	frame:Show()
 end
 
-frame:SetScript("OnEvent", function(_self, event, unit)
+frame:SetScript("OnEvent", function(_self, event, unit, _spell, _rank, castID)
 	if event == "PLAYER_ENTERING_WORLD" then
 		ForeverUI.Suppress(CastingBarFrame)
 		stopBar()
@@ -116,12 +117,22 @@ frame:SetScript("OnEvent", function(_self, event, unit)
 		startCast(false)
 	elseif event == "UNIT_SPELLCAST_CHANNEL_START" or event == "UNIT_SPELLCAST_CHANNEL_UPDATE" then
 		startCast(true)
-	elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
-		stopBar()
-	elseif event == "UNIT_SPELLCAST_FAILED" then
-		showFailure("interrupted", FAILED)
-	elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
-		showFailure("interrupted", INTERRUPTED)
+	elseif event == "UNIT_SPELLCAST_STOP" then
+		-- As 3.3.5's CastingBarFrame_OnEvent: only the cast on the bar (its castID), and not
+		-- after a failure, whose red bar stays HOLD_AFTER_END
+		if frame.casting and castID == frame.castID then
+			stopBar()
+		end
+	elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+		if frame.channeling then
+			stopBar()
+		end
+	elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
+		-- A refused attempt (a key pressed again during a cast, an instant spell out of range)
+		-- carries another castID, or comes with no cast on the bar
+		if frame.casting and castID == frame.castID then
+			showFailure("interrupted", event == "UNIT_SPELLCAST_FAILED" and FAILED or INTERRUPTED)
+		end
 	elseif event == "UNIT_SPELLCAST_INTERRUPTIBLE" then
 		shield:Hide()
 		frame.fillKey = frame.channeling and "channel" or "standard"
