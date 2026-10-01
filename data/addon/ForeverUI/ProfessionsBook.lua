@@ -1165,4 +1165,11 @@ if hooksecurefunc then
 		if TradeSkillFrame then PB.Reposition(TradeSkillFrame) end
 		PB.PlaceTabs()
 	end)
+	-- TRADE_SKILL_SHOW: 3.3.5 loads the crafting page, then shows it. The book closes in between,
+	-- so the page gets the free left slot. Opened beside the book with no room for both (750
+	-- each), 3.3.5 drops the page from the panel slots but shows it anyway: Escape then
+	-- cannot close it.
+	hooksecurefunc("TradeSkillFrame_LoadUI", function()
+		if PB.book and PB.book:IsShown() then HideUIPanel(PB.book) end
+	end)
 end
