@@ -809,7 +809,12 @@ local function createButtons(page)
 	local create = button("ForeverUITradeSkillCreateButton")
 	create:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", C[1], C[2])
 	create:SetScript("OnClick", function()
-		if M.selected then DoTradeSkill(M.selected, h.buttons.counter:GetNumber()) end
+		if not M.selected then return end
+		-- A spell with a verb (enchanting) has no counter, and the hidden one keeps the previous
+		-- recipe's number (0 when it could not be made): one cast, as 3.3.5's hidden input box
+		-- reset to GetTradeskillRepeatCount gives
+		local c = h.buttons.counter
+		DoTradeSkill(M.selected, c:IsShown() and c:GetNumber() or 1)
 	end)
 	local all = button("ForeverUITradeSkillCreateAllButton")
 	all:SetPoint("BOTTOMLEFT", page, "BOTTOMRIGHT", T[1], T[2])
