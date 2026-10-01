@@ -274,9 +274,18 @@ ce mouvement est conservé. Mais on ne peut pas déplacer un bouton sécurisé i
 par image : le client l'interdit en combat, et c'est précisément là qu'on change
 de posture. Les boutons bonus sont donc ancrés **une fois** à une glissière —
 `ForeverUIBonusSlide`, un cadre à nous posé sur le porteur — et c'est **elle**
-qui glisse. Les boutons suivent sans qu'on y touche, et déplacer son propre
-cadre reste permis en combat. La course vaut une hauteur de bouton, la durée
-`BONUS_ACTIONBUTTON_SLIDE_TIME` quand le client la déclare, 0,2 s sinon.
+qui glisse. Les boutons suivent sans qu'on y touche. La course vaut une hauteur
+de bouton, la durée `BONUSACTIONBAR_SLIDETIME` du client (0,15 s).
+
+**Corrigé le 2026-10-01 :** la glissière ne bouge pas en combat. Des boutons
+sécurisés ancrés à un cadre le rendent protégé (le même constat que pour la
+page d'artisanat, `ProfessionsBook.lua`) : ses `SetPoint` étaient bloqués, et
+une barre de forme montrée en combat restait à la position basse de la
+glissière, à moitié sous l'écran, jusqu'au prochain retrait hors combat. Elle
+attend désormais au repos, y revient à `PLAYER_REGEN_DISABLED` (avant le
+verrouillage), et une barre montrée en combat paraît en place, sans glisser.
+L'ancienne constante `BONUS_ACTIONBUTTON_SLIDE_TIME` n'existe pas en 3.3.5 :
+la glissière durait 0,2 s, et le client masquait la barre avant la fin.
 
 Le mouvement va **dans les deux sens**. Au retrait, c'est le client qui le rend
 possible : comme pour ses autres barres glissantes, il pose `mode = "hide"`,
