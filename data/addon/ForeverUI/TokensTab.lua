@@ -637,6 +637,19 @@ local function choose(name)
 end
 ForeverUI.TokensSelect = choose
 
+-- TokenFramePopup, our detail, is one of the client's UIChildWindows: CloseChildWindows hides
+-- it whenever a panel opens, and the Unused box's TokenFramePopup_CloseIfHidden hides it when
+-- the currency leaves the list. Shown again while the list is on screen.
+local function keepDetail()
+	if detail and panel and panel:IsVisible() and not detail:IsShown() then
+		detail:Show()
+	end
+end
+hooksecurefunc("CloseChildWindows", keepDetail)
+if type(_G["TokenFramePopup_CloseIfHidden"]) == "function" then
+	hooksecurefunc("TokenFramePopup_CloseIfHidden", keepDetail)
+end
+
 -- Moves TokenFramePopup into host, the character sheet's right pane, and restyles it
 local function buildDetail(host)
 	if detail then
