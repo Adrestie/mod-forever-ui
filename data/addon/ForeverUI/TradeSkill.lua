@@ -392,11 +392,19 @@ function M.UpdateList()
 	local width = N.list[3] - N.zone[1] + (hasBar and N.zone[3] or -N.zone[1])
 	h.child:SetWidth(width)
 	h.child:SetHeight(math.max(height, 1))
+	-- Scroll position first: only the elements in view get a row. A profession has hundreds of
+	-- recipes, and every shown row is laid out again each frame the window moves.
+	local total = math.ceil(height / N.step)
+	local visibleCount = math.floor(view / N.step)
+	h.offset = math.max(0, math.min(h.offset or 0, total - visibleCount))
+	local scroll = math.min(h.offset * N.step, math.max(0, height - view))
 	local selected = GetTradeSkillSelectionIndex()
 	local y, nc, nr = A.top, 0, 0
 	for i, e in ipairs(elements) do
 		if i > 1 then y = y + A.space end
-		if e.category then
+		local size = e.category and N.category.h or e.space or N.recipe.h
+		local inView = y + size > scroll and y < scroll + view
+		if e.category and inView then
 			nc = nc + 1
 			local b = h.categories[nc] or createCategory(nc)
 			h.categories[nc] = b
@@ -410,10 +418,7 @@ function M.UpdateList()
 			tileHeader(b, l)
 			place(b, "TOPLEFT", h.child, "TOPLEFT", 0, -y)
 			b:Show()
-			y = y + N.category.h
-		elseif e.space then
-			y = y + e.space
-		else
+		elseif not e.category and not e.space and inView then
 			nr = nr + 1
 			local b = h.recipes[nr] or createRecipe(nr)
 			h.recipes[nr] = b
@@ -424,18 +429,14 @@ function M.UpdateList()
 			place(b, "TOPLEFT", h.child, "TOPLEFT", indent, -y)
 			M.FillRecipe(b, e, l, selected == e.index)
 			b:Show()
-			y = y + N.recipe.h
 		end
+		y = y + size
 	end
 	for i = nc + 1, #h.categories do h.categories[i]:Hide() end
 	for i = nr + 1, #h.recipes do h.recipes[i]:Hide() end
 	Tpl.SetShown(h.none, #elements == 0)
-	-- Scroll bar
-	local total = math.ceil(height / N.step)
-	local visibleCount = math.floor(view / N.step)
-	h.offset = math.max(0, math.min(h.offset or 0, total - visibleCount))
 	h.bar:Configure(total, visibleCount, h.offset)
-	h.zone:SetVerticalScroll(math.min(h.offset * N.step, math.max(0, height - view)))
+	h.zone:SetVerticalScroll(scroll)
 end
 
 -- Name width. A row is reused for several recipes: its name keeps the previous width, and the
