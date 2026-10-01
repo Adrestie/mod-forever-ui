@@ -209,7 +209,7 @@ function G.SquareIconButton(b, icon, iconSize, layer)
 	h:SetPoint("BOTTOMRIGHT", ic, "BOTTOMRIGHT")
 
 	G.Hook(b, "OnMouseDown", function(self)
-		if self:IsEnabled() then
+		if G.Truthy(self:IsEnabled()) then
 			ic:SetPoint("CENTER", self, "CENTER", 1, -1)
 		end
 	end)
@@ -280,13 +280,14 @@ function G.MinimalBar(parent, name)
 		f:SetPoint(top and "TOP" or "BOTTOM", bar, top and "TOP" or "BOTTOM")
 		local function paint()
 			local n = base
-			if f:IsEnabled() then
+			local enabled = G.Truthy(f:IsEnabled())
+			if enabled then
 				if f.down then n = base .. "-down" elseif f.hovered then n = base .. "-over" end
 			end
 			G.PlaceAtlas(t, n, true)
-			t:SetDesaturated(not f:IsEnabled())
+			t:SetDesaturated(not enabled)
 			t:ClearAllPoints()
-			if f.down and f:IsEnabled() then
+			if f.down and enabled then
 				t:SetPoint("CENTER", f, "CENTER", 1, -1)
 			else
 				t:SetPoint("CENTER", f, "CENTER")
