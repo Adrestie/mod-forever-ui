@@ -906,8 +906,13 @@ function J.updateDetailsButtons()
 	-- QuestLog_SetSelection: the selected quest is also the one to abandon, and
 	-- GetAbandonQuestName names it if abandoning is allowed
 	SelectQuestLogEntry(d.index)
-	SetAbandonQuest()
-	d.abandon:Activate(GetAbandonQuestName() and true or false)
+	-- QuestLog_SetSelection hides the abandon popups before SetAbandonQuest: a refresh must not
+	-- retarget an open one (tracker menu), whose Yes abandons the marked quest, whatever name
+	-- it shows
+	if not (StaticPopup_Visible("ABANDON_QUEST") or StaticPopup_Visible("ABANDON_QUEST_WITH_ITEMS")) then
+		SetAbandonQuest()
+		d.abandon:Activate(GetAbandonQuestName() and true or false)
+	end
 	if IsQuestWatched(d.index) then
 		d.follow:SetText(TEXT.untrackShort)
 	else
@@ -1247,7 +1252,10 @@ function J.openDetails(info)
 		showOnMap(info)
 		return
 	end
-	d.returnMap = GetCurrentMapAreaID and GetCurrentMapAreaID()
+	-- 3.3.5: GetCurrentMapAreaID() is SetMapByID's ID + 1, and 0 on the views Blizzard restores
+	-- with SetMapZoom (WorldMapFrame_ToggleWindowSize)
+	d.returnMap = GetCurrentMapAreaID and GetCurrentMapAreaID() - 1
+	d.returnContinent = GetCurrentMapContinent and GetCurrentMapContinent()
 	d.returnFloor = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel()
 	d.map = nil
 	d.questID = info.questID
@@ -1270,6 +1278,7 @@ function J.closeDetails()
 	if not d then return end
 	d:Hide()
 	d.questID, d.index, d.map, d.returnMap, d.returnFloor = nil, nil, nil, nil, nil
+	d.returnContinent = nil
 	d.clock.rest = nil
 	J.pane.list:Show()
 	StaticPopup_Hide("ABANDON_QUEST")
@@ -1282,11 +1291,13 @@ function J.backFromDetails()
 	local d = J.details
 	if not d then return end
 	local map, floor = d.returnMap, d.returnFloor
-	if map and SetMapByID then
+	if map and map >= 0 and SetMapByID then
 		SetMapByID(map)
 		if floor and floor > 0 and SetDungeonMapLevel then
 			SetDungeonMapLevel(floor)
 		end
+	elseif d.returnContinent and SetMapZoom then
+		SetMapZoom(d.returnContinent)
 	end
 	J.closeDetails()
 end
@@ -2118,6 +2129,20 @@ if WorldMapFrame and WorldMapFrame.HookScript then
 	end)
 end
 
+-- The pane is a child of the map and keeps its own shown flag when the map closes: the map is
+-- checked too (J.place and the WorldMapFrame_UpdateQuests hook rebuild it on opening), or
+-- every quest event rebuilds a hidden pane, and a page whose quest left the log moves the
+-- closed map (J.backFromDetails). Quest events come in bursts: one refresh on the next frame.
+local refresher = CreateFrame("Frame")
+refresher:Hide()
+refresher:SetScript("OnUpdate", function(self)
+	self:Hide()
+	if J.isOpen() and WorldMapFrame:IsShown() then
+		J.update()
+		J.updateDetails()
+	end
+end)
+
 local listener = CreateFrame("Frame")
 listener:RegisterEvent("QUEST_LOG_UPDATE")
 listener:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
@@ -2131,9 +2156,8 @@ listener:SetScript("OnEvent", function(_, event)
 			collapseByZone()
 		end
 	end
-	if J.isOpen() then
-		J.update()
-		J.updateDetails()
+	if J.isOpen() and WorldMapFrame:IsShown() then
+		refresher:Show()
 	end
 end)
 
