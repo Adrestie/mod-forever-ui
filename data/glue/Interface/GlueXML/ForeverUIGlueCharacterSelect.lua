@@ -588,3 +588,14 @@ G.Hook(CharacterSelect, "OnShow", function()
 	arrange()
 end)
 G.Hook(list, "OnSizeChanged", placeListBackground)
+
+-- ---------- Short screens
+
+-- Blocks kept apart on a short screen (G.FitOnShow, after the OnShow above); the cards
+-- follow the list's new height
+G.FitOnShow(CharacterSelect, function()
+	return { { CharacterSelectLogo, tray, { list, zone }, collapse, CharSelectCharacterName, onEnter, backButton, eyeButton } }
+end, function()
+	placeListBackground()
+	arrange()
+end)

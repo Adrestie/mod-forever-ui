@@ -13,11 +13,13 @@ local checkbox = AccountLoginSaveAccountName
 
 -- ------------------------------------------------------------ Footer
 
+local disclaimer
 for _, r in ipairs({ ui:GetRegions() }) do
 	if r:GetObjectType() == "FontString" and r:GetText() == BLIZZ_DISCLAIMER then
 		r:SetFontObject(G.Font("GlueFontNormalSmall"))
 		r:ClearAllPoints()
 		r:SetPoint("BOTTOM", ui, "BOTTOM", 0, 10)
+		disclaimer = r
 	end
 end
 AccountLoginVersion:SetFontObject(G.Font("GlueFontNormalSmall"))
@@ -170,3 +172,10 @@ end)
 
 -- Escape keeps its 3.3.5 meaning (AccountLogin_OnKeyDown: quit the game), where Camelot
 -- would open the menu (TOGGLEGAMEMENU). The screen's keyboard handling stays with the client.
+
+-- ------------------------------------------------------------ Short screens
+
+-- Blocks kept apart on a short screen (G.FitOnShow, after the OnShow above)
+G.FitOnShow(AccountLogin, function()
+	return { { count, password, block, loginButton, menu, create, quit, AccountLoginVersion, disclaimer } }
+end)

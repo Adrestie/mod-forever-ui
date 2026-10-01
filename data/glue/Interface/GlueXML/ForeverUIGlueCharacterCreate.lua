@@ -1573,6 +1573,8 @@ local function showMode(mode)
 	if forward ~= mode then
 		fadeTo(one and (state.backgroundAlpha or 1) or 0)
 	end
+	-- the other step's blocks may need more room; the scale never grows back meanwhile
+	G.Rescale()
 end
 
 -- NavBack / NavForward
@@ -1621,3 +1623,14 @@ G.Hook(CharacterCreate, "OnShow", function()
 	-- Column and class positions can be read only once laid out, so refresh again
 	refresh()
 end)
+
+-- ------------------------------------------------------------ Short screens
+
+-- Blocks kept apart on a short screen, step by step (G.FitOnShow, after the OnShow above);
+-- the race buttons and the class bar follow the area's new size
+G.FitOnShow(CharacterCreate, function()
+	return {
+		{ COLUMNS.Alliance, COLUMNS.Horde, body, classes, factionFrameBox, raceFrameBox, classFrameBox, backButton, forwardButton },
+		{ container, nameChoice, smallButtons, backButton, forwardButton },
+	}
+end, refresh)

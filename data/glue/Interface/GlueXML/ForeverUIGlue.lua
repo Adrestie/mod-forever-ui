@@ -60,14 +60,122 @@ G.FitScreen()
 -- five times per second; on a change both are recomputed and every G.onScale callback runs.
 G.onScale = {}
 
-function G.Rescale()
-	G.CAMELOT_HEIGHT = math.min(math.max(screenHeight(), 768), 1200)
-	G.SCALE = 768 / G.CAMELOT_HEIGHT
+-- ---------- Fitting a screen
+-- The screens keep the layout camelot draws on 1200 units. On a shorter screen, if blocks of
+-- the shown screen overlap or leave the area, the height grows (everything shrinks) just
+-- enough to separate them. A screen declares its blocks with G.FitOnShow.
+local fit
+
+local function apply(height)
+	G.CAMELOT_HEIGHT = height
+	G.SCALE = 768 / height
 	GlueParent:SetScale(G.SCALE)
 	G.FitScreen()
 	for _, f in ipairs(G.onScale) do
 		f()
 	end
+	if fit and fit.relayout then fit.relayout() end
+end
+
+-- Box of a block in GlueParent units (left, right, top, bottom), nil when hidden or not laid
+-- out. block: a region, or a list of regions taken as one box. A FontString has no
+-- GetEffectiveScale in 3.3.5: its parent's is read.
+local function box(block)
+	if type(block) == "table" and not block.GetLeft then
+		local l, r, t, b
+		for _, region in ipairs(block) do
+			local l2, r2, t2, b2 = box(region)
+			if l2 then
+				l, r = math.min(l or l2, l2), math.max(r or r2, r2)
+				t, b = math.max(t or t2, t2), math.min(b or b2, b2)
+			end
+		end
+		return l, r, t, b
+	end
+	if not block:IsVisible() then return nil end
+	local l, r, t, b = block:GetLeft(), block:GetRight(), block:GetTop(), block:GetBottom()
+	if not (l and r and t and b) then return nil end
+	local owner = block.GetEffectiveScale and block or block:GetParent()
+	local k = owner:GetEffectiveScale() / GlueParent:GetEffectiveScale()
+	return l * k, r * k, t * k, b * k
+end
+
+-- True when, in every group, the blocks stay in the area and do not overlap one another
+local function separated(groups)
+	local areaL, areaR = GlueParent:GetLeft(), GlueParent:GetRight()
+	local areaT, areaB = GlueParent:GetTop(), GlueParent:GetBottom()
+	for _, group in ipairs(groups) do
+		local seen = {}
+		for _, block in ipairs(group) do
+			local l, r, t, b = box(block)
+			if l then
+				if l < areaL - 0.5 or r > areaR + 0.5 or t > areaT + 0.5 or b < areaB - 0.5 then return false end
+				for _, o in ipairs(seen) do
+					if l < o[2] and o[1] < r and b < o[3] and o[4] < t then return false end
+				end
+				seen[#seen + 1] = { l, r, t, b }
+			end
+		end
+	end
+	return true
+end
+
+-- Applies the natural height (the screen's, 768 to 1200 units) or, for a fitted screen, the
+-- smallest larger one that separates its blocks. The height reached is kept until the screen
+-- is shown again or the resolution changes, so its steps keep one scale. reset: start over
+-- from the natural height
+function G.Rescale(reset)
+	local natural = math.min(math.max(screenHeight(), 768), 1200)
+	if not fit then
+		apply(natural)
+		return
+	end
+	if reset then fit.floor = nil end
+	local low = math.max(natural, fit.floor or 0)
+	apply(low)
+	if separated(fit.groups()) then
+		fit.floor = low
+		return
+	end
+	-- Grow until separated, then narrow down between the last failure and the first success
+	local high = low
+	repeat
+		low, high = high, high * 1.25
+		apply(high)
+	until separated(fit.groups()) or high > 4 * natural
+	if not separated(fit.groups()) then
+		-- the blocks overlap at any size: the layout stays at its natural height
+		fit.floor = math.max(natural, fit.floor or 0)
+		apply(fit.floor)
+		return
+	end
+	for _ = 1, 10 do
+		local middle = (low + high) / 2
+		apply(middle)
+		if separated(fit.groups()) then high = middle else low = middle end
+	end
+	fit.floor = high
+	apply(high)
+	-- positions read during a layout may predate it: once more on the final size
+	if fit.relayout then fit.relayout() end
+end
+
+-- Fits a screen each time it is shown. screen: the screen frame; groups: function returning
+-- lists of blocks (see box) that must not overlap within a list; relayout: optional function
+-- that re-places what depends on the area's size
+function G.FitOnShow(screen, groups, relayout)
+	local entry = { groups = groups, relayout = relayout }
+	G.Hook(screen, "OnShow", function()
+		fit = entry
+		G.Rescale(true)
+	end)
+	G.Hook(screen, "OnHide", function()
+		if fit == entry then
+			fit = nil
+			G.Rescale()
+		end
+	end)
+	return entry
 end
 
 local function fingerprint()
@@ -86,7 +194,7 @@ screenWatcher:SetScript("OnUpdate", function(self, elapsed)
 	local e = fingerprint()
 	if e ~= self.fingerprint then
 		self.fingerprint = e
-		G.Rescale()
+		G.Rescale(true)
 	end
 end)
 
