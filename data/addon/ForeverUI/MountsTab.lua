@@ -192,10 +192,29 @@ local function createCard(rank)
 	card:SetScript("OnLeave", function(self)
 		self.hover:Hide()
 	end)
-	card:SetScript("OnClick", function(self)
-		if self.creatureID then
+	-- Left click chooses the mount; right click mounts it, or dismounts from the ridden one, as
+	-- the 3.3.5 companion buttons do (CompanionButton_OnClick)
+	card:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	card:SetScript("OnClick", function(self, button)
+		if not self.creatureID then
+			return
+		end
+		if button == "RightButton" then
+			if self.active then
+				DismissCompanion("MOUNT")
+			else
+				CallCompanion("MOUNT", self.index)
+			end
+		else
 			selected = self.creatureID
 			layout()
+		end
+	end)
+	-- The whole card drags the mount, name as well as icon, onto an action bar
+	card:RegisterForDrag("LeftButton")
+	card:SetScript("OnDragStart", function(self)
+		if self.creatureID then
+			PickupCompanion("MOUNT", self.index)
 		end
 	end)
 
@@ -225,7 +244,7 @@ layout = function()
 			card:ClearAllPoints()
 			card:SetPoint("TOPLEFT", list, "TOPLEFT", 0, -(rank - 1) * CARD_H)
 			card:SetPoint("TOPRIGHT", list, "TOPRIGHT", 0, -(rank - 1) * CARD_H)
-			card.creatureID = creatureID
+			card.creatureID, card.index, card.active = creatureID, index, active
 			card.icon:SetTexture(icon)
 			card.name:SetText(name)
 			if index == current then
