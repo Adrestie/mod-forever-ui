@@ -474,6 +474,24 @@ if hooksecurefunc and type(_G["PetPaperDollFrame_Update"]) == "function" then
     end)
 end
 
+-- Mounts have no place on this tab: their sub-tab goes, and the pet's with it when no other is
+-- left (the client hides a lone sub-tab). A mount page left selected goes back to the pet.
+if hooksecurefunc and type(_G["PetPaperDollFrame_UpdateTabs"]) == "function" then
+    hooksecurefunc("PetPaperDollFrame_UpdateTabs", function()
+        local pet, critters, mounts = PetPaperDollFrameTab1, PetPaperDollFrameTab2, PetPaperDollFrameTab3
+        if not (pet and critters and mounts) then
+            return
+        end
+        mounts:Hide()
+        if not critters:IsShown() then
+            pet:Hide()
+        end
+        if PetPaperDollFrame.selectedTab == 3 and HasPetUI() then
+            PetPaperDollFrame_SetTab(1)
+        end
+    end)
+end
+
 -- UNIT_PET: the pet changes; the other three: its numbers change.
 local listener = CreateFrame("Frame")
 listener:RegisterEvent("UNIT_PET")

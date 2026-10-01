@@ -1432,8 +1432,22 @@ local function stackTabs()
 	end
 end
 
+-- The pet tab is for the pet alone: 3.3.5 also offers it for companions and mounts. Without a
+-- pet it is hidden as the client hides it when there is nothing to show, then the column closes up.
+local function updatePetTab()
+	local tab, screen = _G["CharacterFrameTab2"], _G["PetPaperDollFrame"]
+	if tab and screen and not HasPetUI() then
+		screen.hidden = true
+		tab:Hide()
+		if screen:IsVisible() then
+			ToggleCharacter("PaperDollFrame")
+		end
+	end
+	stackTabs()
+end
+
 if hooksecurefunc and type(_G["PetPaperDollFrame_UpdateIsAvailable"]) == "function" then
-	hooksecurefunc("PetPaperDollFrame_UpdateIsAvailable", stackTabs)
+	hooksecurefunc("PetPaperDollFrame_UpdateIsAvailable", updatePetTab)
 end
 
 -- Creates one of our side tabs, skinned like the client's.
