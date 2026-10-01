@@ -1040,10 +1040,14 @@ function PB.PlaceTabs()
 	local e = resize(c, f:GetHeight() or 0)
 	c:ClearAllPoints()
 	c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", right, top)
-	c:SetHeight(-TAB.y + (c.count + 1) * (TAB.side - TAB.gap) * e)
-	c:SetFrameStrata(f:GetFrameStrata())
-	c:SetFrameLevel(f:GetFrameLevel() + 1)
-	c:Show()
+	-- this runs every frame during a drag, where only the position moves: height, strata,
+	-- level and visibility are set only when they change
+	local height = -TAB.y + (c.count + 1) * (TAB.side - TAB.gap) * e
+	if math.abs((c:GetHeight() or 0) - height) > 0.01 then c:SetHeight(height) end
+	local strata, level = f:GetFrameStrata(), f:GetFrameLevel() + 1
+	if c:GetFrameStrata() ~= strata then c:SetFrameStrata(strata) end
+	if c:GetFrameLevel() ~= level then c:SetFrameLevel(level) end
+	if not c:IsShown() then c:Show() end
 end
 
 -- RefreshRightTabs and RightTabSelected. Out of combat only (secure buttons).
