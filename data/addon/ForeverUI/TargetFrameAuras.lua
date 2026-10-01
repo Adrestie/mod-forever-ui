@@ -33,6 +33,11 @@ container:SetWidth(1)
 container:SetHeight(1)
 container:SetPoint("TOPLEFT", frame.art, "BOTTOMLEFT", START_X, START_Y)
 
+-- The rows' height from the container's top, 0 without aura: the target's cast bar goes under
+-- them (TargetCastBar.lua)
+local auras = { container = container, height = 0 }
+ForeverUI.TargetFrameAuras = auras
+
 local buttons = { HELPFUL = {}, HARMFUL = {} }
 
 -- ---------------------------------------------------------------- Rules
@@ -183,6 +188,7 @@ end
 -- the next one would pass the row's width, the second group always on a new row.
 local function layout()
 	local used = { HELPFUL = 0, HARMFUL = 0 }
+	local height = 0
 
 	if UnitExists("target") then
 		local friendly = UnitIsFriend("player", "target")
@@ -219,12 +225,20 @@ local function layout()
 			end
 			used[group.filter] = #group.list
 		end
+		if lineHeight > 0 then
+			height = y + lineHeight
+		end
 	end
 
 	for filter, list in pairs(buttons) do
 		for rank = used[filter] + 1, #list do
 			list[rank]:Hide()
 		end
+	end
+
+	auras.height = height
+	if ForeverUI.TargetCastBar then
+		ForeverUI.TargetCastBar.Place()
 	end
 end
 
