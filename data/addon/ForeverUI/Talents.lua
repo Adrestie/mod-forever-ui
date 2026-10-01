@@ -1664,7 +1664,11 @@ reopener:SetScript("OnUpdate", function(self)
 	T.keepView = true
 	ShowUIPanel(PlayerTalentFrame)
 	T.keepView = nil
-	StaticPopup_Show("FOREVERUI_TALENTS_CONFIRM_CLOSE")
+	-- A full-screen panel (WotLK's map) refuses the reopening: no question about an absent
+	-- window; the pending points stay, as WotLK keeps them
+	if PlayerTalentFrame:IsShown() then
+		StaticPopup_Show("FOREVERUI_TALENTS_CONFIRM_CLOSE")
+	end
 end)
 T.reopener = reopener
 
@@ -1704,7 +1708,9 @@ function T.build()
 		if not T.keepView then T.view.group, T.view.pet = nil, false end
 		T.update()
 	end)
-	PlayerTalentFrame:HookScript("OnHide", function()
+	PlayerTalentFrame:HookScript("OnHide", function(self)
+		-- OnHide also fires when only UIParent hides (barber shop): the window is not closed
+		if self:IsShown() then return end
 		T.inspection = nil
 		if T.finished or T.confirmed or not T.queued() then return end
 		reopener:Show()
@@ -1750,6 +1756,16 @@ watcher:SetScript("OnEvent", function(_, ev, arg1)
 	end
 	if ev == "PLAYER_ENTERING_WORLD" then T.finished = false return end
 	if ev == "UNIT_PET" and arg1 ~= "player" then return end
-	if T.book and T.book:IsVisible() then T.update() end
+	if not (T.book and T.book:IsVisible()) then return end
+	-- Each cast start or stop: only the Activate button depends on it
+	-- (PlayerTalentFrameActivateButton_Update), not the whole tree (some 85 talents read)
+	if ev == "CURRENT_SPELL_CAST_CHANGED" then
+		if T.activateButton and T.activateButton:IsShown() then
+			local spell = ACTIVATION_SPELLS[T.group]
+			T.activateButton:Activate(not (spell and IsCurrentSpell and IsCurrentSpell(spell)))
+		end
+		return
+	end
+	T.update()
 end)
 if PlayerTalentFrame then T.build() end
