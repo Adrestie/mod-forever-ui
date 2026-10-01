@@ -29,6 +29,7 @@ PlayerFrameExtras.lua
 PlayerRunes.lua
 PetFrame.lua
 TargetFrame.lua
+TargetFrameAuras.lua
 PartyFrame.lua
 RaidFrame.lua
 CastBar.lua
