@@ -231,6 +231,11 @@ function G.SetShown(region, yes)
 	if yes then region:Show() else region:Hide() end
 end
 
+-- 3.3.5 returns 1 / nil, sometimes 0 / 1 (IsEnabled): zero is true in Lua
+function G.Truthy(v)
+	return v and v ~= 0 and true or false
+end
+
 -- ---------- Atlas
 
 -- places an atlas element (tools/glue_atlas.py); atlasSize: apply its official size
@@ -404,7 +409,7 @@ end
 
 local function paintThreeSlices(b, state)
 	local r = b.foreverThreeSlice
-	if not b:IsEnabled() then
+	if not G.Truthy(b:IsEnabled()) then
 		state = "DISABLED"
 	end
 	local suffix = ""
@@ -445,7 +450,7 @@ local function paintThreeSlices(b, state)
 	r.left:SetHeight(height)
 	r.right:SetWidth(ld)
 	r.right:SetHeight(height)
-	r.active = b:IsEnabled() and true or false
+	r.active = G.Truthy(b:IsEnabled())
 end
 
 -- clears the art the 3.3.5 client puts on its own buttons
@@ -496,7 +501,7 @@ function G.ThreeSliceButton(b, atlas, fonts)
 	b:SetPushedTextOffset(-2, -1)
 
 	G.Hook(b, "OnMouseDown", function(self)
-		if self:IsEnabled() then
+		if G.Truthy(self:IsEnabled()) then
 			paintThreeSlices(self, "PUSHED")
 		end
 	end)
@@ -512,7 +517,7 @@ function G.ThreeSliceButton(b, atlas, fonts)
 			G.ClearClientArt(self)
 			self.foreverThreeSlice.glow()
 		end
-		if (self:IsEnabled() and true or false) ~= self.foreverThreeSlice.active then
+		if G.Truthy(self:IsEnabled()) ~= self.foreverThreeSlice.active then
 			paintThreeSlices(self, "NORMAL")
 		end
 	end)
