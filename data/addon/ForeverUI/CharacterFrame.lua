@@ -1450,6 +1450,20 @@ if hooksecurefunc and type(_G["PetPaperDollFrame_UpdateIsAvailable"]) == "functi
 	hooksecurefunc("PetPaperDollFrame_UpdateIsAvailable", updatePetTab)
 end
 
+-- A client tab shown again runs CharacterFrame_TabBoundsCheck, which resizes the five client
+-- tabs to their text, empty here: they get the side tab width back.
+local function keepTabWidth()
+	for key, tab in pairs(tabs) do
+		if type(key) == "number" and tab.foreverSkinned then
+			tab:SetWidth(TAB_W)
+		end
+	end
+end
+
+if hooksecurefunc and type(_G["CharacterFrame_TabBoundsCheck"]) == "function" then
+	hooksecurefunc("CharacterFrame_TabBoundsCheck", keepTabWidth)
+end
+
 -- Creates one of our side tabs, skinned like the client's.
 -- key: tabs table key; name: frame name; group: ForeverUI.Panes group it opens
 local function createSideTab(key, name, icon, tooltip, group)
