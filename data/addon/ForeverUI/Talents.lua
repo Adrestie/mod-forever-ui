@@ -12,6 +12,9 @@ ForeverUI.Talents = T
 
 local G = {
 	width = 1218, height = 708, top = -116,
+	-- margins of the fit to the screen (blizzard_playerspellsregistration: checkFitExtraWidth,
+	-- checkFitExtraHeight)
+	fitExtraW = 200, fitExtraH = 140,
 	pageW = 1212, pageH = 681, pageBottom = 4,
 	backgroundW = 605, backgroundH = 701, backgroundTop = -70, backgroundBottom = 36,
 	frameLeft = -2, frameTop = 4, frameCorner = 24,
@@ -1689,6 +1692,7 @@ function T.build()
 	if ForeverUI.TalentsSearch then ForeverUI.TalentsSearch.build(T) end
 	-- Movable by its title; brought to front when opened or clicked
 	ForeverUI.WindowStack.makeMovable(book, book.banner, "talents")
+	ForeverUI.WindowStack.fitToScreen("talents", PlayerTalentFrame, book, 0, G.top, G.fitExtraW, G.fitExtraH)
 	ForeverUI.WindowStack.register("talents", PlayerTalentFrame, function()
 		return { T.book, T.tabBar, _G.ForeverUITalentsSearchPreview, _G.ForeverUITalentsSearchOptionsList }
 	end)

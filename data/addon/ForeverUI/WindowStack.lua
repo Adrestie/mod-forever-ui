@@ -1,7 +1,8 @@
--- ForeverUI: keeps the large windows (character sheet, spellbook, talents) from interleaving.
--- Each window sets explicit frame levels relative to its root, so two roots of the same strata
--- mix on screen, and Raise only lifts the root. Open windows are stacked back to front instead;
--- an opened or clicked window comes to the front.
+-- ForeverUI: keeps the large windows (character sheet, spellbook, talents) from interleaving,
+-- lets them be moved, and scales them down when the screen is too small. Each window sets
+-- explicit frame levels relative to its root, so two roots of the same strata mix on screen,
+-- and Raise only lifts the root. Open windows are stacked back to front instead; an opened or
+-- clicked window comes to the front.
 
 ForeverUI = ForeverUI or {}
 
@@ -131,6 +132,19 @@ local function positions()
 	return ForeverUIDB.positions
 end
 
+-- Scale of a frame relative to UIParent
+local function relativeScale(frame)
+	return frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+end
+
+-- Anchors a window by its top center. x, y: offset from UIParent's top center, in UIParent
+-- units (anchor offsets count in the frame's own units, hence the division by its scale)
+local function anchorTop(frame, x, y)
+	local k = relativeScale(frame)
+	frame:ClearAllPoints()
+	frame:SetPoint("TOP", UIParent, "TOP", x / k, y / k)
+end
+
 -- Makes a window draggable by its title bar and remembers its position.
 -- frame: window; handle: drag area; key: saved position key
 -- The window is re-anchored by its top center, so width changes (small spellbook, pet
@@ -146,11 +160,11 @@ function P.makeMovable(frame, handle, key)
 	handle:SetScript("OnDragStop", function()
 		frame:StopMovingOrSizing()
 		if InCombatLockdown() then return end
+		local k = relativeScale(frame)
 		local cx = frame:GetCenter()
 		local ux = UIParent:GetCenter()
-		local x, y = cx - ux, frame:GetTop() - UIParent:GetTop()
-		frame:ClearAllPoints()
-		frame:SetPoint("TOP", UIParent, "TOP", x, y)
+		local x, y = cx * k - ux, frame:GetTop() * k - UIParent:GetTop()
+		anchorTop(frame, x, y)
 		-- The position is ours: the client must not save it too
 		if frame.SetUserPlaced then frame:SetUserPlaced(false) end
 		positions()[key] = { x = x, y = y }
@@ -158,9 +172,71 @@ function P.makeMovable(frame, handle, key)
 	local function restorePosition()
 		local p = positions()[key]
 		if not p or InCombatLockdown() then return end
-		frame:ClearAllPoints()
-		frame:SetPoint("TOP", UIParent, "TOP", p.x, p.y)
+		anchorTop(frame, p.x, p.y)
 	end
 	frame:HookScript("OnShow", restorePosition)
 	restorePosition()
 end
+
+-- ---------- Fitting to the screen
+-- camelot's checkFit (UIParentPanelManager, FrameUtil.UpdateScaleForFitSpecific): a window
+-- that does not fit in UIParent with its margins is scaled down until it does. The scale goes
+-- on the client panel holding the window, so the close button the panel keeps scales with it.
+-- The default position is clamped like ClampUIPanelY: bottom at least 140 above the screen's,
+-- top at least 10 below it.
+local fits = {}
+local CLAMP_BOTTOM, CLAMP_TOP = 140, -10
+-- Nothing is resized between PLAYER_LEAVING_WORLD / PLAYER_LOGOUT and PLAYER_ENTERING_WORLD:
+-- moving the talent window while the client destroys the UI crashes it (Talents.lua)
+local leaving = false
+
+local function fit(f)
+	if leaving or not f.panel:IsVisible() then return end
+	-- the spellbook holds secure buttons: in combat, scale and anchor wait for its end
+	if InCombatLockdown() then
+		f.pending = true
+		return
+	end
+	f.pending = nil
+	local k = math.min(1, UIParent:GetWidth() / (f.frame:GetWidth() + f.extraW),
+		UIParent:GetHeight() / (f.frame:GetHeight() + f.extraH))
+	if math.abs(f.panel:GetScale() - k) > 0.001 then f.panel:SetScale(k) end
+	local p = positions()[f.key]
+	if p then
+		anchorTop(f.frame, p.x, p.y)
+		return
+	end
+	-- UIParent starts at the screen's bottom: its top is its height
+	local y = f.y
+	local bottom = UIParent:GetHeight() + y - f.frame:GetHeight() * relativeScale(f.frame)
+	if bottom < CLAMP_BOTTOM then y = y + CLAMP_BOTTOM - bottom end
+	anchorTop(f.frame, f.x, math.min(y, CLAMP_TOP))
+end
+
+-- Scales a window down when it does not fit the screen. key: saved position key
+-- (makeMovable); panel: client frame holding the window, whose scale is set; frame: the
+-- window, anchored by its top center; x, y: its default offset from UIParent's top center,
+-- in UIParent units; extraW, extraH: margins (checkFitExtraWidth, checkFitExtraHeight)
+function P.fitToScreen(key, panel, frame, x, y, extraW, extraH)
+	local f = { key = key, panel = panel, frame = frame, x = x, y = y, extraW = extraW, extraH = extraH }
+	fits[key] = f
+	panel:HookScript("OnShow", function() fit(f) end)
+	frame:HookScript("OnSizeChanged", function() fit(f) end)
+	fit(f)
+end
+
+local fitWatcher = CreateFrame("Frame")
+for _, event in ipairs({ "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_ENABLED",
+	"PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_LOGOUT" }) do
+	fitWatcher:RegisterEvent(event)
+end
+fitWatcher:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_LOGOUT" then
+		leaving = true
+		return
+	end
+	if event == "PLAYER_ENTERING_WORLD" then leaving = false end
+	for _, f in pairs(fits) do
+		if event ~= "PLAYER_REGEN_ENABLED" or f.pending then fit(f) end
+	end
+end)

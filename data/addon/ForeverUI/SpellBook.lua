@@ -28,6 +28,9 @@ ForeverUI.SpellBook = S
 -- CategoryTabSystem, PagedSpellsFrame (PagedCondensedVerticalGrid), PagingControls.
 local G = {
 	width = 1618, compactWidth = 809, height = 720, top = -116,
+	-- margins of the fit to the screen (blizzard_playerspellsregistration: checkFitExtraWidth,
+	-- checkFitExtraHeight)
+	fitExtraW = 200, fitExtraH = 140,
 	bookW = 1612, reducedBookW = 806, bookH = 702, bookBottom = 4,
 	tabsX = 70, tabsY = -26, tabW = 44, tabH = 32, tabGap = 1,
 	tabIconW = 34, tabIconH = 33,
@@ -1675,6 +1678,7 @@ build()
 if S.book then
 	-- movable by its title; in front when shown or clicked
 	ForeverUI.WindowStack.makeMovable(S.book, S.book.banner, "spellbook")
+	ForeverUI.WindowStack.fitToScreen("spellbook", SpellBookFrame, S.book, 0, G.top, G.fitExtraW, G.fitExtraH)
 	ForeverUI.WindowStack.register("spellbook", SpellBookFrame, function()
 		return { S.book, _G.ForeverUISpellFlyout, _G.ForeverUISpellBookSettingsList,
 			_G.ForeverUISpellBookSearchPreview }
