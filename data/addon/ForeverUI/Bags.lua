@@ -434,16 +434,21 @@ local function before(a, b)
 	return a.count > b.count
 end
 
--- Current bag state: one cell per slot, in order.
+-- Current bag state: one cell per slot, in order. General bags only (bagType 0, as
+-- EquipmentManager_UpdateFreeBagSpace): a quiver, soul bag or profession bag refuses most
+-- items (ERR_WRONG_BAG_TYPE), so it keeps its contents.
 local function collect()
 	local cells = {}
 	for _, bag in ipairs(Sort.bags or BAGS) do
-		for slot = 1, (GetContainerNumSlots(bag) or 0) do
-			table.insert(cells, {
-				bag = bag,
-				slot = slot,
-				object = readCell(bag, slot),
-			})
+		local _, bagType = GetContainerNumFreeSlots(bag)
+		if (bagType or 0) == 0 then
+			for slot = 1, (GetContainerNumSlots(bag) or 0) do
+				table.insert(cells, {
+					bag = bag,
+					slot = slot,
+					object = readCell(bag, slot),
+				})
+			end
 		end
 	end
 	return cells
@@ -457,6 +462,12 @@ end
 -- Makes one move per call; returns true while work remains. The server must confirm each
 -- move before the next, otherwise the slot is still locked.
 local function doStep()
+	-- The last move did not complete (refused by its target, or the player took an item
+	-- meanwhile): put the item back and stop, rather than wait on its locked slot
+	if CursorHasItem() then
+		ClearCursor()
+		return false
+	end
 	local cells = collect()
 
 	-- 1. merge partial stacks of the same item
@@ -975,8 +986,9 @@ local function layoutGrid(frame)
 	local m = measure(frame)
 	local purse = _G[name .. "MoneyFrame"]
 
-	-- UpdateFrameSize(): the window takes the computed size.
-	frame:SetScale(R.scale)
+	-- UpdateFrameSize(): the window takes the computed size. The scale belongs to layoutBags
+	-- (containerScale shrinks bags that do not fit): setting it here, on every bag update,
+	-- would undo it without re-stacking.
 	frame:SetWidth(m.width)
 	frame:SetHeight(m.height)
 
@@ -1292,7 +1304,13 @@ listener:RegisterEvent("PLAYER_ENTERING_WORLD")
 listener:RegisterEvent("BAG_UPDATE")
 -- A watched currency amount changed.
 listener:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
-listener:SetScript("OnEvent", function()
+-- BAG_UPDATE comes in bursts (loot, vendor, mail, two per sort move): one pass on the next
+-- frame for the whole burst (a hidden frame still gets its events). The bag that changed is
+-- already redone by the ContainerFrame_Update hook.
+listener:Hide()
+listener:SetScript("OnEvent", function(self) self:Show() end)
+listener:SetScript("OnUpdate", function(self)
+	self:Hide()
 	skinAll()
 	silenceClientSegment()
 	for _, frame in ipairs(frames) do
@@ -1311,6 +1329,8 @@ function ForeverUI.BagsApply()
 		layoutGrid(frame)
 	end
 	layoutTools()
+	-- R.scale (/fui bags scale) reaches the frames through the stacking
+	layoutBags()
 	Search.All()
 end
 
