@@ -124,6 +124,10 @@ local function suppress(f)
 	if not f then return end
 	if f.SetTexture then f:SetTexture(nil) end
 	f:SetAlpha(0)
+	-- WotLK's SpellButton1..12 are protected (SpellButtonTemplate inherits SecureFrameTemplate)
+	-- and SpellBookFrame_Update shows them again: in combat they only turn transparent (their
+	-- mouse is already off since the calls made out of combat)
+	if InCombatLockdown() and f.IsProtected and f:IsProtected() then return end
 	if f.EnableMouse then f:EnableMouse(false) end
 	f:Hide()
 end
@@ -733,7 +737,10 @@ end
 -- FlyoutPopupTemplate, opened to the right: start cap (FlyoutBottom) on the left, middle
 -- (FlyoutMidLeft), end cap (FlyoutButton) on the right; both caps rotated by 90
 local function buildFlyout(book)
-	local flyout = CreateFrame("Frame", "ForeverUISpellFlyout", book)
+	-- Explicitly protected: DISPLAY and ON_HIDE hide it in combat, and the handle of a plain
+	-- frame only works there through protected children, which a book without groups never
+	-- creates ("Invalid frame handle", RestrictedFrames.lua GetHandleFrame)
+	local flyout = CreateFrame("Frame", "ForeverUISpellFlyout", book, "SecureFrameTemplate")
 	flyout:SetFrameStrata("DIALOG")
 	flyout:EnableMouse(true)
 	flyout:SetHeight(G.flyoutH)
@@ -919,11 +926,9 @@ local function buildFrame(book)
 	-- controller to switch mode (SecureHandlerClickTemplate), in combat too.
 	local size = redButton(book, "redbutton-condense", "redbutton-condense-pressed", "SecureHandlerClickTemplate")
 	size:SetFrameLevel(book:GetFrameLevel() + 22)
-	if close then
-		size:SetPoint("RIGHT", close, "LEFT", 0, 0)
-	else
-		size:SetPoint("TOPRIGHT", book, "TOPRIGHT", G.closeX - G.redSide, G.closeY)
-	end
+	-- Left of the close button, anchored to the book: a secure button anchored to the client's
+	-- close button would make it protected, and S.raiseCloseButton sets its level in combat too
+	size:SetPoint("TOPRIGHT", book, "TOPRIGHT", G.closeX - G.redSide, G.closeY)
 	size:SetAttribute("_onclick", [==[ self:GetFrameRef("ctrl"):SetAttribute("size", 1) ]==])
 	size:HookScript("OnClick", function() PlaySound("igMainMenuOptionCheckBoxOn") end)
 	book.size = size
@@ -1600,11 +1605,18 @@ function S.update()
 	end
 	ensureSmallButtons(largest)
 	if e.page > S.np[reg][mode][e.category] then e.page = S.np[reg][mode][e.category] end
+	-- RestrictedExecution keeps every snippet body it ran, compiled, for the whole session (its
+	-- factory is weak-keyed, but Lua 5.1 never collects string keys): the published data, a few
+	-- hundred kilobytes, is sent only when it changes, and the state in a small snippet of its own.
+	local body = table.concat(code, "\n")
+	if body ~= S.publishedBody then
+		S.ctrl:Execute(body)
+		S.publishedBody = body
+	end
 	-- Run "place" on EACH computation: the layout follows the setting even when it arrives
 	-- later (saved variables load after the file, so after the book is built).
-	table.insert(code, ("NUM_TABS = %d CAT = %d PAGE = %d MODE = %d SETTINGS = %d control:RunAttribute(\"place\") control:RunAttribute(\"show\")")
+	S.ctrl:Execute(("NUM_TABS = %d CAT = %d PAGE = %d MODE = %d SETTINGS = %d control:RunAttribute(\"place\") control:RunAttribute(\"show\")")
 		:format(#cats, e.category, e.page, mode, reg))
-	S.ctrl:Execute(table.concat(code, "\n"))
 end
 
 -- ForeverUIVisuals: textures and texts for what the secure snippet just placed. Nothing
@@ -1720,7 +1732,9 @@ if S.book then
 		S.dirty = true
 		watcher:SetScript("OnUpdate", onNextFrame)
 	end
-	watcher:SetScript("OnEvent", function(_, ev)
+	watcher:SetScript("OnEvent", function(_, ev, unit)
+		-- UNIT_PET fires for every party and raid member; only the player's pet changes the book
+		if ev == "UNIT_PET" and unit ~= "player" then return end
 		if ev == "SPELL_UPDATE_COOLDOWN" or ev == "CURRENT_SPELL_CAST_CHANGED" then
 			S.updateStates()
 			return
