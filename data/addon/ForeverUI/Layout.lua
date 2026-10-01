@@ -71,6 +71,12 @@ function Layout.Anchor(id)
 	return system and system.defaults
 end
 
+-- True while the element keeps its default anchor (the player has not moved it).
+function Layout.IsDefault(id)
+	local p = current()[id]
+	return not (p and p.point)
+end
+
 -- Size in effect, 1 for 100 %.
 function Layout.Scale(id)
 	local p = current()[id]

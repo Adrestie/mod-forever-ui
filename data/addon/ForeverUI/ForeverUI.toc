@@ -33,6 +33,7 @@ PartyFrame.lua
 RaidFrame.lua
 CastBar.lua
 ActionBar.lua
+MultiBars.lua
 StanceBar.lua
 PetBar.lua
 TabardColors.lua

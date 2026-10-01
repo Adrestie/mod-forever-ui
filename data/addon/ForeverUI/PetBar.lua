@@ -175,14 +175,16 @@ local function hasPet()
 end
 
 -- The default place is recomputed: it depends on the stance bar, which comes and goes with
--- shapeshift forms. SetDefaults only moves the frame when the user has not moved it.
+-- shapeshift forms, and rises one row when action bar 2 or 3 is shown under it
+-- (MultiBars.lua). SetDefaults only moves the frame when the user has not moved it.
 local function placeDefault()
 	local x = LEFT_EDGE
 	local stances = ForeverUI.StanceBar and ForeverUI.StanceBar.Holder
 	if stances and stances:IsShown() then
 		x = x + stances:GetWidth() + BARS_GAP
 	end
-	ForeverUI.Layout.SetDefaults("pet", "BOTTOMLEFT", "BOTTOM", x, ROW_Y)
+	local lift = ForeverUI.MultiBars and ForeverUI.MultiBars.Lift() or 0
+	ForeverUI.Layout.SetDefaults("pet", "BOTTOMLEFT", "BOTTOM", x, ROW_Y + lift)
 end
 
 local function place()
@@ -275,7 +277,7 @@ local function all()
 	updateState()
 end
 
-ForeverUI.PetBar = { Apply = all, Holder = carrier }
+ForeverUI.PetBar = { Apply = all, Holder = carrier, PlaceDefault = placeDefault }
 
 if hooksecurefunc then
 	for _, funcName in ipairs({ "PetActionBar_Update", "PetActionBar_UpdateCooldowns" }) do

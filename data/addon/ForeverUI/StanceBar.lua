@@ -250,6 +250,13 @@ listener:SetScript("OnEvent", all)
 all()
 
 -- Default: left edge aligned with the action bar (-25.5 - 562 = -587.5 from center), above
--- the experience and reputation bars. /fui moves it.
+-- the experience and reputation bars, one row higher when action bar 2 or 3 is shown there
+-- (MultiBars.lua). /fui moves it.
+local function defaultY()
+	return 84 + (ForeverUI.MultiBars and ForeverUI.MultiBars.Lift() or 0)
+end
 ForeverUI.Layout.Register(carrier, "stances", L.STANCEBAR_EDIT_LABEL,
-	"BOTTOMLEFT", "BOTTOM", -587.5, 84)
+	"BOTTOMLEFT", "BOTTOM", -587.5, defaultY())
+ForeverUI.StanceBar.PlaceDefault = function()
+	ForeverUI.Layout.SetDefaults("stances", "BOTTOMLEFT", "BOTTOM", -587.5, defaultY())
+end
