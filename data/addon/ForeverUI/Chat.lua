@@ -835,6 +835,7 @@ function C.applySkin(window)
 	placeColumn(window)
 
 	local d = { window = window }
+	d.tab = _G[name .. "Tab"]
 	d.backButton = createReturnButton(window)
 	local bar = ForeverUI.CreateScrollBar(name .. "ForeverScrollBar", window, window)
 	bar:ClearAllPoints()
@@ -946,8 +947,12 @@ engine:SetScript("OnUpdate", function(self, elapsed)
 		elseif d.idle > d.idleTarget then
 			d.idle = math.max(d.idleTarget, d.idle - d.idleSpeed * elapsed)
 		end
-		C.applyIdle(window)
-		C.applyLining(window)
+		-- A closed window (chat and tab hidden) shows none of this: its seventy-odd calls are
+		-- skipped every frame (FCF_OnUpdate skips hidden frames too)
+		if window:IsShown() or (d.tab and d.tab:IsShown()) then
+			C.applyIdle(window)
+			C.applyLining(window)
+		end
 		if window:IsShown() then
 			C.updateBar(window)
 			local atBottom = window:AtBottom()
