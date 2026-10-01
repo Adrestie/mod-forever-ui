@@ -212,32 +212,25 @@ end
 local function navButton(name, direction)
 	local b = G.CreateThreeSliceButton(name, root, 250, 66, "128-RedButton",
 		{ "GameFontNormalOutline22", "GameFontHighlightOutline22", "GameFontDisableOutline22" })
-	b.arrow = b:CreateTexture(nil, "ARTWORK")
-	b.arrow:SetWidth(8)
-	b.arrow:SetHeight(13)
 	b.direction = direction
 	return b
 end
 
--- UpdateText: text then arrow, or arrow then text, centered together
+-- Arrow size: character select's Back arrow, larger than camelot's 8 x 13, which is too small
+-- on a short screen
+local ARROW_W, ARROW_H = 11, 16
+
+-- UpdateText: the arrow is in the text (camelot: CreateAtlasMarkup), so both arrows are drawn
+-- alike and centered with their word
 local function setNavText(b, text)
 	local forward = (b.direction == "forward")
-	b:SetText(forward and (text .. "  ") or ("  " .. text))
-	local fs = b:GetFontString()
 	local grayed = active(b) and "" or "-disable"
+	local e = G.atlas["common-icon-" .. (forward and "forward" or "back") .. "arrow" .. grayed]
+	local arrow = "|T" .. e[1] .. ":" .. ARROW_H .. ":" .. ARROW_W .. "|t"
+	b:SetText(forward and (text .. "  " .. arrow) or (arrow .. "  " .. text))
+	local fs = b:GetFontString()
 	fs:ClearAllPoints()
-	b.arrow:ClearAllPoints()
-	if forward then
-		G.PlaceAtlas(b.arrow, "common-icon-forwardarrow" .. grayed)
-		fs:SetPoint("CENTER", b, "CENTER", -4, 0)
-		b.arrow:SetPoint("LEFT", fs, "RIGHT")
-	else
-		G.PlaceAtlas(b.arrow, "common-icon-backarrow" .. grayed)
-		fs:SetPoint("CENTER", b, "CENTER", 4, 0)
-		b.arrow:SetPoint("RIGHT", fs, "LEFT")
-	end
-	b.arrow:SetWidth(8)
-	b.arrow:SetHeight(13)
+	fs:SetPoint("CENTER", b, "CENTER")
 end
 
 local backButton = navButton("ForeverUICharacterCreateBackButton", "backward")
