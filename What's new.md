@@ -30,7 +30,8 @@ client's language: English and French are provided.
   death knight runes.
 - **Target and target of target**: the art of each classification (normal,
   minus, rare, elite, rare elite, world boss), the reputation band and the
-  reaction colors.
+  reaction colors. The target's **cast bar** shows under it, below its auras,
+  with the spell icon; the client's "Target cast bar" option turns it off.
 - **Pet frame.**
 - **Party frames** beside the screen edge, and **compact raid frames** in
   groups; both work in combat.
