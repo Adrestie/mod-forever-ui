@@ -62,6 +62,7 @@ PvPBattlegrounds.lua
 Titles.lua
 TokensTab.lua
 PetTab.lua
+MountsTab.lua
 IconPicker.lua
 Social.lua
 SocialWho.lua

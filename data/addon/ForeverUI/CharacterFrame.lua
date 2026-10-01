@@ -78,6 +78,7 @@ local TAB_ICONS = {
 		Horde = "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Honor_Horde_c60",
 	},
 	stats = "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Stats_c60",
+	mounts = "Interface\\ForeverUI\\TabIcons\\MountJournalPortrait",
 }
 
 -- Pet tab icon by class (camelot has no pet tab); the hunter one otherwise, e.g. for a mage
@@ -91,8 +92,8 @@ TAB_ICONS[2] = "Interface\\ForeverUI\\TabIcons\\"
 	.. (PET_TAB[select(2, UnitClass("player")) or ""] or PET_TAB.HUNTER)
 
 -- Column order: camelot's (character, reputation, skills, PvP, currency, stats) with the 3.3.5
--- pet tab second. A number is a client tab, a string one of ours.
-local TAB_ORDER = { 1, 2, 3, 4, "pvp", 5, "stats" }
+-- pet tab second and the mounts under it. A number is a client tab, a string one of ours.
+local TAB_ORDER = { 1, 2, "mounts", 3, 4, "pvp", 5, "stats" }
 
 -- Character tab icon: the class icon (camelot uses the player portrait), one baked file per
 -- class, named after UnitClass's token (WARRIOR, DEATHKNIGHT). MPQ lookups ignore case.
@@ -107,10 +108,11 @@ local TAB_SCREEN = {
 	[5] = "TokenFrame",
 }
 
--- Our two screens, used as ForeverUI.Panes group names; they are not client subframes
+-- Our screens, used as ForeverUI.Panes group names; they are not client subframes
 local PVP_SCREEN = "ForeverUIPvPPane"
 local STATS_SCREEN = "ForeverUIStatsPane"
-local TAB_CREATED_SCREENS = { pvp = PVP_SCREEN, stats = STATS_SCREEN }
+local MOUNTS_SCREEN = "ForeverUIMountsPane"
+local TAB_CREATED_SCREENS = { pvp = PVP_SCREEN, stats = STATS_SCREEN, mounts = MOUNTS_SCREEN }
 -- Right pane tab icon: 28 px, the opening of UI-Character-Info-StatTab (metal at 3..6 and
 -- 35..38 of 42). A portrait fills its texture and would overflow the rounded frame.
 local PANE_TAB_ICON = 28
@@ -1121,6 +1123,20 @@ local function declareContents()
 		end,
 	})
 
+	-- Mounts: the chosen one in 3D on the left, the list on the right (MountsTab.lua)
+	Panes.Register({
+		host = "left", group = MOUNTS_SCREEN, id = "mounts",
+		build = function(host)
+			return ForeverUI.MountsTab.Build(host)
+		end,
+	})
+	Panes.Register({
+		host = "right", group = MOUNTS_SCREEN, id = MOUNTS_SCREEN .. ".droit",
+		build = function(host)
+			return ForeverUI.MountsTab.BuildRight(host)
+		end,
+	})
+
 	-- The PvP tab shows its rank details on the right; statistics leave the right pane empty
 	Panes.Register({
 		host = "right", group = PVP_SCREEN, id = PVP_SCREEN .. ".droit",
@@ -1518,7 +1534,24 @@ local function createSideTab(key, name, icon, tooltip, group)
 	return tab
 end
 
--- Creates our PvP and statistics side tabs, sets their level and the faction icon
+-- The mounts tab shows only with mounts, as the pet tab only with a pet. Losing the last one
+-- while its screen is open brings back the character page.
+local function updateMountsTab()
+	local tab = tabs.mounts
+	if not tab then
+		return
+	end
+	if GetNumCompanions("MOUNT") > 0 then
+		tab:Show()
+	else
+		tab:Hide()
+		if ForeverUI.Panes.CurrentGroup() == MOUNTS_SCREEN and CharacterFrame:IsShown() then
+			ToggleCharacter("PaperDollFrame")
+		end
+	end
+end
+
+-- Creates our PvP, statistics and mounts side tabs, sets their level and the faction icon
 local function placeCreatedTabs()
 	if not tabBar then
 		return
@@ -1530,10 +1563,13 @@ local function placeCreatedTabs()
 		PVP, PVP_SCREEN)
 	createSideTab("stats", "ForeverUICharacterTabStats",
 		TAB_ICONS.stats, STATISTICS, STATS_SCREEN)
+	createSideTab("mounts", "ForeverUICharacterTabMounts",
+		TAB_ICONS.mounts, MOUNTS, MOUNTS_SCREEN)
+	updateMountsTab()
 
 	-- Same level rule as the client tabs: below the metal
 	local tabsLevel = tabBar:GetFrameLevel()
-	for _, key in ipairs({ "pvp", "stats" }) do
+	for _, key in ipairs({ "pvp", "stats", "mounts" }) do
 		if tabs[key] then
 			tabs[key]:SetFrameLevel(tabsLevel + 1)
 		end
@@ -1545,6 +1581,17 @@ local function placeCreatedTabs()
 			TAB_ICONS.pvp[faction] or TAB_ICONS.pvp.Alliance)
 	end
 end
+
+-- A mount learned or forgotten, or the list arriving after login
+local mountsWatcher = CreateFrame("Frame")
+for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "COMPANION_LEARNED", "COMPANION_UNLEARNED",
+	"COMPANION_UPDATE" }) do
+	mountsWatcher:RegisterEvent(event)
+end
+mountsWatcher:SetScript("OnEvent", function()
+	updateMountsTab()
+	stackTabs()
+end)
 
 -- Skins the client side tabs and stacks all side tabs in the column right of the frame
 local function layoutTabs(frame)
