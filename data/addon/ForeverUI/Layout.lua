@@ -121,8 +121,9 @@ function Layout.Save(id)
 	return true
 end
 
--- Moves the element, keeping its anchor. x, y: offsets in UIParent units.
-function Layout.SetPosition(id, x, y)
+-- Moves the element. x, y: offsets in UIParent units; point: new anchor, the same point of
+-- the element and of the screen (nil keeps the current anchor).
+function Layout.SetPosition(id, x, y, point)
 	local system = Layout.systems[id]
 	if not system then
 		return false
@@ -130,7 +131,8 @@ function Layout.SetPosition(id, x, y)
 	local anchor = Layout.Anchor(id)
 	local k = unit(system, Layout.Scale(id))
 	local p = current()[id] or {}
-	p.point, p.relativePoint, p.x, p.y = anchor.point, anchor.relativePoint, x / k, y / k
+	p.point, p.relativePoint = point or anchor.point, point or anchor.relativePoint
+	p.x, p.y = x / k, y / k
 	current()[id] = p
 	Layout.Apply(id)
 	return true

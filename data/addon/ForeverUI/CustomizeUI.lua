@@ -166,6 +166,15 @@ local function fractions(point)
 	return fx, fy
 end
 
+-- Screen point of the third a position falls in (x from the left, y from the bottom, UIParent
+-- units): TOPLEFT to BOTTOMRIGHT, CENTER in the middle one.
+local function screenPoint(x, y)
+	local width, height = UIParent:GetWidth(), UIParent:GetHeight()
+	local h = (x < width / 3 and "LEFT") or (x > width * 2 / 3 and "RIGHT") or ""
+	local v = (y < height / 3 and "BOTTOM") or (y > height * 2 / 3 and "TOP") or ""
+	return (v .. h ~= "") and (v .. h) or "CENTER"
+end
+
 -- Box of a frame in UIParent units { left, bottom, width, height }; nil before layout.
 local function box(frame)
 	local l, b = frame:GetLeft(), frame:GetBottom()
@@ -391,8 +400,10 @@ function C.BeginDrag(id, point)
 	drag:Show()
 end
 
--- Ends the move: the element gets its own anchor back, at the new place. A click without
--- moving only selects.
+-- Ends the move. Like camelot's edit mode, which keeps the anchor the client gives a moved
+-- frame, the element is anchored to the screen point of the third its center ends in, so it
+-- keeps its place from that edge when the screen size changes. A click without moving only
+-- selects.
 function C.EndDrag()
 	local d = drag.state
 	drag:Hide()
@@ -400,11 +411,11 @@ function C.EndDrag()
 	if not (d and d.moved) then
 		return
 	end
-	local anchor = Layout.Anchor(d.id)
-	local ax, ay = fractions(anchor.point)
-	local rx, ry = fractions(anchor.relativePoint)
-	Layout.SetPosition(d.id, d.left + ax * d.box[3] - rx * UIParent:GetWidth(),
-		d.bottom + ay * d.box[4] - ry * UIParent:GetHeight())
+	local w, h = d.box[3], d.box[4]
+	local point = screenPoint(d.left + w / 2, d.bottom + h / 2)
+	local fx, fy = fractions(point)
+	Layout.SetPosition(d.id, d.left + fx * w - fx * UIParent:GetWidth(),
+		d.bottom + fy * h - fy * UIParent:GetHeight(), point)
 	C.PlaceSizeWindow()
 end
 

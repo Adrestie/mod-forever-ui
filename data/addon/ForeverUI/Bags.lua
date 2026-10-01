@@ -77,6 +77,8 @@ local R = {
 	rightEdge = 10,         -- GetInitialContainerFrameOffsetX, bars excluded
 	bottomEdge = 85,           -- CONTAINER_OFFSET_Y
 	topMargin = 8,         -- margin below the top of the screen (not in the source)
+	minScale = 0.75,       -- CONTAINER_SCALE: bags shrink down to it when they do not fit
+	bankMargin = 25,       -- the left column stays this far right of an open bank
 
 	-- Overall
 	scale = 1,            -- 1 = camelot size; 1.25 = a quarter larger
@@ -1078,20 +1080,61 @@ local function openBags()
 	return list
 end
 
+-- GetContainerScale: from 1 down to CONTAINER_SCALE by 0.01, the first scale at which no bag
+-- is taller than a column and the left column stays right of the screen edge, or of an open
+-- bank. Stacking as in layoutBags. bags: the open bag frames, bottom to top
+local function containerScale(bags)
+	local leftLimit = 0
+	if BankFrame and BankFrame:IsShown() and BankFrame:GetRight() then
+		leftLimit = BankFrame:GetRight() * BankFrame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+			- R.bankMargin
+	end
+	local s = 1
+	while s > R.minScale do
+		local k = s * R.scale
+		local available = (GetScreenHeight() - R.bottomEdge - R.topMargin) / k
+		local free, columns, fits = available, 1, true
+		for index, frame in ipairs(bags) do
+			local height = frame:GetHeight()
+			if height > available then
+				fits = false
+				break
+			end
+			if index == 1 then
+				free = free - height
+			elseif free < height + R.bagGap then
+				columns = columns + 1
+				free = available - height
+			else
+				free = free - height - R.bagGap
+			end
+		end
+		local width = (columns * R.width - (columns - 1) * R.columnGap) * k
+		local left = GetScreenWidth() - rightBarsWidth() - R.rightEdge - width
+		if fits and left >= leftLimit then
+			break
+		end
+		s = s - 0.01
+	end
+	return math.max(s, R.minScale) * R.scale
+end
+
 -- UpdateContainerFrameAnchors: bags stack bottom to top, CONTAINER_SPACING apart, and start
 -- a new column to the left when the screen is full. Unlike the source, a stacked bag costs
 -- its height plus the gap, and topMargin is kept below the screen top, so no bag goes past
 -- the top edge.
 local function layoutBags()
-	local screenHeight = GetScreenHeight() / R.scale
-	local offsetX = (rightBarsWidth() + R.rightEdge) / R.scale
-	local offsetY = R.bottomEdge / R.scale
-	local available = screenHeight - offsetY - R.topMargin / R.scale
+	local bags = openBags()
+	local scale = containerScale(bags)
+	local screenHeight = GetScreenHeight() / scale
+	local offsetX = (rightBarsWidth() + R.rightEdge) / scale
+	local offsetY = R.bottomEdge / scale
+	local available = screenHeight - offsetY - R.topMargin / scale
 	local free = available
 	local previous, firstInColumn
 
-	for index, frame in ipairs(openBags()) do
-		frame:SetScale(R.scale)
+	for index, frame in ipairs(bags) do
+		frame:SetScale(scale)
 		frame:ClearAllPoints()
 		local height = frame:GetHeight()
 		if index == 1 then
@@ -1194,6 +1237,12 @@ if hooksecurefunc then
 		requestRecheck()
 	end)
 end
+
+-- A new screen size or UI scale changes the room left for the bags.
+local screenWatcher = CreateFrame("Frame")
+screenWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED")
+screenWatcher:RegisterEvent("UI_SCALE_CHANGED")
+screenWatcher:SetScript("OnEvent", function() layoutBags() end)
 
 -- ManageBackpackTokenFrame reparents BackpackTokenFrame into the backpack and resets its
 -- height (BACKPACK_HEIGHT + 22), undoing ours: the client strip stays hidden and the
