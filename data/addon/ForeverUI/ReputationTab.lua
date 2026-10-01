@@ -404,9 +404,10 @@ local function layout()
 	-- Row heights vary by template, so rows are stacked, not divided.
 	local y = MARGIN
 	local placedCount = 0
+	local full = false
 	for rank, row in ipairs(rows) do
 		local index = offset + rank
-		local data = (index <= total) and readFaction(index) or nil
+		local data = (not full and index <= total) and readFaction(index) or nil
 		local height = data and heightOf(data) or 0
 		if data and y + height <= usableHeight - MARGIN then
 			local indent = indentOf(data)
@@ -417,6 +418,9 @@ local function layout()
 			y = y + height + GAP
 			placedCount = placedCount + 1
 		else
+			-- Past the first row that does not fit nothing is placed: a shorter row further down
+			-- (a header after an entry) would otherwise take its slot, out of order
+			full = full or data ~= nil
 			row:Hide()
 		end
 	end
