@@ -232,6 +232,7 @@ function Layout.Register(frame, id, label, point, relativePoint, x, y)
 
 	frame:SetMovable(true)
 	frame:SetClampedToScreen(true)
+	if frame:GetFrameStrata() ~= Layout.STRATA then frame:SetFrameStrata(Layout.STRATA) end
 	Layout.Apply(id)
 
 	if Layout.editing and Layout.onRegister then
@@ -257,10 +258,41 @@ function Layout.SetDefaults(id, point, relativePoint, x, y)
 	return true
 end
 
+-- ---------- Draw order
+-- camelot keeps the playing screen in LOW (unit frames, minimap, objectives) and MEDIUM (action
+-- bars, menu, bags bar) and raises each window above the whole MEDIUM strata (toplevel, Raise).
+-- 3.3.5 does not raise our windows above the bars, so every element of the playing screen
+-- goes to LOW, keeping its levels, and MEDIUM holds only the windows and bags: any of them is
+-- drawn over any element of the playing screen. The client's buttons we anchor elsewhere (main
+-- bar, micro-menu, bag slots, bonus, stance, pet, totem and possess bars) are children of
+-- MainMenuBar; the vehicle bar and the durability figure belong to the playing screen too.
+-- The pet buttons carry their own MEDIUM and do not follow their bar.
+Layout.STRATA = "LOW"
+local CLIENT_FRAMES = { "MainMenuBar", "VehicleMenuBar", "DurabilityFrame" }
+for i = 1, NUM_PET_ACTION_SLOTS or 10 do
+	CLIENT_FRAMES[#CLIENT_FRAMES + 1] = "PetActionButton" .. i
+end
+
+-- MainMenuBar holds secure buttons: out of combat only
+local function lowerClientFrames()
+	if InCombatLockdown() then
+		return false
+	end
+	for _, name in ipairs(CLIENT_FRAMES) do
+		local f = _G[name]
+		if f and f:GetFrameStrata() ~= Layout.STRATA then f:SetFrameStrata(Layout.STRATA) end
+	end
+	return true
+end
+local lowered = lowerClientFrames()
+
 -- Places every element once saved variables are loaded.
 local watcher = CreateFrame("Frame")
 watcher:RegisterEvent("PLAYER_LOGIN")
-watcher:SetScript("OnEvent", function()
+watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+watcher:SetScript("OnEvent", function(_, event)
+	if not lowered then lowered = lowerClientFrames() end
+	if event ~= "PLAYER_LOGIN" then return end
 	for _, id in ipairs(Layout.order) do
 		Layout.Apply(id)
 	end
