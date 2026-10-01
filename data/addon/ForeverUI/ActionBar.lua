@@ -53,17 +53,20 @@ local function silenceNormalTexture(button)
 	end
 end
 
--- 3.3.5 trap: ActionButton_HideGrid hides the WHOLE button once its showgrid counter drops
--- to zero, and it only rises during a drag, so empty slots vanish. Keeping the counter at 1
--- makes the client keep empty buttons shown. The fallback Show never runs in combat (secure
--- frame); PLAYER_REGEN_ENABLED brings back anything hidden meanwhile.
+-- 3.3.5 trap: ActionButton_Update and ActionButton_HideGrid hide the WHOLE empty button while
+-- its "showgrid" ATTRIBUTE is 0, and it only rises during a drag, so empty slots vanish, in
+-- combat too (a stance change updates every button). Keeping the attribute at 1 makes the
+-- client keep empty buttons shown. A secure frame changes only out of combat;
+-- PLAYER_REGEN_ENABLED brings back anything hidden meanwhile.
 local function keepGrid(button)
-	if not button or button:GetAttribute("statehidden") then
+	if not button or InCombatLockdown() or button:GetAttribute("statehidden") then
 		return
 	end
 
-	button.showgrid = math.max(button.showgrid or 0, 1)
-	if not button:IsShown() and not InCombatLockdown() then
+	if (button:GetAttribute("showgrid") or 0) < 1 then
+		button:SetAttribute("showgrid", 1)
+	end
+	if not button:IsShown() then
 		button:Show()
 	end
 end
@@ -206,10 +209,10 @@ local function createEndCap(name, atlas)
 	local cap = CreateFrame("Frame", name, UIParent)
 	cap:SetWidth(END_CAP_WIDTH)
 	cap:SetHeight(END_CAP_HEIGHT)
-	-- camelot/MainMenuBarEndCaps.xml: frameLevel 100. The end cap is drawn IN FRONT of the
-	-- buttons, whose level is the client frame's.
+	-- Behind every element of the playing screen (levels 1 and up of the same strata): a cap
+	-- never covers anything.
 	cap:SetFrameStrata(holder:GetFrameStrata())
-	cap:SetFrameLevel(holder:GetFrameLevel() + 10)
+	cap:SetFrameLevel(0)
 
 	local texture = cap:CreateTexture(nil, "OVERLAY")
 	texture:SetAllPoints(cap)
