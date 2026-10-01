@@ -77,6 +77,18 @@ function Layout.IsDefault(id)
 	return not (p and p.point)
 end
 
+-- Size the element has at 100 %, set by its own code (an automatic fit); the player's size
+-- applies on top of it.
+function Layout.SetBaseScale(id, scale)
+	local system = Layout.systems[id]
+	if not system then
+		return false
+	end
+	system.baseScale = scale
+	Layout.Apply(id)
+	return true
+end
+
 -- Size in effect, 1 for 100 %.
 function Layout.Scale(id)
 	local p = current()[id]
