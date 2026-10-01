@@ -627,6 +627,18 @@ local function applySkin()
 	layoutCards()
 end
 
+-- GearManagerDialog is one of the client's UIChildWindows: CloseChildWindows hides it whenever a
+-- panel opens beside the sheet, and the page loses its Equip and Save buttons. Shown again while
+-- the page is on screen; out of combat only, its OnShow writes an attribute of the protected
+-- CharacterFrame and calls UpdateUIPanelPositions.
+hooksecurefunc("CloseChildWindows", function()
+	local dialog = _G["GearManagerDialog"]
+	if dialog and dialog.foreverHosted and panel and panel:IsVisible() and not dialog:IsShown()
+		and not InCombatLockdown() then
+		dialog:Show()
+	end
+end)
+
 ForeverUI.EquipmentPane = {
 	Apply = applySkin,
 	-- The page records its root once: the panel (our own frame) is built even in combat, where
