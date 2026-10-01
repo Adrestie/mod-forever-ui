@@ -109,8 +109,8 @@ local function fitRight()
 	end
 end
 
--- The stance and pet bars follow the bottom row, the right bars their room; out of combat
--- only (secure buttons)
+-- The stance, totem and pet bars follow the bottom row, the right bars their room; out of
+-- combat only (secure buttons)
 local pending, busy = false, false
 function M.Restack()
 	if InCombatLockdown() then
@@ -120,6 +120,7 @@ function M.Restack()
 	if busy then return end
 	busy, pending = true, false
 	if ForeverUI.StanceBar and ForeverUI.StanceBar.PlaceDefault then ForeverUI.StanceBar.PlaceDefault() end
+	if ForeverUI.TotemBar then ForeverUI.TotemBar.PlaceDefault() end
 	if ForeverUI.PetBar and ForeverUI.PetBar.PlaceDefault then ForeverUI.PetBar.PlaceDefault() end
 	fitRight()
 	busy = false
@@ -143,9 +144,10 @@ local function setup()
 	M.Restack()
 end
 
--- An extra bar, the minimap or the right gryphon moved, resized or put back in edit mode
+-- An extra bar, the totem bar, the minimap or the right gryphon moved, resized or put back in
+-- edit mode
 local FOLLOWED = { multibarbottomleft = true, multibarbottomright = true, multibarright = true,
-	multibarleft = true, minimap = true, rightgryphon = true }
+	multibarleft = true, totembar = true, minimap = true, rightgryphon = true }
 hooksecurefunc(ForeverUI.Layout, "Apply", function(id)
 	if laidOut and FOLLOWED[id] then M.Restack() end
 end)

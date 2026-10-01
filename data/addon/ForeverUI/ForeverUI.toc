@@ -38,6 +38,7 @@ ActionBar.lua
 MultiBars.lua
 StanceBar.lua
 PetBar.lua
+TotemBar.lua
 TabardColors.lua
 BottomBar.lua
 StatusBars.lua

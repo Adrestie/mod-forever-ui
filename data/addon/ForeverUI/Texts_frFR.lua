@@ -432,6 +432,9 @@ ForeverUI.AddTexts("frFR", {
 	TOKENSTAB_DEBUG_ROW = "   %2d %-28s %s compte=%-8s special=%-4s suivie=%-5s inutilisée=%s",
 	TOKENSTAB_DEBUG_SUMMARY = "monnaies : %d dans la liste, décalage %d, %d posée(s), choisie=%s",
 
+	-- TotemBar.lua
+	TOTEMBAR_EDIT_LABEL = "Barre des totems",
+
 	-- TotemFrame.lua
 	TOTEMFRAME_EDIT_LABEL = "Totems",
 

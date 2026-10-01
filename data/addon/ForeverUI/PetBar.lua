@@ -15,7 +15,8 @@ local GRAYED = 0.4                       -- unusable action
 local ATTACK_CHECK_ALPHA = 0.5               -- check mark alpha on the attack action
 
 -- Default place: just above the reputation bar, on the action bar's left edge. When the
--- stance bar is shown, the pet bar goes to its RIGHT, two icons apart.
+-- stance bar, or the totem bar in its default place, is shown, the pet bar goes to its RIGHT,
+-- two icons apart.
 local LEFT_EDGE = -587.5              -- left edge of the action bar
 local ROW_Y = 84                       -- above the reputation bar
 local BARS_GAP = 2 * SIZE         -- two icons between the two bars
@@ -182,6 +183,10 @@ local function placeDefault()
 	local stances = ForeverUI.StanceBar and ForeverUI.StanceBar.Holder
 	if stances and stances:IsShown() then
 		x = x + stances:GetWidth() + BARS_GAP
+	end
+	local totems = ForeverUI.TotemBar
+	if totems and totems.Frame:IsShown() and ForeverUI.Layout.IsDefault("totembar") then
+		x = LEFT_EDGE + totems.ContentWidth + BARS_GAP
 	end
 	local lift = ForeverUI.MultiBars and ForeverUI.MultiBars.Lift() or 0
 	ForeverUI.Layout.SetDefaults("pet", "BOTTOMLEFT", "BOTTOM", x, ROW_Y + lift)
