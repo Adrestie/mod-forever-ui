@@ -204,11 +204,19 @@ end
 
 -- ------------------------------------------------------------ filling
 
--- Equipped items with an icon, like RefreshEquipmentSetIconInfo
+-- Equipped items with an icon, like RefreshEquipmentSetIconInfo, which counts an icon worn
+-- twice (two rings, trinkets or weapons alike) once: otherwise the grid gains blank cells
+-- whose index lies past the client's list
+local seenIcons = {}
 local function countEquippedItems()
 	local n = 0
+	wipe(seenIcons)
 	for i = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
-		if GetInventoryItemTexture("player", i) then n = n + 1 end
+		local texture = GetInventoryItemTexture("player", i)
+		if texture and not seenIcons[texture] then
+			seenIcons[texture] = true
+			n = n + 1
+		end
 	end
 	return n
 end
