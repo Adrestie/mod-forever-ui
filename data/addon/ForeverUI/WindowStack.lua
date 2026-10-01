@@ -1,5 +1,5 @@
 -- ForeverUI: keeps the large windows (character sheet, spellbook, talents) from interleaving,
--- lets them be moved, and scales them down when the screen is too small. Each window sets
+-- lets them be moved, and scales them down or raises them on a small screen. Each window sets
 -- explicit frame levels relative to its root, so two roots of the same strata mix on screen,
 -- and Raise only lifts the root. Open windows are stacked back to front instead; an opened or
 -- clicked window comes to the front.
@@ -225,6 +225,64 @@ function P.fitToScreen(key, panel, frame, x, y, extraW, extraH)
 	fit(f)
 end
 
+-- ---------- Client panels kept on screen
+-- camelot's panel manager raises a panel whose bottom would come within 140 of the screen's
+-- (ClampUIPanelY), up to 10 below the screen's top. 3.3.5's always puts it at the same height
+-- (TOP_OFFSET, -104), so a tall panel (the bank) leaves a short screen. The clamp runs
+-- after each placement, when the panel changes size and when the screen changes; in combat a
+-- panel may be protected, so it waits for the end.
+local AREAS = { "left", "doublewide", "center", "right" }
+local clampHooked = {}
+
+local function clampPanel(frame)
+	if leaving or not frame:IsShown() or frame:GetNumPoints() ~= 1 then return end
+	local left, top = frame:GetLeft(), frame:GetTop()
+	if not left or not top then return end
+	local k = relativeScale(frame)
+	local y = top * k - UIParent:GetHeight()
+	local bottom = UIParent:GetHeight() + y - frame:GetHeight() * k
+	if bottom >= CLAMP_BOTTOM then return end
+	local wanted = math.min(y + CLAMP_BOTTOM - bottom, CLAMP_TOP)
+	if wanted <= y then return end
+	frame:ClearAllPoints()
+	frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, wanted / k)
+end
+
+-- Is the frame one of the panels the client places now
+local function isPlacedPanel(frame)
+	for _, area in ipairs(AREAS) do
+		if GetUIPanel(area) == frame then return true end
+	end
+	return false
+end
+
+local clampPending = false
+local function clampPanels()
+	if not GetUIPanel then return end
+	if InCombatLockdown() then
+		clampPending = true
+		return
+	end
+	clampPending = false
+	for _, area in ipairs(AREAS) do
+		local frame = GetUIPanel(area)
+		if frame then
+			if not clampHooked[frame] then
+				clampHooked[frame] = true
+				frame:HookScript("OnSizeChanged", function(self)
+					if not InCombatLockdown() and isPlacedPanel(self) then clampPanel(self) end
+				end)
+			end
+			clampPanel(frame)
+		end
+	end
+end
+-- The delegate that places the panels is local to UIParent.lua; every placement goes through
+-- these globals
+for _, name in ipairs({ "ShowUIPanel", "HideUIPanel", "UpdateUIPanelPositions" }) do
+	if type(_G[name]) == "function" then hooksecurefunc(name, clampPanels) end
+end
+
 local fitWatcher = CreateFrame("Frame")
 for _, event in ipairs({ "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_ENABLED",
 	"PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_LOGOUT" }) do
@@ -239,4 +297,5 @@ fitWatcher:SetScript("OnEvent", function(_, event)
 	for _, f in pairs(fits) do
 		if event ~= "PLAYER_REGEN_ENABLED" or f.pending then fit(f) end
 	end
+	if event ~= "PLAYER_REGEN_ENABLED" or clampPending then clampPanels() end
 end)
