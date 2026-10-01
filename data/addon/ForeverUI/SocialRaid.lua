@@ -424,7 +424,9 @@ end
 -- before the lockdown.
 function R.hideOverlays()
 	if InCombatLockdown and InCombatLockdown() then return end
-	for _, o in ipairs(R.overlays or {}) do o:Hide() end
+	-- detached as well as hidden, as DropDown.lua does: a secure button anchored to a menu row
+	-- makes that row protected, and the menus re-anchor and resize their rows in combat
+	for _, o in ipairs(R.overlays or {}) do o:Hide() o:ClearAllPoints() end
 end
 
 -- Secure button k laid over a menu line. Child of UIParent: a secure child would protect the
@@ -683,7 +685,7 @@ R.timer = timer
 listener:SetScript("OnEvent", function(self, ev)
 	-- Entering combat, before the lockdown: hide the secure buttons.
 	if ev == "PLAYER_REGEN_DISABLED" then
-		for _, o in ipairs(R.overlays or {}) do o:Hide() end
+		for _, o in ipairs(R.overlays or {}) do o:Hide() o:ClearAllPoints() end
 		return
 	elseif ev == "PLAYER_REGEN_ENABLED" then
 		return
