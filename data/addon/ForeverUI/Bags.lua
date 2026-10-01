@@ -1200,6 +1200,13 @@ updateField()
 if hooksecurefunc then
 	-- The client resets its own pieces each time a bag opens.
 	hooksecurefunc("ContainerFrame_GenerateFrame", function(frame)
+		-- The bank window shows the bank bags itself (Bank.lua): OpenAllBags (shift + B, bank
+		-- open) and ToggleBag would show them again, each in a bag window.
+		local id = frame:GetID()
+		if id > NUM_BAG_SLOTS and id <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS then
+			frame:Hide()
+			return
+		end
 		skinFrame(frame)
 		layoutGrid(frame)
 		layoutTools()
