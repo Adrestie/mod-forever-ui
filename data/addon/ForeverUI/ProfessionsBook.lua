@@ -759,10 +759,8 @@ local function makeMovable(f, handle)
 	handle:SetScript("OnDragStart", function()
 		if isLocked(f) then return end
 		f:StartMoving()
-		handle:SetScript("OnUpdate", function() PB.PlaceTabs() end)
 	end)
 	handle:SetScript("OnDragStop", function()
-		handle:SetScript("OnUpdate", nil)
 		if isLocked(f) then return end
 		f:StopMovingOrSizing()
 		local x, y = topCenter(f)
@@ -1004,7 +1002,6 @@ local function shownWindow()
 end
 
 -- tab scale from their count and the window height; recomputed only when either changes
--- (PlaceTabs runs every frame during a drag)
 local function resize(c, height)
 	local O = TAB
 	local n = c.count + 1
@@ -1027,7 +1024,10 @@ local function resize(c, height)
 	return e
 end
 
--- right of the shown window, in its strata, under its metal border
+-- right of the shown window, in its strata, under its metal border. Anchored to the window, the
+-- tabs follow it while it is dragged: moving them by code on every frame made the game stutter.
+-- Out of combat only: the anchor of secure buttons makes the crafting page protected, so
+-- PB.ReleaseTabs takes them back to the screen when combat starts.
 function PB.PlaceTabs()
 	local c = PB.tabs
 	if not c or InCombatLockdown() then return end
@@ -1039,15 +1039,22 @@ function PB.PlaceTabs()
 	end
 	local e = resize(c, f:GetHeight() or 0)
 	c:ClearAllPoints()
-	c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", right, top)
-	-- this runs every frame during a drag, where only the position moves: height, strata,
-	-- level and visibility are set only when they change
-	local height = -TAB.y + (c.count + 1) * (TAB.side - TAB.gap) * e
-	if math.abs((c:GetHeight() or 0) - height) > 0.01 then c:SetHeight(height) end
-	local strata, level = f:GetFrameStrata(), f:GetFrameLevel() + 1
-	if c:GetFrameStrata() ~= strata then c:SetFrameStrata(strata) end
-	if c:GetFrameLevel() ~= level then c:SetFrameLevel(level) end
-	if not c:IsShown() then c:Show() end
+	c:SetPoint("TOPLEFT", f, "TOPRIGHT", 0, 0)
+	c:SetHeight(-TAB.y + (c.count + 1) * (TAB.side - TAB.gap) * e)
+	c:SetFrameStrata(f:GetFrameStrata())
+	c:SetFrameLevel(f:GetFrameLevel() + 1)
+	c:Show()
+end
+
+-- Combat starts (before the lockdown): the tabs leave the window for the screen, where they
+-- were, and hide, so the crafting page can still open and close
+function PB.ReleaseTabs()
+	local c = PB.tabs
+	if not c then return end
+	local left, top = c:GetLeft(), c:GetTop()
+	c:ClearAllPoints()
+	if left and top then c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top) end
+	c:Hide()
 end
 
 -- RefreshRightTabs and RightTabSelected. Out of combat only (secure buttons).
@@ -1142,7 +1149,7 @@ watcher:SetScript("OnEvent", function(_, ev, name)
 		if name == "Blizzard_TradeSkillUI" then hookTradeSkill() end
 	elseif ev == "PLAYER_REGEN_DISABLED" then
 		if PB.book and PB.book:IsShown() then HideUIPanel(PB.book) end
-		if PB.tabs then PB.tabs:Hide() end
+		PB.ReleaseTabs()
 	elseif ev == "TRADE_SKILL_SHOW" then
 		if PB.book and PB.book:IsShown() then HideUIPanel(PB.book) end
 		PB.UpdateTabs()
