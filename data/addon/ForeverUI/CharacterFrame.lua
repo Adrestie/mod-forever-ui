@@ -1178,20 +1178,12 @@ local function declareContents()
 	Panes.Register({
 		host = "right", group = CHARACTER_SCREEN, id = "stats",
 		build = function()
-			local frames = {}
-			for _, group in ipairs(STAT_GROUPS) do
-				local selector = _G[group.selector]
-				if selector then
-					frames[#frames + 1] = selector
-				end
-				for index = 1, STAT_PER_GROUP do
-					local row = _G[group.prefix .. index]
-					if row then
-						frames[#frames + 1] = row
-					end
-				end
-			end
-			return nil, frames
+			-- The page owns CharacterAttributesFrame, parent of the two selectors and the twelve
+			-- rows, not the rows: showing each row brought back those the client hides
+			-- (UpdatePaperdollStats hides the sixth row of the ranged category), with the content
+			-- of the category shown before. Hidden, it also hides the rows the client shows over
+			-- the gear or titles page.
+			return nil, { _G["CharacterAttributesFrame"] }
 		end,
 	})
 
@@ -1794,15 +1786,9 @@ local function trackCategory(prefix, key)
 	for _, group in ipairs(STAT_GROUPS) do
 		if group.prefix == prefix then
 			writeCategory(_G[group.selector], key)
-			-- The client has just shown and hidden rows: restripe the visible ones
+			-- The client has just shown and hidden rows: restripe the visible ones. The rows it
+			-- shows while another page is open stay invisible: the stats page hides their parent.
 			stripeStatistics()
-
-			-- UpdatePaperdollStats shows every row it fills without checking whether the
-			-- page is open, so the rows would appear over the gear or titles page.
-			-- ForeverUI.Panes re-applies each host's page.
-			if ForeverUI.Panes and ForeverUI.Panes.Refresh then
-				ForeverUI.Panes.Refresh()
-			end
 			return
 		end
 	end

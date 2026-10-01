@@ -401,8 +401,9 @@ local function layout()
 	end
 	local y = MARGIN
 	local placedCount = 0
+	local full = false
 	for rank, row in ipairs(rows) do
-		local e = elements[offset + rank]
+		local e = not full and elements[offset + rank] or nil
 		local height = e and heightOf(e) or 0
 		if e and y + height <= usableHeight - MARGIN then
 			local indent = (e.depth - 1) * INDENT
@@ -413,6 +414,9 @@ local function layout()
 			y = y + height + GAP
 			placedCount = placedCount + 1
 		else
+			-- Past the first row that does not fit nothing is placed: a shorter row further down
+			-- (a sub-header after an entry) would otherwise take its slot, out of order
+			full = full or e ~= nil
 			row:Hide()
 		end
 	end
