@@ -179,9 +179,9 @@ end
 
 -- PanelTabButtonTemplate (bottom) or TabSystemButtonArtTemplate + isTabOnTop (top).
 -- Two sets of three pieces, active and inactive, plus the highlight: inactive art in ADD
--- at 0.4. atTop: sub-tab above the list
-local function createTab(parent, name, atTop)
-	local b = CreateFrame("Button", name, parent)
+-- at 0.4. atTop: sub-tab above the list; template: optional frame template
+local function createTab(parent, name, atTop, template)
+	local b = CreateFrame("Button", name, parent, template)
 	b:SetHeight(atTop and G.subTabH or G.tabH)
 	local a = {}
 	a.activeLeft = tabPiece(b, "BACKGROUND", TAB_ART.activeLeft, atTop)
@@ -258,7 +258,18 @@ local function selectTab(b, selected, active)
 	end
 	b.text:ClearAllPoints()
 	b.text:SetPoint("CENTER", b, "CENTER", 0, y)
-	if selected or not active then b:Disable() else b:Enable() end
+	if b.secureTab then
+		-- A secure tab cannot be disabled in combat, and need not be: it clicks the client's
+		-- tab, which the client disables when it is chosen or unavailable. Only the highlight
+		-- goes, as on a disabled tab.
+		for _, t in ipairs({ a.sg, a.sd, a.sm }) do
+			if selected or not active then t:Hide() else t:Show() end
+		end
+	elseif selected or not active then
+		b:Disable()
+	else
+		b:Enable()
+	end
 end
 
 -- PanelTemplates_TabResize / TabSystemButtonMixin:UpdateTabWidth
@@ -510,11 +521,12 @@ end
 
 -- ------------------------------------------------------------ Update
 
--- Selected Contacts sub-tab: 1 friends, 2 ignore.
+-- Selected Contacts sub-tab: 1 friends, 2 ignore. Kept here: written from addon code,
+-- FriendsTabHeader.selectedTab would taint the client's FriendsFrame_Update, which reads it
+-- and shows or hides RaidFrame (protected once Blizzard_RaidUI loads), blocked in combat.
+S.selectedSubTab = 1
 function S.subTab()
-	local n = FriendsTabHeader and FriendsTabHeader.selectedTab or 1
-	if n ~= 2 then n = 1 end
-	return n
+	return S.selectedSubTab == 2 and 2 or 1
 end
 
 -- Default selection, like the client: first friend, first ignored player.
@@ -547,7 +559,10 @@ function S.updateTabs()
 		end
 		o.button:SetText(txt(o.text))
 		selectTab(o.button, o.id == selected, isOpen)
-		o.button:SetWidth(tabWidth(o.button))
+		-- secure, so sized out of combat only (their texts do not change)
+		if not InCombatLockdown() then
+			o.button:SetWidth(tabWidth(o.button))
+		end
 	end
 end
 
@@ -683,7 +698,8 @@ function S.apply()
 	-- page first: while building, it can keep a client frame
 	page(selected)
 	suppressWotLK()
-	S.frame:Show()
+	-- Protected through its secure tabs: kept shown, it follows FriendsFrame
+	if not S.frame:IsShown() then S.frame:Show() end
 	for id, pg in pairs(S.pages) do
 		if id ~= selected and pg.frame:IsShown() then
 			pg.frame:Hide()
@@ -1017,24 +1033,23 @@ local function build()
 	S.tabs = {}
 	local previous
 	for i, def in ipairs(TABS) do
-		local b = createTab(f, "ForeverUISocialTab" .. i, false)
+		-- Secure: a click on our tab clicks the client's (SecureTemplates "click" action), whose
+		-- PanelTemplates_Tab_OnClick and FriendsFrame_OnShow (sound included) then run as the
+		-- client's own code. Called from ours, they wrote FriendsFrame.selectedTab tainted, and
+		-- FriendsFrame_ShowSubFrame shows or hides RaidFrame, protected once Blizzard_RaidUI
+		-- loads: blocked in combat, and so was the next opening of the window in combat.
+		local b = createTab(f, "ForeverUISocialTab" .. i, false, "SecureActionButtonTemplate")
+		b.secureTab = true
+		b:SetAttribute("type", "click")
+		b:SetAttribute("clickbutton", _G["FriendsFrameTab" .. def.id])
 		if previous then
 			b:SetPoint("TOPLEFT", previous, "TOPRIGHT", G.tabGap, 0)
 		else
 			b:SetPoint("TOPLEFT", f, "BOTTOMLEFT", G.firstTabX, G.firstTabY)
 		end
-		b:SetScript("OnClick", function()
-			-- the client tab does the rest: PanelTemplates_Tab_OnClick, FriendsFrame_OnShow, and
-			-- closing the guild frame
-			local client = _G["FriendsFrameTab" .. def.id]
-			if client and client:GetScript("OnClick") then
-				client:GetScript("OnClick")(client, "LeftButton")
-			else
-				PanelTemplates_SetTab(FriendsFrame, def.id)
-				FriendsFrame_OnShow()
-			end
-			PlaySound("igCharacterInfoTab")
-		end)
+		-- sized now, out of combat: in combat a secure tab keeps its size
+		b:SetText(txt(def.text))
+		b:SetWidth(tabWidth(b))
 		S.tabs[i] = { id = def.id, text = def.text, button = b }
 		previous = b
 	end
@@ -1051,10 +1066,10 @@ local function build()
 			b:SetPoint("TOPLEFT", f, "TOPLEFT", G.subTabX, G.subTabY)
 		end
 		b:SetScript("OnClick", function()
-			PanelTemplates_SetTab(FriendsTabHeader, def.id)
 			PlaySound("igMainMenuOptionCheckBoxOn")
+			S.selectedSubTab = def.id
 			S.offset = 0
-			FriendsFrame_Update()
+			S.update()
 		end)
 		S.subTabs[i] = { id = def.id, text = def.text, button = b }
 		previous = b
@@ -1085,8 +1100,8 @@ local function build()
 	b.remove:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", G.buttonRight, G.buttonBottom)
 	b.remove:SetScript("OnClick", function(self) FriendsFrameUnsquelchButton_OnClick(self) end)
 	S.buttons = b
-
-	f:Hide()
+	-- left shown: the secure tabs protect the window, which could not be shown in combat; as a
+	-- child of FriendsFrame it appears and goes with it
 end
 
 build()
@@ -1121,7 +1136,7 @@ function ForeverUI.SocialDebug()
 	end
 	local total, online = GetNumFriends()
 	say(string.format(L.SOCIAL_DEBUG_STATE,
-		tostring(FriendsFrame.selectedTab), tostring(FriendsTabHeader and FriendsTabHeader.selectedTab),
+		tostring(FriendsFrame.selectedTab), tostring(S.subTab()),
 		tostring(S.frame:IsShown()), tostring(FriendsFrame:IsMouseEnabled())))
 	say(string.format(L.SOCIAL_DEBUG_FRIENDS,
 		tostring(total), tostring(online), tostring(GetSelectedFriend()), tostring(GetNumIgnores()),
