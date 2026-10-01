@@ -512,13 +512,19 @@ end
 -- takes the mouse clicks of everything below it, such as the side tabs. Removing it from the
 -- table makes it plain pane content.
 local function detachFromPanelSystem(frame)
-	if UIPanelWindows then
-		UIPanelWindows["PVPParentFrame"] = nil
-	end
-	-- If the panel system already manages it, it keeps its slot until HideUIPanel.
+	-- If the panel system already manages it, it keeps its slot until HideUIPanel: released
+	-- while the frame still counts as a panel.
 	if HideUIPanel and frame.IsShown and frame:IsShown() then
 		HideUIPanel(frame)
 	end
+	if UIPanelWindows then
+		UIPanelWindows["PVPParentFrame"] = nil
+	end
+	-- GetUIPanelWindowInfo (UIParent.lua) copies the table entry into the frame's UIPanelLayout-*
+	-- attributes on first use (a TogglePVPFrame before this build) and then reads only them:
+	-- cleared too, as PaperDollFrame.lua does for CharacterFrame.
+	frame:SetAttribute("UIPanelLayout-defined", nil)
+	frame:SetAttribute("UIPanelLayout-enabled", nil)
 end
 
 -- Pins the frame to the pane on every pass, in case another system re-anchors it.
