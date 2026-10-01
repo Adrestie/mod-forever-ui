@@ -88,6 +88,14 @@ function Panes.Furniture(name, group, frames)
 	end
 end
 
+-- Shows or hides a frame only on a change: a protected client frame (PetPaperDollFrame holds
+-- secure companion buttons) refuses even a call that changes nothing, in combat
+local function setShown(frame, visible)
+	if (frame:IsShown() and true or false) ~= visible then
+		if visible then frame:Show() else frame:Hide() end
+	end
+end
+
 -- Shows or hides a content and the client frames it owns; builds it on first show
 local function place(content, visible)
 	if visible then
@@ -98,11 +106,11 @@ local function place(content, visible)
 	end
 
 	if content.root then
-		if visible then content.root:Show() else content.root:Hide() end
+		setShown(content.root, visible)
 	end
 	for _, frame in ipairs(content.frames) do
 		if frame and frame.Show then
-			if visible then frame:Show() else frame:Hide() end
+			setShown(frame, visible)
 		end
 	end
 end

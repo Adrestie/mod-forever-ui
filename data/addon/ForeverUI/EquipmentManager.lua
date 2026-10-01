@@ -833,9 +833,13 @@ function ForeverUI.EquipmentSetEdit(name)
     end
 end
 
--- Popup closed another way (Cancel, Escape): the edit is abandoned.
-if hooksecurefunc and type(GearManagerDialogPopup_OnHide) == "function" then
-    hooksecurefunc("GearManagerDialogPopup_OnHide", function()
+-- Popup closed another way (Cancel, Escape, the sheet closing): the edit is abandoned. The XML
+-- binds OnHide to GearManagerDialogPopup_OnHide itself (function=), so a hook on the global
+-- never runs (see Taxi.lua): the frame's script is hooked. Otherwise the stale session made
+-- the next ordinary save equip the old set, save it under the typed name and delete it.
+local editPopup = _G["GearManagerDialogPopup"]
+if editPopup and editPopup.HookScript then
+    editPopup:HookScript("OnHide", function()
         if editSession and not intendedClose and not pendingEdit:IsShown() then
             editSession = nil
         end

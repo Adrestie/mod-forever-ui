@@ -8,6 +8,7 @@ local ForeverUI = ForeverUI or {}
 _G.ForeverUI = ForeverUI
 
 local ROOT = -1                       -- ROOT_CATEGORY_ID
+local UPDATE_DELAY = 0.5               -- seconds between two re-reads on CRITERIA_UPDATE
 
 local LIST_X, LIST_Y = 10, -40
 local LIST_X2, LIST_Y2 = -25, 15
@@ -521,9 +522,21 @@ local function build(host)
 	root:SetScript("OnHide", function(self)
 		self:UnregisterEvent("CRITERIA_UPDATE")
 	end)
-	root:SetScript("OnEvent", function(_, ev)
-		if ev == "CRITERIA_UPDATE" then
+	-- CRITERIA_UPDATE comes in bursts (each kill, loot, hit dealt or taken moves a statistic):
+	-- the whole tree is read again at most once per UPDATE_DELAY, after the burst
+	local pending = CreateFrame("Frame", nil, root)
+	pending:Hide()
+	pending:SetScript("OnUpdate", function(self, elapsed)
+		self.rest = self.rest - elapsed
+		if self.rest <= 0 then
+			self:Hide()
 			S.Update()
+		end
+	end)
+	root:SetScript("OnEvent", function(_, ev)
+		if ev == "CRITERIA_UPDATE" and not pending:IsShown() then
+			pending.rest = UPDATE_DELAY
+			pending:Show()
 		end
 	end)
 	root:RegisterEvent("CRITERIA_UPDATE")
