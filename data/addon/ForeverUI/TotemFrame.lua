@@ -26,8 +26,11 @@ local FRAME_WIDTH = SLOTS * BUTTON_SIZE + (SLOTS - 1) * SPACING
 -- Where camelot's PlayerBottomManagedFrameContainer puts it: the container's top at the
 -- player frame's bottom (30, 25), half the frame's 15 left padding added, its -2 top padding
 -- taken off; under the class resources when the player has some (the death knight's runes).
+-- The pet frame comes before it in that stack: while it shows, the totems sit 3 above its
+-- bottom (its -3 bottom padding, the stack's 2 spacing, the totems' -2 top padding).
 local OFFSET_X, OFFSET_Y = 30 + 7.5, 25 + 2
 local UNDER_RESOURCES_X, UNDER_RESOURCES_Y = 7.5, 2
+local UNDER_PET_Y = 3
 
 -- Default before the player frame is placed: its default (10, -10), 232 x 100
 local DEFAULT_X, DEFAULT_Y = 10 + 232 / 2 + OFFSET_X, -10 - 100 + OFFSET_Y
@@ -154,12 +157,17 @@ local function update()
 	end
 end
 
--- Default position under the player frame, or under its class resources; it changes with the
--- player frame until the player moves the totems (SetDefaults leaves a moved element alone).
+-- Default position under the player frame, its class resources or its pet; it changes with
+-- them until the player moves the totems (SetDefaults leaves a moved element alone). The pet
+-- frame is placed from its own anchor, valid even on the frame it shows.
+local pet = _G["ForeverUIPetFrame"]
 local function follow()
 	local resources = _G["ForeverUIClassResourceContainer"]
 	local anchor, x, y = ForeverUI.PlayerFrame, OFFSET_X, OFFSET_Y
-	if resources then
+	if pet and pet:IsShown() then
+		local _, relativeTo, _, petX, petY = pet:GetPoint(1)
+		anchor, x, y = relativeTo, petX, petY - pet:GetHeight() + UNDER_PET_Y
+	elseif resources then
 		anchor, x, y = resources, UNDER_RESOURCES_X, UNDER_RESOURCES_Y
 	end
 	local left, right, bottom = anchor:GetLeft(), anchor:GetRight(), anchor:GetBottom()
@@ -178,6 +186,11 @@ hooksecurefunc(Layout, "Apply", function(id)
 		follow()
 	end
 end)
+-- The pet frame comes and goes with the pet (Feral Spirit): the totems go down and back up
+if pet then
+	pet:HookScript("OnShow", follow)
+	pet:HookScript("OnHide", follow)
+end
 -- Shown empty while the layout is edited, hidden again after
 hooksecurefunc(Layout, "BeginEdit", update)
 hooksecurefunc(Layout, "Commit", update)
