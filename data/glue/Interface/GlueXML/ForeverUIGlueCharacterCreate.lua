@@ -633,7 +633,8 @@ local function refresh()
 	-- Detail boxes
 	if selectedRace then
 		local faction = selectedRace.faction
-		factionFrameBox.portrait:SetTexture(ART .. "portrait-charactercreate-icon-" .. string.lower(faction or "alliance") .. "bottomLeft")
+		-- "bg" is part of the file name (background)
+		factionFrameBox.portrait:SetTexture(ART .. "portrait-charactercreate-icon-" .. string.lower(faction or "alliance") .. "bg")
 		populate(factionFrameBox, { { "space" }, { "title", TEXT.FACTION[faction] }, { "text", TEXT.LORE[faction] }, { "space" } })
 
 		raceFrameBox.portrait:SetTexture(ART .. "portrait-raceicon128-" .. (RACE_FILE[selectedRace.file] or "human") .. "-" .. sex())
