@@ -207,6 +207,7 @@ screenWatcher.fingerprint = fingerprint()
 -- Lays the UI out at once, then once more on the next frame, as showing a screen does
 -- (positions read during a layout predate it until drawn)
 local function onDisplayChanged(self)
+	self.changes = (self.changes or 0) + 1
 	self.fingerprint = fingerprint()
 	self.again = true
 	G.Rescale(true)
@@ -216,16 +217,39 @@ end
 -- never receive it, a per-frame check of the size stands in for it.
 pcall(screenWatcher.RegisterEvent, screenWatcher, "DISPLAY_SIZE_CHANGED")
 screenWatcher:SetScript("OnEvent", function(self)
+	self.events = (self.events or 0) + 1
 	self.hooked = true
 	onDisplayChanged(self)
 end)
 screenWatcher:SetScript("OnUpdate", function(self)
+	self.ticks = (self.ticks or 0) + 1
 	if self.again then
 		self.again = nil
 		G.Rescale(true)
 	elseif not self.hooked and fingerprint() ~= self.fingerprint then
 		onDisplayChanged(self)
 	end
+end)
+
+-- DEBUG (temporary): what the client reports while the window is resized, top left
+local debugFrame = CreateFrame("Frame", nil, GlueParent)
+debugFrame:SetFrameStrata("TOOLTIP")
+debugFrame:SetAllPoints(GlueParent)
+local debugText = debugFrame:CreateFontString(nil, "OVERLAY")
+debugText:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
+debugText:SetJustifyH("LEFT")
+debugText:SetPoint("TOPLEFT", debugFrame, "TOPLEFT", 10, -120)
+local debugTicks = 0
+debugFrame:SetScript("OnUpdate", function()
+	debugTicks = debugTicks + 1
+	local w = screenWatcher
+	debugText:SetText(string.format(
+		"gxResolution %s\nGetScreen %.1f x %.1f\nGlueParent %.1f x %.1f  scale %.4f  eff %.4f\n"
+		.. "height %.1f  natural %.1f  strip %.1f  fit %s\nwatcher ticks %d  events %d  changes %d  debug ticks %d",
+		tostring(cvar("gxResolution")), GetScreenWidth(), GetScreenHeight(),
+		GlueParent:GetWidth() or 0, GlueParent:GetHeight() or 0, GlueParent:GetScale(),
+		GlueParent:GetEffectiveScale(), G.CAMELOT_HEIGHT or 0, screenHeight(), G.STRIP or 0,
+		tostring(fit ~= nil), w.ticks or 0, w.events or 0, w.changes or 0, debugTicks))
 end)
 
 -- ---------- 3. Fonts
