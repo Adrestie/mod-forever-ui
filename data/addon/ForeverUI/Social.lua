@@ -138,8 +138,10 @@ local function buildFrame(f)
 	f.title:SetPoint("TOP", banner, "TOP", 0, G.titleTextY)
 	f.banner = banner
 
-	-- Close button: hides the client panel, like the client's own.
-	local closeButton = CreateFrame("Button", "ForeverUISocialCloseButton", f)
+	-- Close button: clicks the client's (SecureTemplates "click" action), whose HideParentPanel
+	-- then hides FriendsFrame as client code. Protected by the secure tabs, FriendsFrame could
+	-- not be hidden by ours in combat.
+	local closeButton = CreateFrame("Button", "ForeverUISocialCloseButton", f, "SecureActionButtonTemplate")
 	closeButton:SetWidth(G.closeButton)
 	closeButton:SetHeight(G.closeButton)
 	closeButton:SetFrameLevel(f:GetFrameLevel() + 22)
@@ -159,7 +161,8 @@ local function buildFrame(f)
 			if state[3] == "redbutton-highlight" then t:SetBlendMode("ADD") end
 		end
 	end
-	closeButton:SetScript("OnClick", function() HideUIPanel(FriendsFrame) end)
+	closeButton:SetAttribute("type", "click")
+	closeButton:SetAttribute("clickbutton", FriendsFrameCloseButton)
 	f.closeButton = closeButton
 end
 
@@ -527,6 +530,19 @@ end
 S.selectedSubTab = 1
 function S.subTab()
 	return S.selectedSubTab == 2 and 2 or 1
+end
+
+-- /friends and /ignore (ToggleFriendsPanel, ToggleIgnorePanel) select the client's sub-tab:
+-- ours follows.
+for name, id in pairs({ ToggleFriendsPanel = 1, ToggleIgnorePanel = 2 }) do
+	if type(_G[name]) == "function" then
+		hooksecurefunc(name, function()
+			if S.selectedSubTab ~= id then
+				S.selectedSubTab, S.offset = id, 0
+			end
+			if S.frame and S.frame:IsVisible() then S.update() end
+		end)
+	end
 end
 
 -- Default selection, like the client: first friend, first ignored player.
@@ -993,6 +1009,9 @@ local function build()
 	f:SetPoint("TOPLEFT", FriendsFrame, "TOPLEFT", 0, 0)
 	f:SetFrameLevel(FriendsFrame:GetFrameLevel() + 1)
 	f:EnableMouse(true)
+	-- FriendsFrame (384 x 512) catches no click outside our window. Set now, before the secure
+	-- tabs protect it: on a protected frame in combat, suppressWotLK cannot.
+	FriendsFrame:EnableMouse(false)
 	S.frame = f
 	buildFrame(f)
 
@@ -1054,7 +1073,7 @@ local function build()
 		previous = b
 	end
 
-	-- sub-tabs: Friends and Ignore, state kept by the client
+	-- sub-tabs: Friends and Ignore, state kept here (S.selectedSubTab)
 	S.subTabs = {}
 	previous = nil
 	for i, def in ipairs(SUB_TABS) do
@@ -1069,6 +1088,8 @@ local function build()
 			PlaySound("igMainMenuOptionCheckBoxOn")
 			S.selectedSubTab = def.id
 			S.offset = 0
+			-- the client's Friends sub-tab asks the server for the list (FriendsFrame_Update)
+			if def.id == 1 then ShowFriends() end
 			S.update()
 		end)
 		S.subTabs[i] = { id = def.id, text = def.text, button = b }

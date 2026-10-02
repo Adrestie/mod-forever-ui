@@ -57,8 +57,8 @@ end
 -- ------------------------------------------------------------ Groups
 
 -- Slot n of group g; its .member is the raid index. Slots are not secure buttons: secure
--- children would protect this window and FriendsFrame in combat. Left click does not target;
--- right click opens the menu, drag moves the player.
+-- children would protect this page, which the tabs show and hide in combat. Left click does
+-- not target; right click opens the menu, drag moves the player.
 local function createSlot(parent, g, n)
 	local b = CreateFrame("Button", "ForeverUIRaidSlot" .. g .. "_" .. n, parent)
 	b:SetHeight(P.slotH)
@@ -509,6 +509,17 @@ function R.update()
 	N.update()
 end
 
+-- The raid browser, as the client's buttons open it. Beside it the panel manager places
+-- FriendsFrame (UpdateUIPanelPositions): refused to our code in combat, FriendsFrame being
+-- protected by the secure tabs (Social.lua).
+local function openRaidBrowser()
+	if InCombatLockdown() then
+		UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1.0, 0.1, 0.1, 1.0)
+		return
+	end
+	if LFRParentFrame then ShowUIPanel(LFRParentFrame) end
+end
+
 local function build(frame)
 	-- Outside a raid
 	local outside = ForeverUI.CreateInset(frame, "ForeverUIRaidNotInRaid")
@@ -525,9 +536,7 @@ local function build(frame)
 	nav:SetText(txt("RAID_BROWSER_DESCRIPTION"))
 	local open = S.button(outside, txt("OPEN_RAID_BROWSER"), 260)
 	open:SetPoint("TOP", nav, "BOTTOM", 0, -10)
-	open:SetScript("OnClick", function()
-		if LFRParentFrame then ShowUIPanel(LFRParentFrame) end
-	end)
+	open:SetScript("OnClick", openRaidBrowser)
 	R.outside = outside
 
 	-- In a raid: eight groups, two columns of four
@@ -602,9 +611,7 @@ local function build(frame)
 	end)
 	R.browser = S.button(frame, txt("LOOKING_FOR_RAID"), 90)
 	R.browser:SetPoint("RIGHT", R.call, "LEFT", -2, 0)
-	R.browser:SetScript("OnClick", function()
-		if LFRParentFrame then ShowUIPanel(LFRParentFrame) end
-	end)
+	R.browser:SetScript("OnClick", openRaidBrowser)
 
 	createInstances()
 end
