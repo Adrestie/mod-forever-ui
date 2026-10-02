@@ -3,7 +3,11 @@
   "module": "mod-forever-ui",
   "title": "ForeverUI",
   "server_module": false,
-  "worldserver": "optional",
+  "fields": {
+    "game": "required",
+    "worldserver": {"optional": "Only if you run the server: adds 18 statistics (server DBC files and database). Leave empty if you only play."},
+    "mysql": {"optional": "Only with the worldserver folder, for the statistics' database rows. Found by itself when left empty."}
+  },
   "database": {
     "world": {
       "rows": [
