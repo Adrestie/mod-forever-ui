@@ -57,7 +57,7 @@ G.FitScreen()
 
 -- Resolution change: scale and area depend on gxResolution and the screen size, and applying
 -- another resolution (RestartGx) does not notify the glue screens. The three values are read
--- five times per second; on a change both are recomputed and every G.onScale callback runs.
+-- on DISPLAY_SIZE_CHANGED; on a change both are recomputed and every G.onScale callback runs.
 G.onScale = {}
 
 -- ---------- Fitting a screen
@@ -182,19 +182,35 @@ local function fingerprint()
 	return (cvar("gxResolution") or "") .. " " .. GetScreenWidth() .. " " .. GetScreenHeight()
 end
 
-local screenWatcher = CreateFrame("Frame")
+-- Child of GlueParent: on the glue screens a frame without a parent gets no OnUpdate
+local screenWatcher = CreateFrame("Frame", nil, GlueParent)
 screenWatcher.fingerprint = fingerprint()
-screenWatcher.t = 0
-screenWatcher:SetScript("OnUpdate", function(self, elapsed)
-	self.t = self.t + (elapsed or 0)
-	if self.t < 0.2 then
-		return
-	end
-	self.t = 0
-	local e = fingerprint()
-	if e ~= self.fingerprint then
-		self.fingerprint = e
+
+-- Lays the UI out at once, then once more on the next frame, as showing a screen does
+-- (positions read during a layout predate it until drawn)
+local function onDisplayChanged(self)
+	self.fingerprint = fingerprint()
+	self.again = true
+	G.Rescale(true)
+end
+
+-- The client's event when the window changes size (DISPLAY_SIZE_CHANGED). If the glue screens
+-- never receive it, a per-frame check of the size stands in for it.
+pcall(screenWatcher.RegisterEvent, screenWatcher, "DISPLAY_SIZE_CHANGED")
+screenWatcher:SetScript("OnEvent", function(self)
+	self.hooked = true
+	onDisplayChanged(self)
+end)
+screenWatcher:SetScript("OnUpdate", function(self)
+	if self.again then
+		self.again = nil
 		G.Rescale(true)
+	elseif not self.hooked and fingerprint() ~= self.fingerprint then
+		onDisplayChanged(self)
+	elseif math.abs(GlueParent:GetScale() - G.SCALE) > 0.0001 then
+		-- the client resets GlueParent (scale 1, its own anchors) when the window is resized,
+		-- with the screen size and gxResolution unchanged
+		onDisplayChanged(self)
 	end
 end)
 
