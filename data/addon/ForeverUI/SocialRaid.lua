@@ -1,7 +1,9 @@
 -- ForeverUI: Raid page of the Social window (client tab 5), after RaidFrame and Blizzard_RaidUI.
 -- Outside a raid: description, raid browser and convert buttons. In a raid: eight groups, class
--- row (at the bottom, no room on the right), ready check state and saved instances; pullout
--- frames come from the Blizzard_RaidUI functions.
+-- row (at the bottom, no room on the right), ready check state and saved instances. WotLK's
+-- pullout frames are not offered: built from addon code (RaidPullout_GeneratePulloutFrame,
+-- RaidPulloutButton_OnDragStart), their fields and secure buttons were tainted, and their own
+-- updates were then blocked in every fight (roster changes, main tank targets).
 
 local ForeverUI = ForeverUI or {}
 _G.ForeverUI = ForeverUI
@@ -52,34 +54,11 @@ local function isLeaderOrOfficer()
 	return (IsRaidLeader and IsRaidLeader()) or (IsRaidOfficer and IsRaidOfficer())
 end
 
--- Pullout frames of Blizzard_RaidUI, loaded with the raid. filter: group number, player name
--- or class file; className: class label.
-local function pullOut(filter, className)
-	if not (RaidPullout_GeneratePulloutFrame and RaidPulloutButton_OnDragStart) then return false end
-	local f = RaidPullout_GeneratePulloutFrame(filter, className)
-	if not f then return false end
-	RaidPulloutButton_OnDragStart(f)
-	-- The client places it far from the cursor on wide screens: it converts the cursor with
-	-- GetScreenWidthScale (width / 1024), valid for 4:3 only. Re-anchor it with the frame's
-	-- effective scale, keeping the started drag.
-	local x, y = GetCursorPosition()
-	local e = f:GetEffectiveScale()
-	if e and e > 0 then
-		f:ClearAllPoints()
-		f:SetPoint("TOP", UIParent, "BOTTOMLEFT", x / e, y / e)
-	end
-	return true
-end
-
-local function dropPullout()
-	if RaidPulloutStopMoving then RaidPulloutStopMoving() end
-end
-
 -- ------------------------------------------------------------ Groups
 
 -- Slot n of group g; its .member is the raid index. Slots are not secure buttons: secure
--- children would protect this window and FriendsFrame in combat. Left click does not target;
--- right click opens the menu, drag moves the player.
+-- children would protect this page, which the tabs show and hide in combat. Left click does
+-- not target; right click opens the menu, drag moves the player.
 local function createSlot(parent, g, n)
 	local b = CreateFrame("Button", "ForeverUIRaidSlot" .. g .. "_" .. n, parent)
 	b:SetHeight(P.slotH)
@@ -127,23 +106,13 @@ local function createSlot(parent, g, n)
 		end
 	end)
 	b:SetScript("OnDragStart", function(self)
-		if not self.member then return end
-		-- WotLK drag: Shift (leader, officer) or always (others) pulls out the player's frame;
-		-- otherwise move the player.
-		if not isLeaderOrOfficer() or IsShiftKeyDown() then
-			self.pulledOut = pullOut(GetRaidRosterInfo(self.member), nil)
-			return
-		end
+		-- A leader or officer moves the player (no pullout frame, see the header)
+		if not self.member or not isLeaderOrOfficer() then return end
 		R.dragging = self
 		R.ghost.text:SetText(self.name:GetText())
 		R.ghost:Show()
 	end)
-	b:SetScript("OnDragStop", function(self)
-		if self.pulledOut then
-			self.pulledOut = nil
-			dropPullout()
-			return
-		end
+	b:SetScript("OnDragStop", function()
 		R.ghost:Hide()
 		local source = R.dragging
 		R.dragging = nil
@@ -281,7 +250,6 @@ local function createClasses(parent)
 		b:SetHighlightTexture(P.squareHighlight)
 		local h = b:GetHighlightTexture()
 		if h then h:SetBlendMode("ADD") end
-		b:RegisterForDrag("LeftButton")
 		b.def = def
 		-- RaidClassButton_OnEnter
 		b:SetScript("OnEnter", function(self)
@@ -292,10 +260,6 @@ local function createClasses(parent)
 			GameTooltip:Show()
 		end)
 		b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-		b:SetScript("OnDragStart", function(self)
-			if (self.count or 0) > 0 then pullOut(self.def.file, self.def.name) end
-		end)
-		b:SetScript("OnDragStop", dropPullout)
 		R.classes[k] = b
 	end
 end
@@ -424,7 +388,9 @@ end
 -- before the lockdown.
 function R.hideOverlays()
 	if InCombatLockdown and InCombatLockdown() then return end
-	for _, o in ipairs(R.overlays or {}) do o:Hide() end
+	-- detached as well as hidden, as DropDown.lua does: a secure button anchored to a menu row
+	-- makes that row protected, and the menus re-anchor and resize their rows in combat
+	for _, o in ipairs(R.overlays or {}) do o:Hide() o:ClearAllPoints() end
 end
 
 -- Secure button k laid over a menu line. Child of UIParent: a secure child would protect the
@@ -543,6 +509,17 @@ function R.update()
 	N.update()
 end
 
+-- The raid browser, as the client's buttons open it. Beside it the panel manager places
+-- FriendsFrame (UpdateUIPanelPositions): refused to our code in combat, FriendsFrame being
+-- protected by the secure tabs (Social.lua).
+local function openRaidBrowser()
+	if InCombatLockdown() then
+		UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1.0, 0.1, 0.1, 1.0)
+		return
+	end
+	if LFRParentFrame then ShowUIPanel(LFRParentFrame) end
+end
+
 local function build(frame)
 	-- Outside a raid
 	local outside = ForeverUI.CreateInset(frame, "ForeverUIRaidNotInRaid")
@@ -559,9 +536,7 @@ local function build(frame)
 	nav:SetText(txt("RAID_BROWSER_DESCRIPTION"))
 	local open = S.button(outside, txt("OPEN_RAID_BROWSER"), 260)
 	open:SetPoint("TOP", nav, "BOTTOM", 0, -10)
-	open:SetScript("OnClick", function()
-		if LFRParentFrame then ShowUIPanel(LFRParentFrame) end
-	end)
+	open:SetScript("OnClick", openRaidBrowser)
 	R.outside = outside
 
 	-- In a raid: eight groups, two columns of four
@@ -576,7 +551,7 @@ local function build(frame)
 		box:SetHeight(P.groupH)
 		box:SetPoint("TOPLEFT", S.frame, "TOPLEFT", P.groupsX + col * (P.groupW + P.groupGapX),
 			P.groupsY - P.tagH - rowLine * (P.groupH + P.groupGapY))
-		-- Group label: dragging it pulls out the group frame
+		-- Group label
 		local tag = CreateFrame("Button", "ForeverUIRaidGroupLabel" .. g, groups)
 		tag:SetHeight(P.tagH)
 		tag:SetWidth(80)
@@ -585,9 +560,6 @@ local function build(frame)
 		et:SetPoint("LEFT", tag, "LEFT", 0, 0)
 		et:SetText(txt("GROUP") .. " " .. g)
 		tag.text = et
-		tag:RegisterForDrag("LeftButton")
-		tag:SetScript("OnDragStart", function() pullOut(g) end)
-		tag:SetScript("OnDragStop", dropPullout)
 		R.slots[g] = {}
 		for n = 1, 5 do
 			local b = createSlot(box, g, n)
@@ -639,9 +611,7 @@ local function build(frame)
 	end)
 	R.browser = S.button(frame, txt("LOOKING_FOR_RAID"), 90)
 	R.browser:SetPoint("RIGHT", R.call, "LEFT", -2, 0)
-	R.browser:SetScript("OnClick", function()
-		if LFRParentFrame then ShowUIPanel(LFRParentFrame) end
-	end)
+	R.browser:SetScript("OnClick", openRaidBrowser)
 
 	createInstances()
 end
@@ -683,7 +653,7 @@ R.timer = timer
 listener:SetScript("OnEvent", function(self, ev)
 	-- Entering combat, before the lockdown: hide the secure buttons.
 	if ev == "PLAYER_REGEN_DISABLED" then
-		for _, o in ipairs(R.overlays or {}) do o:Hide() end
+		for _, o in ipairs(R.overlays or {}) do o:Hide() o:ClearAllPoints() end
 		return
 	elseif ev == "PLAYER_REGEN_ENABLED" then
 		return

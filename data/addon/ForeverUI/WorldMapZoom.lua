@@ -287,7 +287,7 @@ local mapKey = Z.mapKey
 
 -- Child of the map frame, so it only runs while the map is open
 local watcher = CreateFrame("Frame", nil, WorldMapFrame)
-watcher:SetScript("OnUpdate", function()
+watcher:SetScript("OnUpdate", function(_, elapsed)
 	if not (Z.active and ready()) then
 		Z.key = ready() and mapKey() or nil
 		return
@@ -323,7 +323,13 @@ watcher:SetScript("OnUpdate", function()
 			end
 		end
 	end
-	sortBy()
+	-- Markers move with their units: ten passes a second are enough (Z.apply sorts at once).
+	-- Each pass reads every child of the map buttons (about sixty) and builds three tables.
+	Z.sortWait = (Z.sortWait or 0) - elapsed
+	if Z.sortWait <= 0 then
+		Z.sortWait = 0.1
+		sortBy()
+	end
 end)
 Z.watcher = watcher
 

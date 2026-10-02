@@ -234,13 +234,14 @@ local rightCap = createEndCap("ForeverUIActionBarRightCap", "ui-hud-actionbar-gr
 -- over the main bar at its own position, so its buttons are anchored like the main ones and
 -- follow the holder. Nothing is reparented: buttons follow the client bar's visibility.
 -- 3.3.5 slides this bar in, but secure buttons cannot move every frame in combat, where
--- stances change: they are anchored ONCE to a track (our frame), and the track slides.
+-- stances change: they are anchored ONCE to a track (our frame), and the track slides, out
+-- of combat only (see below).
 local PLACED_BARS = { "ActionButton", "BonusActionButton" }
 
 -- The track covers the holder and shifts vertically while sliding. The duration comes from
 -- the client when it declares it.
 local track = CreateFrame("Frame", "ForeverUIBonusSlide", holder)
-local SLIDE_DURATION = BONUS_ACTIONBUTTON_SLIDE_TIME or 0.2
+local SLIDE_DURATION = BONUSACTIONBAR_SLIDETIME or 0.2
 local SLIDE_DISTANCE = BUTTON_SIZE
 
 local function placeTrack(progress)
@@ -254,18 +255,30 @@ placeTrack(1)
 -- The slide goes both ways. When hiding, the client sets mode = "hide" and keeps the bar
 -- shown until the move ends, so the mode is read rather than the visibility alone. Without
 -- that field the hide is instant: hidden buttons cannot be animated.
+-- The bonus buttons are anchored to the track, which makes it protected (as the crafting page,
+-- ProfessionsBook.lua): it never moves in combat. It waits at rest while the bar is hidden and
+-- goes back to rest when combat starts, so a bar shown in combat appears in place, unslid.
 track.progress = 1
 track.target = 1
 track:SetScript("OnUpdate", function(self, elapse)
 	local bar = BonusActionBarFrame
 	local visible = bar and bar:IsShown()
 
+	if InCombatLockdown() then
+		self.visible = visible
+		return
+	end
+
 	if visible and not self.visible then
 		self.progress, self.target = 0, 1      -- shown: slides up
-	elseif visible and bar.mode == "hide" then
-		self.target = 0                          -- the client is hiding it
-	elseif not visible then
-		self.progress, self.target = 0, 0      -- ready to slide up again
+	elseif visible then
+		-- the client is hiding it, or shows it again before the end of its own slide
+		self.target = (bar.mode == "hide") and 0 or 1
+	else
+		if self.progress ~= 1 then
+			placeTrack(1)                        -- hidden: back at rest
+		end
+		self.progress, self.target = 1, 1
 	end
 	self.visible = visible
 
@@ -278,6 +291,12 @@ track:SetScript("OnUpdate", function(self, elapse)
 		end
 		placeTrack(self.progress)
 	end
+end)
+-- PLAYER_REGEN_DISABLED fires before the lockdown: last moment to put the track at rest
+track:RegisterEvent("PLAYER_REGEN_DISABLED")
+track:SetScript("OnEvent", function(self)
+	self.progress, self.target = 1, 1
+	placeTrack(1)
 end)
 ForeverUI.ActionBarSlide = track
 

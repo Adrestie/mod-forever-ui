@@ -8,6 +8,7 @@ local ForeverUI = ForeverUI or {}
 _G.ForeverUI = ForeverUI
 
 local ROOT = -1                       -- ROOT_CATEGORY_ID
+local UPDATE_DELAY = 0.5               -- seconds between two re-reads on CRITERIA_UPDATE
 
 local LIST_X, LIST_Y = 10, -40
 local LIST_X2, LIST_Y2 = -25, 15
@@ -400,8 +401,9 @@ local function layout()
 	end
 	local y = MARGIN
 	local placedCount = 0
+	local full = false
 	for rank, row in ipairs(rows) do
-		local e = elements[offset + rank]
+		local e = not full and elements[offset + rank] or nil
 		local height = e and heightOf(e) or 0
 		if e and y + height <= usableHeight - MARGIN then
 			local indent = (e.depth - 1) * INDENT
@@ -412,6 +414,9 @@ local function layout()
 			y = y + height + GAP
 			placedCount = placedCount + 1
 		else
+			-- Past the first row that does not fit nothing is placed: a shorter row further down
+			-- (a sub-header after an entry) would otherwise take its slot, out of order
+			full = full or e ~= nil
 			row:Hide()
 		end
 	end
@@ -521,9 +526,21 @@ local function build(host)
 	root:SetScript("OnHide", function(self)
 		self:UnregisterEvent("CRITERIA_UPDATE")
 	end)
-	root:SetScript("OnEvent", function(_, ev)
-		if ev == "CRITERIA_UPDATE" then
+	-- CRITERIA_UPDATE comes in bursts (each kill, loot, hit dealt or taken moves a statistic):
+	-- the whole tree is read again at most once per UPDATE_DELAY, after the burst
+	local pending = CreateFrame("Frame", nil, root)
+	pending:Hide()
+	pending:SetScript("OnUpdate", function(self, elapsed)
+		self.rest = self.rest - elapsed
+		if self.rest <= 0 then
+			self:Hide()
 			S.Update()
+		end
+	end)
+	root:SetScript("OnEvent", function(_, ev)
+		if ev == "CRITERIA_UPDATE" and not pending:IsShown() then
+			pending.rest = UPDATE_DELAY
+			pending:Show()
 		end
 	end)
 	root:RegisterEvent("CRITERIA_UPDATE")

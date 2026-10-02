@@ -359,7 +359,11 @@ SlashCmdList["FOREVERUI"] = function(message)
 	if command == "" or command == "edit" then
 		ForeverUI.CustomizeUI.Toggle()
 	elseif command == "reset" then
-		if argument ~= "" then
+		if InCombatLockdown() then
+			-- secure frames (unit frames, action bars) cannot move in combat: the saved positions
+			-- would be erased and the frames left where they are
+			say(ERR_NOT_IN_COMBAT)
+		elseif argument ~= "" then
 			if Layout.Reset(argument) then
 				say(L.LAYOUT_RESET_ONE .. argument)
 			else

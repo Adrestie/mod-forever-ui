@@ -193,12 +193,14 @@ local function placeDefault()
 end
 
 local function place()
-	if not hasPet() then
-		carrier:Hide()
+	-- The pet buttons are anchored to the carrier, which makes it protected: even its Hide is
+	-- blocked in combat (a pet dying or expiring there). PLAYER_REGEN_ENABLED places it again.
+	if InCombatLockdown() then
 		return
 	end
 
-	if InCombatLockdown() then
+	if not hasPet() then
+		carrier:Hide()
 		return
 	end
 

@@ -156,20 +156,26 @@ end
 -- failure tracking is missing.
 local open = { mail = 1, piece = ATTACHMENTS_MAX, pending = nil }
 
+-- Free slots of general bags only (as MainMenuBarBackpackButton_UpdateFreeSlots): a quiver,
+-- soul bag or profession bag cannot take most attachments
 local function freeSlots()
 	local n = 0
 	for bag = 0, NUM_BAG_SLOTS do
-		n = n + (GetContainerNumFreeSlots(bag) or 0)
+		local free, bagType = GetContainerNumFreeSlots(bag)
+		if (bagType or 0) == 0 then
+			n = n + (free or 0)
+		end
 	end
 	return n
 end
 
 local function stop()
 	local b = C.openAll
-	open.mail, open.piece, open.pending = 1, ATTACHMENTS_MAX, nil
+	open.mail, open.piece, open.pending, open.running = 1, ATTACHMENTS_MAX, nil, nil
 	b:Enable()
 	b:SetText(L.MAIL_OPEN_ALL)
 	b:UnregisterEvent("MAIL_INBOX_UPDATE")
+	b:UnregisterEvent("UI_ERROR_MESSAGE")
 end
 
 -- GM letters and COD letters are opened by hand
@@ -229,9 +235,20 @@ function C.OpenAll()
 	local b = C.openAll
 	open.mail, open.piece, open.pending = 1, ATTACHMENTS_MAX, nil
 	open.count = GetInboxNumItems()
+	-- Emptied letters leave the list and the later ones move up, but an open letter keeps its
+	-- index (InboxFrame.openMailID): it would then show, delete or pay for another letter. It is
+	-- closed with its dialogs, and opening one stops Open All (buildOpenAllButton)
+	for _, which in ipairs({ "COD_CONFIRMATION", "COD_CONFIRMATION_AUTO_LOOT", "DELETE_MAIL", "DELETE_MONEY" }) do
+		StaticPopup_Hide(which)
+	end
+	if OpenMailFrame:IsShown() then
+		HideUIPanel(OpenMailFrame)
+	end
+	open.running = true
 	b:Disable()
 	b:SetText(L.MAIL_OPEN_ALL_OPENING)
 	b:RegisterEvent("MAIL_INBOX_UPDATE")
+	b:RegisterEvent("UI_ERROR_MESSAGE")
 	process()
 end
 
@@ -245,7 +262,15 @@ local function buildOpenAllButton()
 	Tpl.PanelButton(b)
 	b:SetScript("OnClick", C.OpenAll)
 	b:SetScript("OnHide", stop)
-	b:SetScript("OnEvent", function()
+	b:SetScript("OnEvent", function(_, event, message)
+		-- A take failed (bags full, an item the player cannot carry more of): stop, rather than
+		-- ask for the same attachment every openDelay until the mailbox closes
+		if event == "UI_ERROR_MESSAGE" then
+			if message == ERR_INV_FULL or message == ERR_ITEM_MAX_COUNT then
+				stop()
+			end
+			return
+		end
 		-- A letter is gone: restart from the first
 		if open.count ~= GetInboxNumItems() then
 			open.mail, open.piece = 1, ATTACHMENTS_MAX
@@ -262,6 +287,12 @@ local function buildOpenAllButton()
 		end
 	end)
 	C.openAll = b
+	-- (see C.OpenAll) a letter opened by the player while opening stops Open All
+	OpenMailFrame:HookScript("OnShow", function()
+		if open.running then
+			stop()
+		end
+	end)
 end
 
 local function inbox()

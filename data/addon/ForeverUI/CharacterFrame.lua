@@ -1178,20 +1178,12 @@ local function declareContents()
 	Panes.Register({
 		host = "right", group = CHARACTER_SCREEN, id = "stats",
 		build = function()
-			local frames = {}
-			for _, group in ipairs(STAT_GROUPS) do
-				local selector = _G[group.selector]
-				if selector then
-					frames[#frames + 1] = selector
-				end
-				for index = 1, STAT_PER_GROUP do
-					local row = _G[group.prefix .. index]
-					if row then
-						frames[#frames + 1] = row
-					end
-				end
-			end
-			return nil, frames
+			-- The page owns CharacterAttributesFrame, parent of the two selectors and the twelve
+			-- rows, not the rows: showing each row brought back those the client hides
+			-- (UpdatePaperdollStats hides the sixth row of the ranged category), with the content
+			-- of the category shown before. Hidden, it also hides the rows the client shows over
+			-- the gear or titles page.
+			return nil, { _G["CharacterAttributesFrame"] }
 		end,
 	})
 
@@ -1269,9 +1261,17 @@ ForeverUI.CharacterUpdateActiveTab = updateActiveTab
 -- Opens one of our screens. CharacterFrame_ShowSubFrame only knows its five frames (an unknown
 -- name hides them all), so the five are hidden here and our group is shown.
 local function openOwnScreen(group)
+	-- PetPaperDollFrame is protected (secure companion buttons): the addon cannot hide it in
+	-- combat, so while it is the screen shown our screens open only out of combat
 	for _, name in ipairs(CHARACTERFRAME_SUBFRAMES or {}) do
 		local frame = _G[name]
-		if frame then
+		if frame and frame:IsShown() and InCombatLockdown() and frame:IsProtected() then
+			return
+		end
+	end
+	for _, name in ipairs(CHARACTERFRAME_SUBFRAMES or {}) do
+		local frame = _G[name]
+		if frame and frame:IsShown() then
 			frame:Hide()
 		end
 	end
@@ -1346,7 +1346,12 @@ local function applyCollapse(frame)
 	local isOpen = hasContentToShow and not isPaneCollapsed()
 
 	Panes.SetHostShown("right", isOpen)
-	frame:SetWidth(isOpen and WIDTH or LEFT_PANE)
+	-- CharacterFrame is protected (secure companion buttons in its pet screen): resized out of
+	-- combat only, and only when the width changes. PLAYER_REGEN_ENABLED runs applySkin again.
+	local width = isOpen and WIDTH or LEFT_PANE
+	if not (InCombatLockdown() and frame:IsProtected()) and math.abs((frame:GetWidth() or 0) - width) > 0.5 then
+		frame:SetWidth(width)
+	end
 
 	-- No collapse button on a tab without a right pane
 	local button = frame.foreverCollapse
@@ -1455,7 +1460,8 @@ local function updatePetTab()
 	if tab and screen and not HasPetUI() then
 		screen.hidden = true
 		tab:Hide()
-		if screen:IsVisible() then
+		-- ToggleCharacter hides the protected pet screen: not from here in combat
+		if screen:IsVisible() and not InCombatLockdown() then
 			ToggleCharacter("PaperDollFrame")
 		end
 	end
@@ -1780,15 +1786,9 @@ local function trackCategory(prefix, key)
 	for _, group in ipairs(STAT_GROUPS) do
 		if group.prefix == prefix then
 			writeCategory(_G[group.selector], key)
-			-- The client has just shown and hidden rows: restripe the visible ones
+			-- The client has just shown and hidden rows: restripe the visible ones. The rows it
+			-- shows while another page is open stay invisible: the stats page hides their parent.
 			stripeStatistics()
-
-			-- UpdatePaperdollStats shows every row it fills without checking whether the
-			-- page is open, so the rows would appear over the gear or titles page.
-			-- ForeverUI.Panes re-applies each host's page.
-			if ForeverUI.Panes and ForeverUI.Panes.Refresh then
-				ForeverUI.Panes.Refresh()
-			end
 			return
 		end
 	end
@@ -1824,6 +1824,11 @@ listener:SetScript("OnEvent", function(_self, event, unit)
 		if unit == "player" and CharacterFrame then
 			placeTitle(CharacterFrame)
 		end
+		return
+	end
+	-- The UNIT_ events fire for every unit (party, raid, target...): only the player's concern
+	-- the sheet, and only while it is shown (its OnShow hook lays it out again anyway)
+	if unit and (unit ~= "player" or not (CharacterFrame and CharacterFrame:IsShown())) then
 		return
 	end
 	applySkin()

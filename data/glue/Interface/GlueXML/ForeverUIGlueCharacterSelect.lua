@@ -57,7 +57,7 @@ local function navButton(text, action)
 	G.PlaceAtlas(b.bar, "glues-characterselect-tophud-bg-divider", true)
 	b.bar:SetPoint("RIGHT", b, "RIGHT")
 	b:SetScript("OnClick", action)
-	b:SetScript("OnEnter", function(self) if self:IsEnabled() then self.hover:SetShown(true) end end)
+	b:SetScript("OnEnter", function(self) if G.Truthy(self:IsEnabled()) then self.hover:SetShown(true) end end)
 	b:SetScript("OnLeave", function(self) self.hover:SetShown(false) end)
 	return b
 end
@@ -98,7 +98,7 @@ local function paintNav(b, rank, last)
 	b.hover.rect:SetHeight(44)
 	b.hover:SetShown(false)
 	G.SetShown(b.bar, not last)
-	local active = b:IsEnabled() and true or false
+	local active = G.Truthy(b:IsEnabled())
 	b.background:SetShown(active)
 	b.grayed:SetShown(not active)
 	G.PlaceAtlas(b.bar, active and "glues-characterselect-tophud-bg-divider" or "glues-characterselect-tophud-bg-divider-dis", true)

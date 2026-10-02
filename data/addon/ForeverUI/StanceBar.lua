@@ -146,13 +146,13 @@ end
 local function place()
 	local numForms = GetNumShapeshiftForms and GetNumShapeshiftForms() or 0
 
+	if InCombatLockdown() then
+		return                  -- secure buttons, and the carrier they anchor to, are locked in combat
+	end
+
 	if numForms <= 0 then
 		carrier:Hide()
 		return
-	end
-
-	if InCombatLockdown() then
-		return                  -- secure buttons cannot be moved in combat
 	end
 
 	carrier:SetWidth(numForms * SIZE + (numForms - 1) * GAP)

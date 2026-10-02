@@ -702,6 +702,12 @@ local function build(frame)
 	Gu.control:SetScript("OnClick", function()
 		local gc = GuildControlPopupFrame
 		if not gc then return end
+		-- Its OnShow and OnHide set FriendsFrame's attributes and place it (UpdateUIPanelPositions):
+		-- refused to our code in combat, FriendsFrame being protected by the secure tabs.
+		if InCombatLockdown() then
+			UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1.0, 0.1, 0.1, 1.0)
+			return
+		end
 		if gc:IsShown() then
 			gc:Hide()
 		else
@@ -754,7 +760,9 @@ S.registerPage(3, {
 		for _, a in ipairs({ D.frame, I.frame, J.frame }) do
 			if a then a:Hide() end
 		end
-		if GuildControlPopupFrame then GuildControlPopupFrame:Hide() end
+		-- In combat the client hides it (tab OnClick, FriendsFrame_OnHide): its OnHide, run from
+		-- ours, would be refused (see Gu.control).
+		if GuildControlPopupFrame and not InCombatLockdown() then GuildControlPopupFrame:Hide() end
 		Gu.closeSize = nil
 	end,
 })

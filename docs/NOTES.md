@@ -274,9 +274,18 @@ ce mouvement est conservé. Mais on ne peut pas déplacer un bouton sécurisé i
 par image : le client l'interdit en combat, et c'est précisément là qu'on change
 de posture. Les boutons bonus sont donc ancrés **une fois** à une glissière —
 `ForeverUIBonusSlide`, un cadre à nous posé sur le porteur — et c'est **elle**
-qui glisse. Les boutons suivent sans qu'on y touche, et déplacer son propre
-cadre reste permis en combat. La course vaut une hauteur de bouton, la durée
-`BONUS_ACTIONBUTTON_SLIDE_TIME` quand le client la déclare, 0,2 s sinon.
+qui glisse. Les boutons suivent sans qu'on y touche. La course vaut une hauteur
+de bouton, la durée `BONUSACTIONBAR_SLIDETIME` du client (0,15 s).
+
+**Corrigé le 2026-10-01 :** la glissière ne bouge pas en combat. Des boutons
+sécurisés ancrés à un cadre le rendent protégé (le même constat que pour la
+page d'artisanat, `ProfessionsBook.lua`) : ses `SetPoint` étaient bloqués, et
+une barre de forme montrée en combat restait à la position basse de la
+glissière, à moitié sous l'écran, jusqu'au prochain retrait hors combat. Elle
+attend désormais au repos, y revient à `PLAYER_REGEN_DISABLED` (avant le
+verrouillage), et une barre montrée en combat paraît en place, sans glisser.
+L'ancienne constante `BONUS_ACTIONBUTTON_SLIDE_TIME` n'existe pas en 3.3.5 :
+la glissière durait 0,2 s, et le client masquait la barre avant la fin.
 
 Le mouvement va **dans les deux sens**. Au retrait, c'est le client qui le rend
 possible : comme pour ses autres barres glissantes, il pose `mode = "hide"`,
@@ -899,7 +908,7 @@ toujours le client qui tient la liste, la sélection et les infobulles.
 | **On n'efface l'ancien que si le nouveau existe** | Un renommage effaçait l'ancien sans vérifier que l'enregistrement avait abouti — l'ensemble disparaîssait. Deux causes : (a) l'**indice d'icône** peut manquer, la fenêtre retenant l'icône présélectionnée dans `selectedTexture` et ne la convertissant en `selectedIcon` que pour les icônes de la **page visible** ; (b) `MAX_EQUIPMENT_SETS_PER_PLAYER` — créer avant d'effacer demande une place de plus, qui n'existe pas au plafond. Sans indice valide on **abandonne** ; au plafond l'ancien part **d'abord**, ce qui est sans risque puisque son équipement est porté à cet instant ; et dans tous les cas l'effacement suit une vérification par `GetEquipmentSetInfoByName`. |
 | **Lire avant de fermer** | `GearManagerDialogPopup_OnHide` remet `popup.name` à **nil** : lire le nom après avoir caché la fenêtre le rendait vide, et `SaveEquipmentSet` répondait *Usage: SaveEquipmentSet("setName", iconIndex)*. Le même `OnHide` abandonne l'édition, d'où un drapeau qui dit que la fermeture vient de nous. Trois manques du banc l'avaient laissé passer : son `Hide` ne déclenchait pas `OnHide`, son `SaveEquipmentSet` acceptait un nom vide, et son `GearManagerDialogSaveSet_OnClick` ne **montrait** pas la fenêtre. |
 | **Le Okay est repris, pas greffé** | Un greffon passerait **après** le client, qui aurait déjà enregistré l'équipement porté sous ce nom — c'est-à-dire tout sauf ce qu'on veut. Hors édition, la main lui est rendue telle quelle. |
-| **L'ordre d'affichage est tenu par nous** | 3.3.5 n'a aucun moyen de replacer un ensemble dans sa liste (pas de `SetEquipmentSetPosition`), son ordre étant celui de création. Le nôtre vit dans `ForeverUIDB.setOrder` et c'est lui qui pose les cartes ; un ensemble renommé garde donc son rang. |
+| **L'ordre d'affichage est tenu par nous** | 3.3.5 n'a aucun moyen de replacer un ensemble dans sa liste (pas de `SetEquipmentSetPosition`), son ordre étant celui de création. Le nôtre vit dans `ForeverUIDB.sets["Nom-Royaume"].order`, par personnage (les ensembles sont ceux d'un personnage, `ForeverUIDB` est au compte : l'ordre d'un personnage était élagué aux ensembles d'un autre — corrigé le 2026-10-01), et c'est lui qui pose les cartes ; un ensemble renommé garde donc son rang. |
 | **L'engrenage, infobulle** | Chez camelot il ouvre un menu d'**assignation de spécialisation** (`C_EquipmentSet.AssignSpecToEquipmentSet`), qui n'existe pas en 3.3.5. À la demande il rouvre la fenêtre de création sur l'ensemble choisi : le client la remplit alors de son nom et de son icône (`RecalculateGearManagerDialogPopup`), et son Okay voit que le nom existe déjà — il demande confirmation (`CONFIRM_OVERWRITE_EQUIPMENT_SET`) puis **écrase** au lieu de créer. Infobulle `SETTINGS`, `EQUIPMENT_SET_SETTINGS` n'existant pas ici. |
 | **La croix rouge** | `StaticPopup_Show("CONFIRM_DELETE_EQUIPMENT_SET", name)` — la fenêtre de validation du client, exactement comme camelot l'appelle. |
 | **Le choix au-dessus du survol** | Les deux étaient en `BORDER`, où seul l'ordre de création départage — trop fragile pour une règle d'affichage. Le survol reste en `BORDER`, le choix monte en `ARTWORK`. |
