@@ -124,7 +124,7 @@ end
 -- Thumb at 0.7 when the slider is disabled (MinimalSliderWithSteppers:ConfigureSlider).
 -- The client disables its sliders through a function it keeps on each one, so their state
 -- is polled while the windows are open.
-local watcher = CreateFrame("Frame")
+local watcher = CreateFrame("Frame", nil, GlueParent)
 watcher.t = 0
 watcher:SetScript("OnUpdate", function(self, elapsed)
 	self.t = self.t + (elapsed or 0)
