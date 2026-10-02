@@ -75,7 +75,7 @@ G.FitScreen()
 
 -- Resolution change: scale and area depend on gxResolution and the screen size, and applying
 -- another resolution (RestartGx) does not notify the glue screens. The three values are read
--- five times per second; on a change both are recomputed and every G.onScale callback runs.
+-- every frame; on a change both are recomputed and every G.onScale callback runs.
 G.onScale = {}
 
 -- ---------- Fitting a screen
@@ -202,25 +202,16 @@ end
 
 local screenWatcher = CreateFrame("Frame")
 screenWatcher.fingerprint = fingerprint()
-screenWatcher.t = 0
-screenWatcher:SetScript("OnUpdate", function(self, elapsed)
-	self.t = self.t + (elapsed or 0)
-	if self.t < 0.2 then
-		return
-	end
-	self.t = 0
+-- Checked every frame: on a change the UI is laid out at once, then once more on the next
+-- frame, as showing a screen does (positions read during a layout predate it until drawn)
+screenWatcher:SetScript("OnUpdate", function(self)
 	local e = fingerprint()
 	if e ~= self.fingerprint then
-		-- the window is still changing (maximize spans several frames): wait until stable
 		self.fingerprint = e
-		self.pending = 2
-		return
-	end
-	-- Stable: rescale, then once more on the next pass, as showing a screen does (positions
-	-- read during a layout predate it until the frame is drawn)
-	if self.pending then
-		self.pending = self.pending - 1
-		if self.pending == 0 then self.pending = nil end
+		self.again = true
+		G.Rescale(true)
+	elseif self.again then
+		self.again = nil
 		G.Rescale(true)
 	end
 end)
