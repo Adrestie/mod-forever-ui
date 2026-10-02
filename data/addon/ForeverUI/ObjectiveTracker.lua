@@ -95,11 +95,14 @@ end
 -- One OnUpdate plays every running step: a delay, a duration, and a function that receives
 -- the progress from 0 to 1. 3.3.5 animation groups lack fromAlpha / toAlpha and
 -- setToFinalAlpha, so camelot's animations are replayed by hand with its timings.
+-- A finish callback may start new steps (a chained step, a WatchFrame_Update): finish
+-- callbacks run after the loop, since Lua leaves a traversal undefined when a key is added
+-- during it, and the frame stops only once no step is left.
 local A = { steps = {} }
 A.frame = CreateFrame("Frame")
 A.frame:Hide()
 A.frame:SetScript("OnUpdate", function(self, elapsed)
-	local remaining = 0
+	local finished
 	for key, e in pairs(A.steps) do
 		e.t = e.t + elapsed
 		if e.t >= e.delay then
@@ -107,15 +110,17 @@ A.frame:SetScript("OnUpdate", function(self, elapsed)
 			e.fn(p)
 			if p >= 1 then
 				A.steps[key] = nil
-				if e.finish then e.finish() end
-			else
-				remaining = remaining + 1
+				if e.finish then
+					finished = finished or {}
+					table.insert(finished, e.finish)
+				end
 			end
-		else
-			remaining = remaining + 1
 		end
 	end
-	if remaining == 0 then self:Hide() end
+	if finished then
+		for _, finish in ipairs(finished) do finish() end
+	end
+	if not next(A.steps) then self:Hide() end
 end)
 
 -- key: { object, name }, a step with the same key replaces the running one;
@@ -126,6 +131,7 @@ local function play(key, delay, duration, fn, finish)
 	A.frame:Show()
 end
 T.play = play
+T.animations = A
 
 -- smoothing="OUT"
 local function easeOut(p) return 1 - (1 - p) * (1 - p) end
