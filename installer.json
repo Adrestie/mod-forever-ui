@@ -5,9 +5,14 @@
   "server_module": false,
   "fields": {
     "game": "required",
-    "worldserver": {"optional": "Only if you run the server: adds 18 statistics (server DBC files and database). Leave empty if you only play."},
-    "mysql": {"optional": "Only with the worldserver folder, for the statistics' database rows. Found by itself when left empty."}
+    "worldserver": {"optional": "Only if you run the server. Leave empty if you only play."},
+    "mysql": {"optional": "Only if you run the server. Found by itself when left empty."}
   },
+  "optional-notes": [
+    "The server part adds to the Statistics tab 18 statistics that the modern client tracks and 3.3.5 does not: boss kills in 14 classic dungeons (from Ragefire Chasm to Scholomance), raids entered and deaths in 20 and 40 player raids.",
+    "The server counts them only with these rows in its DBC files and its world database: the installer writes them, and the same rows into the game.",
+    "If you only play, on a server you do not run, leave these fields empty: the tab shows the statistics of 3.3.5."
+  ],
   "database": {
     "world": {
       "rows": [
