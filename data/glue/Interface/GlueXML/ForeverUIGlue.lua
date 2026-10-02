@@ -228,6 +228,10 @@ screenWatcher:SetScript("OnUpdate", function(self)
 		G.Rescale(true)
 	elseif not self.hooked and fingerprint() ~= self.fingerprint then
 		onDisplayChanged(self)
+	elseif math.abs(GlueParent:GetScale() - G.SCALE) > 0.0001 then
+		-- the client resets GlueParent (scale 1, its own anchors) when the window is resized,
+		-- with the screen size and gxResolution unchanged
+		onDisplayChanged(self)
 	end
 end)
 
