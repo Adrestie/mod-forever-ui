@@ -200,7 +200,8 @@ local function fingerprint()
 	return (cvar("gxResolution") or "") .. " " .. GetScreenWidth() .. " " .. GetScreenHeight()
 end
 
-local screenWatcher = CreateFrame("Frame")
+-- Child of GlueParent: on the glue screens a frame without a parent gets no OnUpdate
+local screenWatcher = CreateFrame("Frame", nil, GlueParent)
 screenWatcher.fingerprint = fingerprint()
 
 -- Lays the UI out at once, then once more on the next frame, as showing a screen does
