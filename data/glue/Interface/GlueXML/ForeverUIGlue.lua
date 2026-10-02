@@ -211,7 +211,16 @@ screenWatcher:SetScript("OnUpdate", function(self, elapsed)
 	self.t = 0
 	local e = fingerprint()
 	if e ~= self.fingerprint then
+		-- the window is still changing (maximize spans several frames): wait until stable
 		self.fingerprint = e
+		self.pending = 2
+		return
+	end
+	-- Stable: rescale, then once more on the next pass, as showing a screen does (positions
+	-- read during a layout predate it until the frame is drawn)
+	if self.pending then
+		self.pending = self.pending - 1
+		if self.pending == 0 then self.pending = nil end
 		G.Rescale(true)
 	end
 end)
