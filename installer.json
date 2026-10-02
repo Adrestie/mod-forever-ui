@@ -3,6 +3,14 @@
   "module": "mod-forever-ui",
   "title": "ForeverUI",
   "server_module": false,
+  "worldserver": "optional",
+  "database": {
+    "world": {
+      "rows": [
+        {"table": "achievement_criteria_data", "where": "`criteria_id` IN ({ids:Achievement_Criteria.dbc})"}
+      ]
+    }
+  },
   "addons": [
     "data/addon/ForeverUI"
   ],

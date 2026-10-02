@@ -165,11 +165,12 @@ client's language: English and French are provided.
 
 ## Server and optional parts
 
-- **Installer**: `installer.exe` puts the addon, the art, the login screens and
-  the statistics in place, and removes them all when run again (see
-  `README.md`).
-- **SQL file** (`sql/foreverui_statistics.sql`): lets the server count the boss
-  kills of the added statistics.
+- **Installer**: `installer.exe` puts the addon, the art and the login screens
+  in place, plus the statistics when given the worldserver folder, and removes
+  them all when run again (see `README.md`).
+- **SQL file** (`data/sql/db-world/foreverui_statistics.sql`): lets the server
+  count the boss kills of the added statistics; the installer applies it with
+  the worldserver folder.
 - **`Wow.exe` patch** (`tools/patcher/ForeverUIPatcher.exe`): numbered
   appearance choices at character creation and the barber; Restore gives the
   original file back.
