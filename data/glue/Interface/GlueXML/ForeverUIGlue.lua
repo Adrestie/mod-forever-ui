@@ -20,9 +20,27 @@ local function cvar(name)
 	return nil
 end
 
+-- Height of the window in pixels. gxResolution keeps the chosen size when Windows resizes the
+-- window (its maximize button): the window's shape (GetScreenWidth / GetScreenHeight) then
+-- differs from gxResolution's. A maximized window spans the desktop's width, the largest of
+-- GetScreenResolutions: its height is that width over the shape.
 local function screenHeight()
 	local resolution = cvar("gxResolution")
-	local height = resolution and tonumber(string.match(resolution, "%d+x(%d+)"))
+	local width, height = string.match(resolution or "", "(%d+)x(%d+)")
+	width, height = tonumber(width), tonumber(height)
+	local shape = GetScreenWidth() / GetScreenHeight()
+	if width and height and math.abs(width / height - shape) < 0.01 then
+		return height
+	end
+	local desktop = 0
+	if GetScreenResolutions then
+		for _, r in ipairs({ GetScreenResolutions() }) do
+			desktop = math.max(desktop, tonumber(string.match(r, "^(%d+)")) or 0)
+		end
+	end
+	if desktop > 0 then
+		return desktop / shape
+	end
 	return height or 1080
 end
 
