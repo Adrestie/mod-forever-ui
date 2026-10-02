@@ -38,33 +38,42 @@ combat closes the editor and cancels its changes.
 
 ## Installation
 
-Needs a 3.3.5a client (build 12340) and its AzerothCore server. Close the game
-and stop the worldserver first: the game locks its archives while it runs, and
-the server reads its DBC files only when it starts.
+Needs a 3.3.5a client (build 12340). Close the game first, and stop the
+worldserver if you run it: the game locks its archives while it runs, and the
+server reads its DBC files only when it starts.
+
+There are two cases. **If you run the server**, ForeverUI also adds 18
+statistics, in the DBC files of the game and of the server, and the database
+rows the server needs to count them. **If you only play**, on a server you do
+not run, the statistics are left out: you cannot add their rows to the
+server's files and database, and without them they would never count.
 
 ### With the installer
 
 Download `installer.exe` from the
 [releases of WoW-mods-installer](https://github.com/Adrestie/WoW-mods-installer/releases),
 run it and give it this folder, the one that contains `installer.json` (or drop
-the folder on `installer.exe`). The first time, it asks for the worldserver
-folder (the one that contains `worldserver.exe`) and the game folder (the one
-that contains `Wow.exe` and `Data`), and remembers them. It shows what it finds,
-then installs after Enter:
+the folder on `installer.exe`). The first time, it asks for the game folder
+(the one that contains `Wow.exe` and `Data`) and the worldserver folder (the
+one that contains `worldserver.exe`): leave the worldserver folder empty if you
+only play. It remembers them, shows what it finds, then installs after Enter:
 
 - it copies `data/addon/ForeverUI` into the game's `Interface\AddOns\ForeverUI`;
 - it writes into the archive the game reads last (usually `Data\patch-Z.MPQ`,
   created if there is none): the art (`Interface\ForeverUI`, and the group
   member arrow of the minimap) and the login screens (`Interface\GlueXML`),
   with a receipt, `WoW-mods\mod-forever-ui.receipt`, listing what it wrote;
-- it adds the 18 statistics to `Achievement.dbc` and `Achievement_Criteria.dbc`,
-  in the game's archive and in the server's `dbc` folder;
+- with the worldserver folder only: it adds the 18 statistics to
+  `Achievement.dbc` and `Achievement_Criteria.dbc`, in the game's archive and
+  in the server's `dbc` folder, and applies
+  `data/sql/db-world/foreverui_statistics.sql` to the world database (with
+  `mysql.exe` and the credentials of `worldserver.conf`);
 - it reads everything back to check it.
 
-It does not patch `Wow.exe`, runs no SQL, and touches neither the server's
-sources, configuration nor database: nothing to rebuild. Start the worldserver
-and the game afterwards, and check that **ForeverUI** is enabled in the AddOns
-list of the character selection screen.
+It does not patch `Wow.exe`, and touches neither the server's sources nor its
+configuration: nothing to rebuild. Start the worldserver and the game
+afterwards, and check that **ForeverUI** is enabled in the AddOns list of the
+character selection screen.
 
 ### By hand
 
@@ -86,7 +95,8 @@ and a DBC editor for step 3. This gives the same result as the installer.
      the edge of the minimap, resized for the larger map;
    - `GlueXML\`, holding 24 files (`GlueXML.toc`, `ForeverUIGlue.xml`...): the
      login screens in the camelot style.
-3. **The statistics.** The Statistics tab of the character sheet lists the
+3. **The statistics, if you run the server** (skip this step if you only
+   play). The Statistics tab of the character sheet lists the
    client's statistics; `data/dbc/statistics.json` adds 18 that the camelot
    client has and 3.3.5 lacks, on content 3.3.5 has: boss kills in classic
    dungeons, raids entered by size, deaths in 20 and 40 player raids.
@@ -105,18 +115,16 @@ and a DBC editor for step 3. This gives the same result as the installer.
    3. Add both files to `patch-Z.MPQ` under `DBFilesClient\`, and copy them into
       the server's `dbc` folder (in the `DataDir` of `worldserver.conf`): the
       server must read the same files as the game.
+   4. Run `data/sql/db-world/foreverui_statistics.sql` on the world database
+      (`acore_world` by default) with your MySQL client, such as HeidiSQL or
+      MySQL Workbench. The server counts a creature kill for a statistic only
+      when its criterion has a row in `achievement_criteria_data`: without
+      these rows, the boss kill statistics stay at 0 and the worldserver logs
+      a warning for each at start. It can be run again safely.
 4. Start the worldserver and the game, and check that **ForeverUI** is enabled
    in the AddOns list of the character selection screen.
 
 ### Optional
-
-**The SQL file.** The server counts a creature kill for a statistic only when
-its criterion has a row in `achievement_criteria_data`: without these rows, the
-boss kill statistics added above stay at 0 (raids entered and deaths are counted
-anyway). `sql/foreverui_statistics.sql` adds them. Once the statistics are
-installed, run it on the world database (`acore_world` by default) with your
-MySQL client, such as HeidiSQL or MySQL Workbench, then restart the worldserver.
-It can be run again safely.
 
 **The `Wow.exe` patch.** The 3.3.5 interface cannot know which skin, face, hair
 or facial hair is applied. With `Wow.exe` patched, character creation and the
@@ -134,7 +142,7 @@ it shows the kill count alone.
 
 ## Uninstallation
 
-Close the game and stop the worldserver first.
+Close the game first, and stop the worldserver if you run it.
 
 ### With the installer
 
@@ -142,8 +150,9 @@ Run `installer.exe` again on this folder. It finds ForeverUI and, after you type
 `YES` then Enter, removes everything that is left of it: the folder
 `Interface\AddOns\ForeverUI`, its files in the game's archives (those its
 receipt lists, and everything under `Interface\ForeverUI`), and the statistics'
-rows in the game's and the server's DBC files. An archive it no longer changes
-is deleted. It also finishes
+rows in the game's DBC files; with the worldserver folder, also their rows in
+the server's DBC files and in the world database. An archive it no longer
+changes is deleted. It also finishes
 an uninstallation started by hand. It removes neither the optional parts (see
 below) nor the addon's settings (step 4 below).
 
@@ -158,16 +167,15 @@ below) nor the addon's settings (step 4 below).
 3. Delete the statistics' rows, in the copies of the two files inside
    `patch-Z.MPQ` and in the server's `dbc` folder: in `Achievement.dbc` the rows
    6137, 6139 to 6146, 6786, 15027 to 15030, 64183 to 64185 and 64300; in
-   `Achievement_Criteria.dbc` the rows 64301 to 64321.
+   `Achievement_Criteria.dbc` the rows 64301 to 64321. If you run the server,
+   run only the first statement of `data/sql/db-world/foreverui_statistics.sql`,
+   the `DELETE`, on the world database.
 4. The addon's settings (positions, sizes, grid) stay in
    `WTF\Account\<account>\SavedVariables\ForeverUI.lua`: delete that file to
    forget them.
 
 ### Removing the optional parts
 
-- **The SQL rows.** Run only the first statement of
-  `sql/foreverui_statistics.sql`, the `DELETE`, on the world database, then
-  restart the worldserver.
 - **The `Wow.exe` patch.** Run `tools/patcher/ForeverUIPatcher.exe`, choose the
   game's `Wow.exe` and click **Restore**: the file becomes the original again,
   byte for byte. The copy `Wow.exe.foreverui.bak` stays; it can be deleted.
