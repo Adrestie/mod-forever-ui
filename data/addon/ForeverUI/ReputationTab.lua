@@ -404,9 +404,10 @@ local function layout()
 	-- Row heights vary by template, so rows are stacked, not divided.
 	local y = MARGIN
 	local placedCount = 0
+	local full = false
 	for rank, row in ipairs(rows) do
 		local index = offset + rank
-		local data = (index <= total) and readFaction(index) or nil
+		local data = (not full and index <= total) and readFaction(index) or nil
 		local height = data and heightOf(data) or 0
 		if data and y + height <= usableHeight - MARGIN then
 			local indent = indentOf(data)
@@ -417,6 +418,9 @@ local function layout()
 			y = y + height + GAP
 			placedCount = placedCount + 1
 		else
+			-- Past the first row that does not fit nothing is placed: a shorter row further down
+			-- (a header after an entry) would otherwise take its slot, out of order
+			full = full or data ~= nil
 			row:Hide()
 		end
 	end
@@ -879,9 +883,31 @@ local function updateDetail()
 	placeBarIn(detail.gauge, data, DETAIL_GAUGE_W)
 	detail.gauge.text:SetText(data.progression or data.label or "")
 
-	-- The description comes from the client: ReputationFrame_Update sets it for the selection.
-	local source = _G["ReputationDetailFactionDescription"]
-	detail.description:SetText((source and source:GetText()) or "")
+	-- ReputationFrame_Update fills the client's description and check boxes only when the
+	-- selection is one of the 15 rows of its own list, hidden here and never scrolled: from the
+	-- 16th faction on they kept the previous faction's, and a click acted on the new one with
+	-- the wrong intent (at war, watched bar). They are read from the faction itself, as there.
+	if index then
+		local _, description, _, _, _, _, atWar, canToggleAtWar, _, _, _, isWatched = GetFactionInfo(index)
+		detail.description:SetText(description or "")
+		local atWarBox = _G["ReputationDetailAtWarCheckBox"]
+		if atWarBox then
+			atWarBox:SetChecked(atWar and 1 or nil)
+			if canToggleAtWar then atWarBox:Enable() else atWarBox:Disable() end
+		end
+		local inactiveBox = _G["ReputationDetailInactiveCheckBox"]
+		if inactiveBox then
+			inactiveBox:Enable()
+			inactiveBox:SetChecked(IsFactionInactive(index) and 1 or nil)
+		end
+		local watchBox = _G["ReputationDetailMainScreenCheckBox"]
+		if watchBox then
+			watchBox:SetChecked(isWatched and 1 or nil)
+		end
+	else
+		local source = _G["ReputationDetailFactionDescription"]
+		detail.description:SetText((source and source:GetText()) or "")
+	end
 
 	showCells(true)
 	syncCheckboxes()

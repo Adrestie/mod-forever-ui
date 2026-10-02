@@ -408,6 +408,15 @@ local function syncClientFrame(id)
 	end
 end
 
+-- PVPTeamDetails is one of the client's UIChildWindows: CloseChildWindows hides it whenever a
+-- panel opens, and the menu then drops promote / kick / leave and PVPFrame_OnEvent stops asking
+-- for the roster. It gets our team back while the detail window is open.
+hooksecurefunc("CloseChildWindows", function()
+	if window and window:IsShown() and window.team then
+		syncClientFrame(window.team)
+	end
+end)
+
 local function redCloseButton(parent)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetWidth(CLOSE_SIZE)

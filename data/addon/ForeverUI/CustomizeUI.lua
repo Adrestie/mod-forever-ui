@@ -282,6 +282,14 @@ local function buildVeil(id, system)
 	veil:SetScript("OnMouseUp", function()
 		C.EndDrag()
 	end)
+	-- The element can hide while held (the cast bar when its cast ends, the target frame when the
+	-- target goes): a hidden veil gets no OnMouseUp, so the drag ends here
+	veil:SetScript("OnHide", function()
+		local d = C.drag and C.drag.state
+		if d and d.id == id then
+			C.EndDrag()
+		end
+	end)
 	veil:SetScript("OnSizeChanged", fitLabel)
 	veils[id] = veil
 	return veil

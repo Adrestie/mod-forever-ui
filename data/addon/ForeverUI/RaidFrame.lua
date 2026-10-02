@@ -352,6 +352,12 @@ local function updateAuras(f)
 		end
 	end
 	local d = first and P.dispelGap or 0
+	-- The grids move only when the dispel icons come or go, not on every aura change
+	if f.auraOffset ~= d then
+		f.auraOffset = d
+		placeGrid(f.buffs, "BOTTOMRIGHT", -1, -3 - d, P.auraBottom + P.resourceH + d, P.aura)
+		placeGrid(f.debuffs, "BOTTOMLEFT", 1, 3 + d, P.auraBottom + P.resourceH + d, P.aura)
+	end
 	if first then
 		local c = DebuffTypeColor[first] or DebuffTypeColor["none"]
 		applyTint({ f.overlay.background, f.overlay.gradient }, c.r, c.g, c.b)
@@ -370,13 +376,11 @@ local function updateAuras(f)
 	end
 	-- buffs, from BOTTOMRIGHT leftwards; the PLAYER filter stands in for camelot's
 	-- player-castable buffs
-	placeGrid(f.buffs, "BOTTOMRIGHT", -1, -3 - d, P.auraBottom + P.resourceH + d, P.aura)
 	for k, a in ipairs(f.buffs) do
 		local name, _, icon, stack, _, duration, finish = UnitBuff(u, k, "PLAYER")
 		if name then applyAura(a, icon, stack, duration, finish) else a:Hide() end
 	end
 	-- debuffs, from BOTTOMLEFT rightwards
-	placeGrid(f.debuffs, "BOTTOMLEFT", 1, 3 + d, P.auraBottom + P.resourceH + d, P.aura)
 	for k, a in ipairs(f.debuffs) do
 		local name, _, icon, stack, type, duration, finish = UnitDebuff(u, k)
 		if name then
@@ -431,12 +435,17 @@ function R.updateButton(f)
 	updateRange(f)
 end
 
-local function buttonsFor(unit)
-	local l = {}
-	for _, f in ipairs(R.buttons) do
-		if f.unit and (f.unit == unit or f.display == unit) then l[#l + 1] = f end
-	end
-	return l
+-- What each frequent unit event changes on a button; the others rebuild it. In a raid these
+-- events come by hundreds a second: a full rebuild (bars, role, auras...) for each was the
+-- main cost of the frames.
+local PARTIAL = {
+	UNIT_HEALTH = updateHealth, UNIT_MAXHEALTH = updateHealth,
+	UNIT_AURA = updateAuras, UNIT_THREAT_SITUATION_UPDATE = updateThreat,
+}
+for _, ev in ipairs({ "UNIT_DISPLAYPOWER", "UNIT_MANA", "UNIT_RAGE", "UNIT_FOCUS", "UNIT_ENERGY",
+	"UNIT_RUNIC_POWER", "UNIT_MAXMANA", "UNIT_MAXRAGE", "UNIT_MAXFOCUS", "UNIT_MAXENERGY",
+	"UNIT_MAXRUNIC_POWER" }) do
+	PARTIAL[ev] = updateResource
 end
 
 -- --------------------------------------------------------------------- menu
@@ -615,7 +624,12 @@ listener:SetScript("OnEvent", function(self, ev, unit)
 		R.readyCheckFinish = P.readyCheckFinish
 		R.timer:Show()
 	else
-		for _, f in ipairs(buttonsFor(unit)) do R.updateButton(f) end
+		local partial = PARTIAL[ev]
+		for _, f in ipairs(R.buttons) do
+			if f.unit and (f.unit == unit or f.display == unit) then
+				if partial and f.display then partial(f) else R.updateButton(f) end
+			end
+		end
 	end
 end)
 

@@ -315,8 +315,12 @@ local function sweep(frame, spared)
         end
     end
     if frame.GetChildren then
+        -- PetPaperDollFrameCompanionFrame holds the secure CompanionButtons, so the client
+        -- protects it: in combat an insecure Hide on it is blocked (ADDON_ACTION_BLOCKED)
+        local locked = InCombatLockdown()
         for _, childFrame in ipairs({ frame:GetChildren() }) do
-            if not spared[childFrame] and childFrame.Hide then
+            if not spared[childFrame] and childFrame.Hide
+                and not (locked and childFrame:IsProtected()) then
                 childFrame:Hide()
             end
         end
@@ -397,9 +401,13 @@ local function build(host)
         return nil, {}
     end
 
-    frame:ClearAllPoints()
-    frame:SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
-    frame:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", 0, 0)
+    -- Protected through its secure CompanionButtons: moved out of combat only (its XML
+    -- setAllPoints on CharacterFrame stays meanwhile; the model hangs on our panel)
+    if not InCombatLockdown() then
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
+        frame:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", 0, 0)
+    end
 
     if panel then
         updatePreview()
@@ -486,7 +494,8 @@ if hooksecurefunc and type(_G["PetPaperDollFrame_UpdateTabs"]) == "function" the
         if not critters:IsShown() then
             pet:Hide()
         end
-        if PetPaperDollFrame.selectedTab == 3 and HasPetUI() then
+        -- PetPaperDollFrame_SetTab shows and hides the protected companion frame
+        if PetPaperDollFrame.selectedTab == 3 and HasPetUI() and not InCombatLockdown() then
             PetPaperDollFrame_SetTab(1)
         end
     end)
@@ -498,7 +507,12 @@ listener:RegisterEvent("UNIT_PET")
 listener:RegisterEvent("UNIT_STATS")
 listener:RegisterEvent("UNIT_ATTACK_POWER")
 listener:RegisterEvent("UNIT_RESISTANCES")
-listener:SetScript("OnEvent", function()
+listener:SetScript("OnEvent", function(_, event, unit)
+    -- Only the player's pet: UNIT_PET names the owner, the other three the unit itself (they
+    -- fire for every group member, and each refresh reloads the model)
+    if unit ~= ((event == "UNIT_PET") and "player" or "pet") then
+        return
+    end
     updatePreview()
     updateDetail()
 end)

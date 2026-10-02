@@ -1436,8 +1436,15 @@ nameField:SetTextInsets(0, 0, 0, 0)
 nameField:SetFrameLevel(nameChoice:GetFrameLevel() + 2)
 nameField:ClearAllPoints()
 nameField:SetPoint("LEFT", randomName, "RIGHT", 0, 0)
--- CharacterCreateEditBoxMixin: Escape goes back, Enter goes forward
-nameField:SetScript("OnEscapePressed", function() backButton:Click() end)
+-- CharacterCreateEditBoxMixin: Escape goes back, Enter goes forward. The field keeps the
+-- keyboard focus in step 2 (autoFocus), so Escape first closes an open list, as OnKeyDown does
+nameField:SetScript("OnEscapePressed", function()
+	if isOpen then
+		closeMenu(false)
+	else
+		backButton:Click()
+	end
+end)
 nameField:SetScript("OnEnterPressed", function() forwardButton:Click() end)
 
 -- SmallButtons without zoom (3.3.5 has none at creation: the scenery camera belongs to its

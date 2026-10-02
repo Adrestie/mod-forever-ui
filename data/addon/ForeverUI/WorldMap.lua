@@ -365,7 +365,9 @@ local function openMenu(anchor, list, minimum)
 	local list1 = DropDownList1
 	if list1 and list1:IsShown() then
 		local point = list1:GetPoint(1)
-		if point and string.find(point, "^BOTTOM") then
+		-- only under a frame: "cursor" (tracker menus) is no region, SetPoint would raise an
+		-- error; there the client's flip above the cursor stays, clamped below
+		if point and string.find(point, "^BOTTOM") and type(anchor) == "table" then
 			list1:ClearAllPoints()
 			list1:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, 0)
 		end

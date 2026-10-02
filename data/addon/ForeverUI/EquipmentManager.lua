@@ -58,15 +58,31 @@ local panel, offset = nil, 0
 -- Editing a set. 3.3.5 has no ModifyEquipmentSet: SaveEquipmentSet(name, icon) saves the worn
 -- gear. So an edit equips the old set, saves it under the new name and icon, deletes the old one
 -- and gives the new name the old one's rank. The swap is asynchronous (EQUIPMENT_SWAP_FINISHED).
--- 3.3.5 lists sets in creation order; the display order is kept in ForeverUIDB.setOrder.
+-- 3.3.5 lists sets in creation order; the display order is kept per character (characterSets).
 local editSession
 local intendedClose                   -- set while the addon hides the popup itself
 local EDIT_TIMEOUT = 10                -- seconds before an edit is abandoned
 
-local function savedOrder()
+-- Sets belong to a character and ForeverUIDB to the account: the display order and the last set
+-- worn are kept per character (one character's order was pruned to another's sets). The first
+-- use takes over the account-wide values of earlier versions.
+local function characterSets()
 	ForeverUIDB = ForeverUIDB or {}
-	ForeverUIDB.setOrder = ForeverUIDB.setOrder or {}
-	return ForeverUIDB.setOrder
+	ForeverUIDB.sets = ForeverUIDB.sets or {}
+	local key = tostring(UnitName("player")) .. "-" .. tostring(GetRealmName())
+	local sets = ForeverUIDB.sets[key]
+	if not sets then
+		sets = { order = {}, equipped = ForeverUIDB.equippedSet }
+		for rank, name in ipairs(ForeverUIDB.setOrder or {}) do
+			sets.order[rank] = name
+		end
+		ForeverUIDB.sets[key] = sets
+	end
+	return sets
+end
+
+local function savedOrder()
+	return characterSets().order
 end
 
 -- Client set indices in the saved order; sets not yet known go last.
@@ -142,8 +158,7 @@ end
 
 -- Name of the last set equipped.
 local function activeSet()
-	ForeverUIDB = ForeverUIDB or {}
-	return ForeverUIDB.equippedSet
+	return characterSets().equipped
 end
 
 local function isSetWorn(name)
@@ -153,8 +168,7 @@ end
 -- Remember the last set equipped, across sessions.
 if hooksecurefunc and type(UseEquipmentSet) == "function" then
 	hooksecurefunc("UseEquipmentSet", function(name)
-		ForeverUIDB = ForeverUIDB or {}
-		ForeverUIDB.equippedSet = name
+		characterSets().equipped = name
 		if ForeverUI.EquipmentSetsLayout then
 			ForeverUI.EquipmentSetsLayout()
 		end
@@ -458,6 +472,10 @@ ForeverUI.EquipmentSetsLayout = layoutCards
 
 local function build(pane)
 	panel = CreateFrame("Frame", "ForeverUIEquipmentPane", pane)
+	-- Hidden until ForeverUI.Panes shows it as the equipment page: GearManagerDialog_Update also
+	-- runs on EQUIPMENT_SWAP_FINISHED (a set worn from a bar, /equipset) and can build the panel
+	-- before that page was ever opened, over the stats page
+	panel:Hide()
 	panel:SetPoint("TOPLEFT", pane.stone, "BOTTOMLEFT", 0, 0)
 	panel:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", 0, 0)
 	panel:SetFrameLevel(pane:GetFrameLevel() + 3)
@@ -609,7 +627,30 @@ local function applySkin()
 	layoutCards()
 end
 
-ForeverUI.EquipmentPane = { Apply = applySkin, Frame = function() return panel end }
+-- GearManagerDialog is one of the client's UIChildWindows: CloseChildWindows hides it whenever a
+-- panel opens beside the sheet, and the page loses its Equip and Save buttons. Shown again while
+-- the page is on screen; out of combat only, its OnShow writes an attribute of the protected
+-- CharacterFrame and calls UpdateUIPanelPositions.
+hooksecurefunc("CloseChildWindows", function()
+	local dialog = _G["GearManagerDialog"]
+	if dialog and dialog.foreverHosted and panel and panel:IsVisible() and not dialog:IsShown()
+		and not InCombatLockdown() then
+		dialog:Show()
+	end
+end)
+
+ForeverUI.EquipmentPane = {
+	Apply = applySkin,
+	-- The page records its root once: the panel (our own frame) is built even in combat, where
+	-- applySkin waits, or a page first opened in combat would stay empty for the session
+	Frame = function()
+		local panes = ForeverUI.CharacterPanes
+		if not panel and panes and panes.right and panes.right.stone then
+			build(panes.right)
+		end
+		return panel
+	end,
+}
 
 if hooksecurefunc then
 	for _, name in ipairs({ "GearManagerDialog_Update", "GearManagerDialog_OnShow" }) do
@@ -697,9 +738,9 @@ local function finishEdit()
         end
     end
 
-    ForeverUIDB = ForeverUIDB or {}
-    if ForeverUIDB.equippedSet == e.old then
-        ForeverUIDB.equippedSet = e.name
+    local sets = characterSets()
+    if sets.equipped == e.old then
+        sets.equipped = e.name
     end
 
     local dialog = _G["GearManagerDialog"]
@@ -833,9 +874,13 @@ function ForeverUI.EquipmentSetEdit(name)
     end
 end
 
--- Popup closed another way (Cancel, Escape): the edit is abandoned.
-if hooksecurefunc and type(GearManagerDialogPopup_OnHide) == "function" then
-    hooksecurefunc("GearManagerDialogPopup_OnHide", function()
+-- Popup closed another way (Cancel, Escape, the sheet closing): the edit is abandoned. The XML
+-- binds OnHide to GearManagerDialogPopup_OnHide itself (function=), so a hook on the global
+-- never runs (see Taxi.lua): the frame's script is hooked. Otherwise the stale session made
+-- the next ordinary save equip the old set, save it under the typed name and delete it.
+local editPopup = _G["GearManagerDialogPopup"]
+if editPopup and editPopup.HookScript then
+    editPopup:HookScript("OnHide", function()
         if editSession and not intendedClose and not pendingEdit:IsShown() then
             editSession = nil
         end
@@ -881,7 +926,7 @@ function ForeverUI.EquipmentSetsDebug()
 	say(string.format(L.EQUIPMENTMANAGER_DEBUG_SCROLL,
 		offset, visibleCards(), (panel and panel:IsShown()) and L.EQUIPMENTMANAGER_DEBUG_OPEN or L.EQUIPMENTMANAGER_DEBUG_CLOSED))
 	say(string.format(L.EQUIPMENTMANAGER_DEBUG_WORN,
-		tostring(ForeverUIDB and ForeverUIDB.equippedSet), tostring(editSession and editSession.old)))
+		tostring(characterSets().equipped), tostring(editSession and editSession.old)))
 
 	local dialog = _G["GearManagerDialog"]
 	if not dialog or not dialog.buttons then

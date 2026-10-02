@@ -330,7 +330,13 @@ local function hideDefaultTargetFrame()
 		return
 	end
 	ForeverUI.Suppress(TargetFrame)
-	ForeverUI.Suppress(ComboFrame)
+	-- ComboFrame is the client's only combo point display (rogue, cat form): kept, on our
+	-- portrait instead of the hidden TargetFrame's. ComboFrame.xml puts it at (-2, 3) from the
+	-- portrait's top right corner (TOPRIGHT -44, -9 on TargetFrame, portrait at -42, -12).
+	if ComboFrame then
+		ComboFrame:ClearAllPoints()
+		ComboFrame:SetPoint("TOPRIGHT", portrait, "TOPRIGHT", -2, 3)
+	end
 end
 
 frame:SetScript("OnEnter", function(self)
@@ -347,6 +353,12 @@ frame:SetScript("OnEvent", function(self, event, unit)
 	if event == "PLAYER_ENTERING_WORLD" then
 		hideDefaultTargetFrame()
 		updateAll()
+		return
+	end
+
+	-- Skipped when PLAYER_ENTERING_WORLD came in combat (reload, reconnect): done now
+	if event == "PLAYER_REGEN_ENABLED" then
+		hideDefaultTargetFrame()
 		return
 	end
 
@@ -388,6 +400,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
 end)
 
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("CVAR_UPDATE")
 frame:RegisterEvent("UNIT_HEALTH")
@@ -485,15 +498,23 @@ local function updateTargetOfTarget()
 end
 
 tot:SetScript("OnEvent", function(_self, event, unit)
-	if event == "PLAYER_TARGET_CHANGED" or unit == "target" or unit == "targettarget" then
+	if event == "PLAYER_TARGET_CHANGED" or unit == "target" then
 		updateTargetOfTarget()
 	end
 end)
 
 tot:RegisterEvent("PLAYER_TARGET_CHANGED")
 tot:RegisterEvent("UNIT_TARGET")
-tot:RegisterEvent("UNIT_HEALTH")
-tot:RegisterEvent("UNIT_MAXHEALTH")
+
+-- "targettarget" gets no unit event in 3.3.5 (the client's own frame polls it every frame,
+-- TargetofTarget_Update as OnUpdate): polled while shown, five times a second
+tot:SetScript("OnUpdate", function(self, elapsed)
+	self.elapsed = (self.elapsed or 0) + elapsed
+	if self.elapsed >= 0.2 then
+		self.elapsed = 0
+		updateTargetOfTarget()
+	end
+end)
 
 if RegisterUnitWatch then
 	RegisterUnitWatch(tot)
