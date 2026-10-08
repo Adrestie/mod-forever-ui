@@ -286,27 +286,45 @@ for i = 1, MAX_CHARACTERS_DISPLAYED do
 	state.maps[i] = createCard(i)
 end
 
--- GetCharacterInfo returns localized race and class; tokenOf maps them back to tokens through
--- GLUECHARACTERSELECT_CLASS_* / _RACE_* (forms separated by |, female included), so faction
--- and class color do not depend on the client language. kind: race or className.
+-- GetCharacterInfo returns localized race and class, mapped back to tokens below.
 -- GetAvailableRaces / GetAvailableClasses crash the client outside character creation
 -- (Fatal Exception, read at 0x1C).
-local CLASS_TOKENS = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
+-- Race: GLUECHARACTERSELECT_RACE_* (forms separated by |, female included).
 local RACE_TOKENS = { "Human", "Dwarf", "NightElf", "Gnome", "Draenei", "Orc", "Scourge", "Tauren", "Troll", "BloodElf" }
-local tokens
-local function tokenOf(kind, name)
-	if not tokens then
-		tokens = { race = {}, className = {} }
-		for kind2, list in pairs({ className = CLASS_TOKENS, race = RACE_TOKENS }) do
-			local prefix = kind2 == "className" and "GLUECHARACTERSELECT_CLASS_" or "GLUECHARACTERSELECT_RACE_"
-			for _, token in ipairs(list) do
-				for shape in string.gmatch(L[prefix .. string.upper(token)], "[^|]+") do
-					tokens[kind2][shape] = token
-				end
+local races
+local function raceToken(name)
+	if not races then
+		races = {}
+		for _, token in ipairs(RACE_TOKENS) do
+			for shape in string.gmatch(L["GLUECHARACTERSELECT_RACE_" .. string.upper(token)], "[^|]+") do
+				races[shape] = token
 			end
 		end
 	end
-	return name and tokens[kind][name]
+	return name and races[name]
+end
+
+-- Class: the first line of the client's <TOKEN>_DISABLED (GlueStrings, every language) is the
+-- class name. A female form ("Kriegerin", "Prêtresse", "Жрица") is not there: the class whose
+-- name shares the longest beginning with it wins, 2 bytes at least; a tie gives none.
+local CLASS_TOKENS = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
+local function classToken(name)
+	if not name or name == "" then return nil end
+	local best, bestLength, tie = nil, 1, false
+	for _, token in ipairs(CLASS_TOKENS) do
+		local male = string.match(_G[token .. "_DISABLED"] or "", "^[^\n]+") or ""
+		if male == name then return token end
+		local l = 0
+		while l < #name and l < #male and string.byte(name, l + 1) == string.byte(male, l + 1) do
+			l = l + 1
+		end
+		if l > bestLength then
+			best, bestLength, tie = token, l, false
+		elseif l == bestLength and best then
+			tie = true
+		end
+	end
+	return not tie and best or nil
 end
 
 -- Class color by token (G.CLASSES: English name -> token, color)
@@ -316,13 +334,13 @@ local function classColor(className)
 		colors = {}
 		for _, c in pairs(G.CLASSES) do colors[c[1]] = c end
 	end
-	local token = tokenOf("className", className)
-	return (token and colors[token]) or G.CLASSES[className or ""]
+	local token = classToken(className)
+	return token and colors[token]
 end
 
 local function faction(i, race)
 	local token = GetSelectBackgroundModel(i)
-	return FACTIONS[token] or FACTIONS[tokenOf("race", race) or ""] or FACTIONS[race]
+	return FACTIONS[token] or FACTIONS[raceToken(race) or ""] or FACTIONS[race]
 end
 
 local function populateCard(c, i)
