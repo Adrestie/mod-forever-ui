@@ -291,12 +291,13 @@ end
 -- (Fatal Exception, read at 0x1C).
 -- Race: GLUECHARACTERSELECT_RACE_* (forms separated by |, female included).
 local RACE_TOKENS = { "Human", "Dwarf", "NightElf", "Gnome", "Draenei", "Orc", "Scourge", "Tauren", "Troll", "BloodElf" }
+local RACE_PREFIX = "GLUECHARACTERSELECT_RACE_"
 local races
 local function raceToken(name)
 	if not races then
 		races = {}
 		for _, token in ipairs(RACE_TOKENS) do
-			for shape in string.gmatch(L["GLUECHARACTERSELECT_RACE_" .. string.upper(token)], "[^|]+") do
+			for shape in string.gmatch(L[RACE_PREFIX .. string.upper(token)], "[^|]+") do
 				races[shape] = token
 			end
 		end
