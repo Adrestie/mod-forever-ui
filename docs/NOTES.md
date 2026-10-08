@@ -1340,6 +1340,13 @@ par `chr(92)`, jamais les taper.
   `-group`, `-guard`) : 3.3.5 garde les siens.
 - **La difficulté d'instance** est replacée mais garde l'art de 3.3.5.
 
+### 1.13 La page de fabrication
+
+La fiche fait 360 de large (493 chez camelot). Le nom du résultat et les outils
+suivent la règle de la fiche réduite de camelot (250 de large, sur plusieurs
+lignes). Les composants sont rangés au pas de 163 au lieu de 185, pour que la
+deuxième colonne reste dans la fiche.
+
 ---
 
 ## 2. Ce que 3.3.5 ne sait pas faire

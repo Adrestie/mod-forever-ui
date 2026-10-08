@@ -39,9 +39,12 @@ local N = {
 	result = { 28, -28, 47, icon = 53, outline = 68, glow = 66, count = { -4, 1 } },
 	name = { 14, 17 },
 	tools = { 0, -4 },
+	textWidth = 250,                          -- name and tools: camelot's minimized schematic, wrapped
 	organizer = { -1, -12, 4 },
 	cooldown = 400, description = 305,
-	reagents = { 0, -20, tag = { 180, 20 }, slot = { 180, 50 }, start = { 1, -20 },
+	-- slot 158 wide (camelot 180): the schematic is 360 wide (camelot 493), the second column
+	-- has to stay inside it
+	reagents = { 0, -20, tag = { 180, 20 }, slot = { 158, 50 }, start = { 1, -20 },
 		gap = { 5, 5 }, column = 4, button = 39, nameX = 46, nameSize = { 108, 36 } },
 	create = { -9, 7, 80, 28, margin = 30 },
 	createAll = { -362, 7 },
@@ -552,12 +555,13 @@ end
 
 -- ------------------------------------------------------------ schematic
 
--- Sizes fs to its text, wrapped at maxValue wide
-local function fitText(fs, text, maxValue)
+-- Sizes fs to its text at maxValue wide: on several lines (multiline), otherwise one line as
+-- wide as the text (camelot SetTextToFit)
+local function fitText(fs, text, maxValue, multiline)
 	fs:SetHeight(200)
 	fs:SetText(text)
 	fs:SetWidth(maxValue)
-	fs:SetWidth(fs:GetStringWidth())
+	if not multiline then fs:SetWidth(fs:GetStringWidth()) end
 	fs:SetHeight(fs:GetStringHeight())
 end
 
@@ -663,11 +667,11 @@ function M.UpdateCard()
 	else
 		nameText = NORMAL_FONT_COLOR_CODE .. name .. "|r"
 	end
-	fitText(F.name, nameText, 800)
+	fitText(F.name, nameText, N.textWidth, true)
 	-- Tools
 	local tools = BuildColoredListString(GetTradeSkillTools(id))
 	if tools then
-		fitText(F.tools, NORMAL_FONT_COLOR_CODE .. REQUIRES_LABEL .. "|r " .. tools, 800)
+		fitText(F.tools, NORMAL_FONT_COLOR_CODE .. REQUIRES_LABEL .. "|r " .. tools, N.textWidth, true)
 		F.tools:Show()
 	else
 		F.tools:SetText("")
@@ -675,11 +679,17 @@ function M.UpdateCard()
 	end
 	-- Cooldown, then description (vertical layout)
 	local O = N.organizer
+	-- Wrapped, the name and tools may reach below the place of what follows (12 under the
+	-- result): it then starts 4 under the text. Heights from the result's centre, the name 17
+	-- above it.
+	local textBottom = N.name[2] - F.name:GetHeight() / 2
+	if tools then textBottom = textBottom + N.tools[2] - F.tools:GetHeight() end
+	local shift = math.min(0, textBottom - O[3] - (O[2] - N.result[3] / 2))
 	local cooldown = GetTradeSkillCooldown(id)
 	local previous
 	if cooldown then
 		F.cooldown:SetText(COOLDOWN_REMAINING .. " " .. SecondsToTime(cooldown))
-		place(F.cooldown, "TOPLEFT", F.result, "BOTTOMLEFT", O[1], O[2])
+		place(F.cooldown, "TOPLEFT", F.result, "BOTTOMLEFT", O[1], O[2] + shift)
 		F.cooldown:Show()
 		previous = F.cooldown
 	else
@@ -693,7 +703,7 @@ function M.UpdateCard()
 	if previous then
 		place(F.description, "TOPLEFT", previous, "BOTTOMLEFT", 0, -(O[3] + 5))
 	else
-		place(F.description, "TOPLEFT", F.result, "BOTTOMLEFT", O[1], O[2])
+		place(F.description, "TOPLEFT", F.result, "BOTTOMLEFT", O[1], O[2] + shift)
 	end
 	-- Reagents
 	local Rg = N.reagents
