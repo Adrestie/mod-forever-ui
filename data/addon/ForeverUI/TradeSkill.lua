@@ -290,7 +290,11 @@ local function createRecipe(n)
 	local function onEnter(self)
 		colors(b, true)
 		if b.isTruncated then
-			GameTooltip:SetOwner(b.name, "ANCHOR_RIGHT")
+			-- 3.3.5 takes only a frame as owner: the row, with the tooltip where ANCHOR_RIGHT
+			-- puts it on the name
+			GameTooltip:SetOwner(b, "ANCHOR_NONE")
+			GameTooltip:ClearAllPoints()
+			GameTooltip:SetPoint("BOTTOMLEFT", b.name, "TOPRIGHT")
 			GameTooltip:AddLine(b.fullName, 1, 1, 1, false)
 			GameTooltip:Show()
 		end
