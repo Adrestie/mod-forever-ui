@@ -447,7 +447,6 @@ ForeverUI.AddTexts("enUS", {
 	TRADESKILL_NAME_RANK_MODIFIER = "%s %d (|cff20ff20+%d|r ) /%d",
 	TRADESKILL_NO_RESULTS = "There are no results with your current filters.",
 	TRADESKILL_REAGENT_COUNT = "%s/%d",
-	TRADESKILL_REAGENTS = "Reagents:",
 	TRADESKILL_SKILL_UP_EASY = "Low chance of gaining skill",
 	TRADESKILL_SKILL_UP_MEDIUM = "High chance of gaining skill",
 	TRADESKILL_SKILL_UP_OPTIMAL = "Guaranteed chance of gaining %d skill ups",

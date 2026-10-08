@@ -1342,7 +1342,9 @@ function M.Skin()
 	tag:SetWidth(Rg.tag[1])
 	tag:SetHeight(Rg.tag[2])
 	tag:SetPoint("TOPLEFT", reagents, "TOPLEFT", 0, 0)
-	tag:SetText(L.TRADESKILL_REAGENTS)
+	-- SPELL_REAGENTS, the label of 3.3.5's page in the client's language; it ends with a line
+	-- break meant for spell tooltips
+	tag:SetText((string.gsub(SPELL_REAGENTS, "|n$", "")))
 	skin.reagents, skin.slots = reagents, {}
 	-- Buttons
 	createButtons(page)
