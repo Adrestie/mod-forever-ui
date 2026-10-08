@@ -696,9 +696,11 @@ function M.UpdateCard()
 	local n = GetTradeSkillNumReagents(id) or 0
 	Tpl.SetShown(h.reagents, n > 0)
 	place(h.reagents, "TOPLEFT", F.description, "BOTTOMLEFT", Rg[1], Rg[2])
-	local shownItems = 0
+	local shownItems, possible = 0, true
 	for i = 1, n do
 		local rName, rIcon, required, owned = GetTradeSkillReagentInfo(id, i)
+		local enough = (owned or 0) >= (required or 0)
+		if not enough then possible = false end
 		if rName and rIcon then
 			shownItems = shownItems + 1
 			local s = h.slots[shownItems] or createReagent(shownItems)
@@ -713,7 +715,6 @@ function M.UpdateCard()
 			else
 				s.button.outline:Hide()
 			end
-			local enough = (owned or 0) >= (required or 0)
 			local c = enough and { 1, 1, 1 } or COLORS.missingReagent
 			s.name:SetFormattedText(L.TRADESKILL_REAGENT_COUNT .. " %s", tostring(owned or 0), required or 0, rName)
 			s.name:SetTextColor(c[1], c[2], c[3])
@@ -725,7 +726,7 @@ function M.UpdateCard()
 		end
 	end
 	for i = shownItems + 1, #h.slots do h.slots[i]:Hide() end
-	M.UpdateButtons(id, name, verb, numCraftable)
+	M.UpdateButtons(id, name, verb, numCraftable, possible)
 end
 
 -- ------------------------------------------------------------ buttons
@@ -738,7 +739,8 @@ local function fitButtonText(b, text)
 	b:SetWidth(math.max(b:GetWidth(), width))
 end
 
-function M.UpdateButtons(id, name, verb, numCraftable)
+-- possible: every reagent is there (UpdateCard's reagent loop)
+function M.UpdateButtons(id, name, verb, numCraftable, possible)
 	local h = M.skin
 	local B = h.buttons
 	if not id or truthy(IsTradeSkillLinked()) then
@@ -749,11 +751,6 @@ function M.UpdateButtons(id, name, verb, numCraftable)
 	end
 	-- Create is enabled when the reagents are there (the 3.3.5 rule); Create All and the counter
 	-- do not exist for a spell with a verb (enchanting), as in 3.3.5
-	local possible = true
-	for i = 1, GetTradeSkillNumReagents(id) or 0 do
-		local _, _, required, owned = GetTradeSkillReagentInfo(id, i)
-		if (owned or 0) < (required or 0) then possible = false end
-	end
 	local maxValue = math.abs(numCraftable or 0)
 	B.create:Show()
 	fitButtonText(B.create, verb or CREATE)
@@ -1019,6 +1016,30 @@ function M.Update()
 	if not search and h.search:GetText() ~= "" then h.search:SetText("") end
 	M.UpdateList()
 	M.UpdateCard()
+end
+
+-- While a profession's items load, the client sends TRADE_SKILL_UPDATE once per item received,
+-- often many in one frame, and each one runs TradeSkillFrame_SetSelection and
+-- TradeSkillFrame_Update. The first call of a frame refreshes the page at once; the calls after
+-- it in that frame give a single refresh on the next frame.
+local refresher = CreateFrame("Frame")
+M.refresher = refresher
+local function onNextFrame(self)
+	self:SetScript("OnUpdate", nil)
+	M.busy = nil
+	if M.pending then
+		M.pending = nil
+		M.Refresh()
+	end
+end
+function M.Refresh()
+	if M.busy then
+		M.pending = true
+		return
+	end
+	M.busy = true
+	refresher:SetScript("OnUpdate", onNextFrame)
+	M.Update()
 end
 
 function M.Skin()
@@ -1323,8 +1344,8 @@ function M.Skin()
 	createButtons(page)
 	Tpl.CloseButton(TradeSkillFrameCloseButton, f)
 	TradeSkillFrameCloseButton:SetFrameLevel(base + NV.closeButton)
-	hooksecurefunc("TradeSkillFrame_Update", M.Update)
-	hooksecurefunc("TradeSkillFrame_SetSelection", M.UpdateCard)
+	hooksecurefunc("TradeSkillFrame_Update", M.Refresh)
+	hooksecurefunc("TradeSkillFrame_SetSelection", M.Refresh)
 end
 
 M.Skin()
