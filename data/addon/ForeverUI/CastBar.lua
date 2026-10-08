@@ -33,9 +33,13 @@ local border = frame:CreateTexture(nil, "ARTWORK")
 ForeverUI.SetAtlas(border, "ui-castingbar-frame")
 border:SetPoint("CENTER")
 
+-- camelot's BorderShield: 29 x 33, TOPLEFT (-27, 4) of its 208 x 11 bar, centred in our frame
+local SHIELD = { 29, 33, -24, 1.5 }
 local shield = frame:CreateTexture(nil, "OVERLAY")
-ForeverUI.SetAtlas(shield, "ui-castingbar-shield")
-shield:SetPoint("CENTER", frame, "LEFT", 2, -1)
+ForeverUI.SetAtlas(shield, "ui-castingbar-shield", true)
+shield:SetWidth(SHIELD[1])
+shield:SetHeight(SHIELD[2])
+shield:SetPoint("TOPLEFT", frame, "TOPLEFT", SHIELD[3], SHIELD[4])
 shield:Hide()
 
 local spellText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
