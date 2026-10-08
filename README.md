@@ -19,6 +19,11 @@ screens, and a small server part for the statistics.
 The calendar, the help window and the other login screens keep the client's
 look.
 
+A character with many professions and a great many recipes may wait a while
+the first time a profession window loads its information: the client fetches
+every recipe's items from the server. Once they are cached, it no longer
+happens.
+
 ## Customize UI
 
 **Esc > Customize UI** (or `/fui`) shows a grid and puts every element of the
