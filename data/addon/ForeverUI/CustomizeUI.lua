@@ -523,9 +523,9 @@ end
 
 -- The size window along a side of the selected element, never over it and always within the
 -- screen: on its right, else its left (level with its top), else under it, else above it (level
--- with its left edge), the first side where it fits. An element too big for any side keeps the
--- window on its right, pushed back onto the screen. b: the element's box while it is dragged
--- ({ left, bottom, width, height }, UIParent units); nil reads it from the frame.
+-- with its left edge), the first side where it fits. An element too big for any side gets the
+-- window on the side with the most room, pushed back onto the screen. b: the element's box while
+-- it is dragged ({ left, bottom, width, height }, UIParent units); nil reads it from the frame.
 function C.PlaceSizeWindow(b)
 	local id = C.selected
 	if not (id and sizeWindow) then
@@ -540,22 +540,28 @@ function C.PlaceSizeWindow(b)
 	local width, height = UIParent:GetWidth(), UIParent:GetHeight()
 	local w, h, gap = sizeWindow:GetWidth(), sizeWindow:GetHeight(), N.size.gap
 	local left, bottom, right, top = b[1], b[2], b[1] + b[3], b[2] + b[4]
-	-- window's top left corner on each side, kept on screen along that side; fits: whole on screen
+	-- each side: the window's top left corner, kept on screen along that side, and the room
+	-- left there for it (it fits when the room is not negative)
 	local level = math.max(h, math.min(height, top))
 	local along = math.max(0, math.min(left, width - w))
 	local sides = {
-		{ right + gap, level, right + gap + w <= width },
-		{ left - gap - w, level, left - gap - w >= 0 },
-		{ along, bottom - gap, bottom - gap - h >= 0 },
-		{ along, top + gap + h, top + gap + h <= height },
+		{ right + gap, level, width - (right + gap + w) },
+		{ left - gap - w, level, left - gap - w },
+		{ along, bottom - gap, bottom - gap - h },
+		{ along, top + gap + h, height - (top + gap + h) },
 	}
-	local x, y = math.max(0, math.min(sides[1][1], width - w)), sides[1][2]
+	local spot
 	for _, side in ipairs(sides) do
-		if side[3] then
-			x, y = side[1], side[2]
+		if side[3] >= 0 then
+			spot = side
 			break
 		end
+		if not spot or side[3] > spot[3] then
+			spot = side
+		end
 	end
+	local x = math.max(0, math.min(spot[1], width - w))
+	local y = math.max(h, math.min(spot[2], height))
 	sizeWindow:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
 end
 

@@ -43,9 +43,13 @@ fader:SetScript("OnUpdate", function(self, elapsed)
 end)
 ForeverUI.VehicleFade = fader
 
+-- Default place of the seat indicator (below), which depends on the vehicle state
+local placeSeats = function() end
+
 local function leave()
 	if ForeverUI.VehicleArt then return end
 	ForeverUI.VehicleArt = true
+	placeSeats()
 	fader:Hide()
 	for _, frame in ipairs(FADED) do
 		frame:SetAlpha(0)
@@ -63,6 +67,7 @@ end
 local function back()
 	if not ForeverUI.VehicleArt then return end
 	ForeverUI.VehicleArt = false
+	placeSeats()
 	fading = {}
 	for _, frame in ipairs(FADED) do
 		table.insert(fading, frame)
@@ -97,34 +102,37 @@ hooksecurefunc("MainMenuBar_ToVehicleArt", leave)
 hooksecurefunc("MainMenuBar_ToPlayerArt", back)
 
 -- The seat indicator (VehicleSeatIndicator, shown in vehicles with several seats) moves like
--- the other elements. Its default is where the client puts it (MultiActionBars.lua): its top
--- right corner 13 under the minimap's bottom right one, moved left of the right action bars
--- shown (62, or 100 for both), following the minimap and those bars. The client re-anchors it
--- in MultiActionBar_Update and on every frame of its slides: its own anchor is put back after
--- each time, except while Customize UI moves it.
+-- the other elements. Its default is where the client leaves it: its top right corner 13 under
+-- the minimap's bottom right one, 62 left of the right action bar shown, 100 of both
+-- (MultiActionBars.lua), flush with the minimap while a vehicle bar hides those bars (the end of
+-- its slide, MainMenuBar.lua); it follows the minimap. The client re-anchors it to the minimap
+-- in MultiActionBar_Update and on every frame of its slides: its own anchor is put back.
 local seats = VehicleSeatIndicator
 if seats then
 	local Layout = ForeverUI.Layout
 	local function placeDefault()
 		local cluster = MinimapCluster
-		local right, bottom = cluster and cluster:GetRight(), cluster and cluster:GetBottom()
+		local right, bottom = cluster:GetRight(), cluster:GetBottom()
 		if not (right and bottom) then
 			return
 		end
 		local k = cluster:GetEffectiveScale() / UIParent:GetEffectiveScale()
-		local shift = (SHOW_MULTI_ACTIONBAR_3 and SHOW_MULTI_ACTIONBAR_4 and -100) or (SHOW_MULTI_ACTIONBAR_3 and -62) or 0
+		local shift = 0
+		if not (ForeverUI.VehicleArt or MainMenuBar.state == "vehicle") then
+			shift = (SHOW_MULTI_ACTIONBAR_3 and SHOW_MULTI_ACTIONBAR_4 and -100) or (SHOW_MULTI_ACTIONBAR_3 and -62) or 0
+		end
 		Layout.SetDefaults("vehicleseats", "TOPRIGHT", "TOPRIGHT", right * k - UIParent:GetWidth() + shift,
 			bottom * k - UIParent:GetHeight() - 13)
 	end
+	placeSeats = placeDefault
 	-- the screen's top right corner until the minimap is laid out
 	Layout.Register(seats, "vehicleseats", ForeverUI.L.VEHICLE_EDIT_LABEL, "TOPRIGHT", "TOPRIGHT", 0, 0)
 	placeDefault()
-	local applying = false
-	hooksecurefunc(seats, "SetPoint", function()
-		if applying or Layout.editing then return end
-		applying = true
-		Layout.Apply("vehicleseats")
-		applying = false
+	-- relativeTo: the frame the anchor refers to; ours and Customize UI's are on UIParent
+	hooksecurefunc(seats, "SetPoint", function(_, _, relativeTo)
+		if relativeTo == MinimapCluster then
+			Layout.Apply("vehicleseats")
+		end
 	end)
 	hooksecurefunc("MultiActionBar_Update", placeDefault)
 	hooksecurefunc(Layout, "Apply", function(id)
