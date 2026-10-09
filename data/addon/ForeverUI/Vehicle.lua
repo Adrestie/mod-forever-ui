@@ -25,13 +25,14 @@ local HIDDEN = { "ForeverUIActionBarLeftCap", "ForeverUIActionBarRightCap", "For
 -- the frames hidden here, shown again on the way back (a gryphon without art stays hidden)
 local wasShown = {}
 
--- Fade-in on the way back, as long as the client's bar takes to rise (MainMenuBar.lua)
-local FADE_TIME = MAINMENU_SLIDETIME or 0.3
+-- Fade-in on the way back, as long as the client's bar takes to rise (MAINMENU_SLIDETIME, local
+-- to MainMenuBar.lua)
+local FADE_TIME = 0.3
 local fading = {}
 local fader = CreateFrame("Frame")
 fader:Hide()
 fader:SetScript("OnUpdate", function(self, elapsed)
-	self.elapsed = self.elapsed + (elapsed or 0)
+	self.elapsed = self.elapsed + elapsed
 	local alpha = math.min(1, self.elapsed / FADE_TIME)
 	for _, frame in ipairs(fading) do
 		frame:SetAlpha(alpha)
@@ -78,9 +79,9 @@ local function back()
 			table.insert(fading, _G[name])
 		end
 	end
-	if ForeverUI.StatusBarsUpdate then ForeverUI.StatusBarsUpdate() end
 	fader.elapsed = 0
 	fader:Show()
+	if ForeverUI.StatusBarsUpdate then ForeverUI.StatusBarsUpdate() end
 	-- the stance, pet and totem bars and the right bars kept their places meanwhile
 	if ForeverUI.MultiBars then ForeverUI.MultiBars.Restack() end
 end
@@ -94,3 +95,44 @@ end)
 -- the swap itself also covers a /reload in a vehicle, where no mount event comes
 hooksecurefunc("MainMenuBar_ToVehicleArt", leave)
 hooksecurefunc("MainMenuBar_ToPlayerArt", back)
+
+-- The seat indicator (VehicleSeatIndicator, shown in vehicles with several seats) moves like
+-- the other elements. Its default is where the client puts it (MultiActionBars.lua): its top
+-- right corner 13 under the minimap's bottom right one, moved left of the right action bars
+-- shown (62, or 100 for both), following the minimap and those bars. The client re-anchors it
+-- in MultiActionBar_Update and on every frame of its slides: its own anchor is put back after
+-- each time, except while Customize UI moves it.
+local seats = VehicleSeatIndicator
+if seats then
+	local Layout = ForeverUI.Layout
+	local function placeDefault()
+		local cluster = MinimapCluster
+		local right, bottom = cluster and cluster:GetRight(), cluster and cluster:GetBottom()
+		if not (right and bottom) then
+			return
+		end
+		local k = cluster:GetEffectiveScale() / UIParent:GetEffectiveScale()
+		local shift = (SHOW_MULTI_ACTIONBAR_3 and SHOW_MULTI_ACTIONBAR_4 and -100) or (SHOW_MULTI_ACTIONBAR_3 and -62) or 0
+		Layout.SetDefaults("vehicleseats", "TOPRIGHT", "TOPRIGHT", right * k - UIParent:GetWidth() + shift,
+			bottom * k - UIParent:GetHeight() - 13)
+	end
+	-- the screen's top right corner until the minimap is laid out
+	Layout.Register(seats, "vehicleseats", ForeverUI.L.VEHICLE_EDIT_LABEL, "TOPRIGHT", "TOPRIGHT", 0, 0)
+	placeDefault()
+	local applying = false
+	hooksecurefunc(seats, "SetPoint", function()
+		if applying or Layout.editing then return end
+		applying = true
+		Layout.Apply("vehicleseats")
+		applying = false
+	end)
+	hooksecurefunc("MultiActionBar_Update", placeDefault)
+	hooksecurefunc(Layout, "Apply", function(id)
+		if id == "minimap" then placeDefault() end
+	end)
+	local events = CreateFrame("Frame")
+	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED" }) do
+		events:RegisterEvent(event)
+	end
+	events:SetScript("OnEvent", placeDefault)
+end

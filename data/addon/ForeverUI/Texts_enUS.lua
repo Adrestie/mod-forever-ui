@@ -456,6 +456,9 @@ ForeverUI.AddTexts("enUS", {
 	TRAINER_RANK = "%d/%d",
 	TRAINER_RANK_BONUS = "%d |cff20ff20(+%d)|r/%d",
 
+	-- Vehicle.lua
+	VEHICLE_EDIT_LABEL = "Vehicle Seats",
+
 	-- WorldMap.lua
 	WORLDMAP_CURSOR_COORDS = "Cursor: %d, %d",
 	WORLDMAP_DEBUG_BREADCRUMB = "breadcrumb: ",
