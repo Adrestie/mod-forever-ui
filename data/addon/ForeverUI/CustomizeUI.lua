@@ -390,6 +390,8 @@ drag:SetScript("OnUpdate", function(self)
 	end
 	d.moved = true
 	place(d, d.box[1] + dx, d.box[2] + dy)
+	-- the size window follows the element
+	C.PlaceSizeWindow({ d.left, d.bottom, d.box[3], d.box[4] })
 end)
 
 -- Starts moving an element. point: the held handle; nil for the body, whose reference is
@@ -519,27 +521,42 @@ function C.Deselect()
 	C.selected = nil
 end
 
--- The size window beside the selected element: on its right, or its left when the screen
--- ends, level with its top.
-function C.PlaceSizeWindow()
+-- The size window along a side of the selected element, never over it and always within the
+-- screen: on its right, else its left (level with its top), else under it, else above it (level
+-- with its left edge), the first side where it fits. An element too big for any side keeps the
+-- window on its right, pushed back onto the screen. b: the element's box while it is dragged
+-- ({ left, bottom, width, height }, UIParent units); nil reads it from the frame.
+function C.PlaceSizeWindow(b)
 	local id = C.selected
 	if not (id and sizeWindow) then
 		return
 	end
-	local b = box(Layout.systems[id].frame)
+	b = b or box(Layout.systems[id].frame)
 	sizeWindow:ClearAllPoints()
 	if not b then
 		sizeWindow:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 		return
 	end
 	local width, height = UIParent:GetWidth(), UIParent:GetHeight()
-	local w, h = sizeWindow:GetWidth(), sizeWindow:GetHeight()
-	local x = b[1] + b[3] + N.size.gap
-	if x + w > width then
-		x = math.max(0, math.min(b[1] - N.size.gap - w, width - w))
+	local w, h, gap = sizeWindow:GetWidth(), sizeWindow:GetHeight(), N.size.gap
+	local left, bottom, right, top = b[1], b[2], b[1] + b[3], b[2] + b[4]
+	-- window's top left corner on each side, kept on screen along that side; fits: whole on screen
+	local level = math.max(h, math.min(height, top))
+	local along = math.max(0, math.min(left, width - w))
+	local sides = {
+		{ right + gap, level, right + gap + w <= width },
+		{ left - gap - w, level, left - gap - w >= 0 },
+		{ along, bottom - gap, bottom - gap - h >= 0 },
+		{ along, top + gap + h, top + gap + h <= height },
+	}
+	local x, y = math.max(0, math.min(sides[1][1], width - w)), sides[1][2]
+	for _, side in ipairs(sides) do
+		if side[3] then
+			x, y = side[1], side[2]
+			break
+		end
 	end
-	local top = math.max(h, math.min(height, b[2] + b[4]))
-	sizeWindow:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, top)
+	sizeWindow:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
 end
 
 -- Resizes the selected element; percent: typed value, kept between 50 and 200.
@@ -764,6 +781,7 @@ local function buildSizeWindow()
 	f:SetHeight(S.height)
 	f:SetFrameStrata(N.windowStrata)
 	f:SetToplevel(true)
+	f:SetClampedToScreen(true)
 	f:EnableMouse(true)
 	f:Hide()
 	dialogBackground(f)
