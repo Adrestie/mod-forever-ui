@@ -85,6 +85,11 @@ end
 local function fitRight()
 	local minimap, caps = MinimapCluster, ForeverUI.ActionBarEndCaps
 	local gryphon = caps and caps.right
+	-- A vehicle hides the gryphon, and the client these bars: they keep their last fit, so that
+	-- shown again in combat (where nothing moves) they do not cover the gryphon.
+	if gryphon and not gryphon:IsShown() and UnitHasVehicleUI and UnitHasVehicleUI("player") then
+		return
+	end
 	local high = UIParent:GetHeight()
 	if minimap and minimap:IsShown() and ForeverUI.Layout.IsDefault("minimap") and minimap:GetBottom() then
 		high = minimap:GetBottom() * minimap:GetEffectiveScale() / UIParent:GetEffectiveScale() - FIT_MARGIN
@@ -140,6 +145,11 @@ local function setup()
 			bar.frame:HookScript("OnShow", M.Restack)
 			bar.frame:HookScript("OnHide", M.Restack)
 		end
+	end
+	-- the right gryphon, hidden in a vehicle, bounds the right bars again when it comes back
+	local caps = ForeverUI.ActionBarEndCaps
+	if caps and caps.right then
+		caps.right:HookScript("OnShow", M.Restack)
 	end
 	M.Restack()
 end
