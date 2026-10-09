@@ -19,6 +19,12 @@ local P = {
 	resourceH = 8, auraBottom = 2, aura = 11, auraBorder = 5, dispel = 14,
 	buffs = 6, debuffs = 5, dispels = 3, perRow = 3, dispelGap = 2,
 	role = 17, call = 20, status = 12, readyCheckFinish = 11,
+	-- rank and master looter around the role, in the raid list's order; camelot's compact
+	-- frames have none: its leader icon, the 3.3.5 assistant and master looter ones
+	rank = 12,
+	leader = "ui-hud-unitframe-player-group-leadericon",
+	assistant = "Interface" .. SEP .. "GroupFrame" .. SEP .. "UI-Group-AssistantIcon",
+	masterLooter = "Interface" .. SEP .. "GroupFrame" .. SEP .. "UI-Group-MasterLooter",
 	background = { 0.1, 0.1, 0.1 },
 	threatCorner = 10, targetCorner = 10, dispelCorner = 2,
 	outOfRangeAlpha = 0.5, rangePeriod = 0.5,
@@ -144,12 +150,27 @@ local function buildButton(f)
 	hovered:SetAllPoints(f)
 	hovered:SetFrameLevel(f:GetFrameLevel() + 2)
 	f.hovered = hovered
+	-- rank, role, master looter, then the name; a hidden icon keeps 1 px (the next one starts
+	-- 1 px left), so without rank or master looter the role and name keep their place.
+	-- The 12 px icons are centered on the role's height.
+	local shift = (P.role - P.rank) / 2
+	f.rank = hovered:CreateTexture(nil, "ARTWORK")
+	f.rank:SetWidth(1)
+	f.rank:SetHeight(P.rank)
+	f.rank:SetPoint("TOPLEFT", f, "TOPLEFT", 2, -2 - shift)
+	f.rank:Hide()
 	f.role = hovered:CreateTexture(nil, "ARTWORK")
 	f.role:SetWidth(P.role)
 	f.role:SetHeight(P.role)
-	f.role:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -2)
+	f.role:SetPoint("TOPLEFT", f.rank, "TOPRIGHT", 0, shift)
+	f.loot = hovered:CreateTexture(nil, "ARTWORK")
+	f.loot:SetTexture(P.masterLooter)
+	f.loot:SetWidth(1)
+	f.loot:SetHeight(P.rank)
+	f.loot:SetPoint("TOPLEFT", f.role, "TOPRIGHT", -1, -shift)
+	f.loot:Hide()
 	f.name = hovered:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	f.name:SetPoint("TOPLEFT", f.role, "TOPRIGHT", 0, -1)
+	f.name:SetPoint("TOPLEFT", f.loot, "TOPRIGHT", 0, shift - 1)
 	f.name:SetPoint("TOPRIGHT", f, "TOPRIGHT", -3, -3)
 	f.name:SetJustifyH("LEFT")
 	f.name:SetHeight(12)
@@ -185,7 +206,8 @@ local function buildButton(f)
 	f.call:Hide()
 
 	-- What range fades. 3.3.5 has no ignoreParentAlpha, so regions fade one by one.
-	f.fadedRegions = { f.background, f.health, f.resourceBackground, f.resource, f.name, f.status, f.role }
+	f.fadedRegions = { f.background, f.health, f.resourceBackground, f.resource, f.name, f.status, f.role,
+		f.rank, f.loot }
 end
 
 -- New button setup (initialConfigFunction): clicks, menu, size (initial-width / -height,
@@ -313,6 +335,37 @@ local function updateRole(f)
 	end
 end
 
+-- Rank (leader or assistant) and master looter, as the raid list shows them
+local function updateRank(f)
+	local id = f.unit and tonumber(f.unit:match("^raid(%d+)$"))
+	local rank, masterLooter
+	if id then
+		local _
+		_, rank = GetRaidRosterInfo(id)
+		masterLooter = select(11, GetRaidRosterInfo(id))
+	end
+	if rank == 2 then
+		ForeverUI.SetAtlas(f.rank, P.leader, true)
+	elseif rank == 1 then
+		f.rank:SetTexture(P.assistant)
+		f.rank:SetTexCoord(0, 1, 0, 1)
+	end
+	if rank == 1 or rank == 2 then
+		f.rank:SetWidth(P.rank)
+		f.rank:Show()
+	else
+		f.rank:SetWidth(1)
+		f.rank:Hide()
+	end
+	if masterLooter then
+		f.loot:SetWidth(P.rank)
+		f.loot:Show()
+	else
+		f.loot:SetWidth(1)
+		f.loot:Hide()
+	end
+end
+
 local function updateThreat(f)
 	local status = UnitThreatSituation(f.display)
 	if status and status > 0 then
@@ -428,6 +481,7 @@ function R.updateButton(f)
 	updateHealth(f)
 	updateResource(f)
 	updateRole(f)
+	updateRank(f)
 	updateThreat(f)
 	updateTarget(f)
 	updateAuras(f)
@@ -591,7 +645,7 @@ for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "RAID_ROSTER_UPDATE", "PLAYER_REG
 	"UNIT_MAXRAGE", "UNIT_MAXFOCUS", "UNIT_MAXENERGY", "UNIT_MAXRUNIC_POWER", "UNIT_NAME_UPDATE",
 	"UNIT_AURA", "UNIT_THREAT_SITUATION_UPDATE", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
 	"PARTY_MEMBER_ENABLE", "PARTY_MEMBER_DISABLE", "READY_CHECK", "READY_CHECK_CONFIRM",
-	"READY_CHECK_FINISHED" }) do
+	"READY_CHECK_FINISHED", "PARTY_LOOT_METHOD_CHANGED" }) do
 	listener:RegisterEvent(ev)
 end
 
@@ -615,6 +669,8 @@ listener:SetScript("OnEvent", function(self, ev, unit)
 		disableHDAddon()
 	elseif ev == "PLAYER_TARGET_CHANGED" then
 		for _, f in ipairs(R.buttons) do if f.display then updateTarget(f) end end
+	elseif ev == "PARTY_LOOT_METHOD_CHANGED" then
+		for _, f in ipairs(R.buttons) do if f.display then updateRank(f) end end
 	elseif ev == "PLAYER_ROLES_ASSIGNED" or ev == "PARTY_MEMBER_ENABLE" or ev == "PARTY_MEMBER_DISABLE" then
 		all()
 	elseif ev == "READY_CHECK" or ev == "READY_CHECK_CONFIRM" then

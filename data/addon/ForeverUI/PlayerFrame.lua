@@ -83,6 +83,10 @@ local STATUS_ATLAS = "ui-hud-unitframe-player-portraiton-status"
 local COMBAT_ICON = "ui-hud-unitframe-player-combaticon"
 local CORNER_ATLAS = "ui-hud-unitframe-player-portraiton-cornerembellishment"
 local LEADER_ICON = "ui-hud-unitframe-player-group-leadericon"
+-- camelot has no assistant nor master looter icon: the 3.3.5 ones (16 x 16)
+local GROUP_ICONS = "Interface" .. string.char(92) .. "GroupFrame" .. string.char(92)
+local ASSISTANT_ICON = GROUP_ICONS .. "UI-Group-AssistantIcon"
+local MASTER_ICON = GROUP_ICONS .. "UI-Group-MasterLooter"
 local REST_ATLAS = "ui-hud-unitframe-player-rest-flipbook"
 
 -- Rest sprite sheet: 7 rows of 6 cells, 42 frames played in 1.5 s. 3.3.5 has no FlipBook
@@ -116,6 +120,15 @@ leaderIcon:SetPoint("TOPLEFT", 86, -10)
 ForeverUI.SetAtlas(leaderIcon, LEADER_ICON)
 leaderIcon:Hide()
 
+-- Master looter, 40 right and 2 up from the leader icon, as PlayerFrame_ToPlayerArt places
+-- PlayerMasterIcon next to PlayerLeaderIcon
+local masterIcon = overlayHolder:CreateTexture(nil, "OVERLAY")
+masterIcon:SetTexture(MASTER_ICON)
+masterIcon:SetWidth(16)
+masterIcon:SetHeight(16)
+masterIcon:SetPoint("TOPLEFT", leaderIcon, "TOPLEFT", 40, 2)
+masterIcon:Hide()
+
 local restTexture = overlayHolder:CreateTexture(nil, "OVERLAY")
 restTexture:SetPoint("TOPLEFT", 59, -1)
 restTexture:SetWidth(30)
@@ -142,6 +155,7 @@ frame.statusTexture = statusTexture
 frame.combatIcon = combatIcon
 frame.cornerIcon = cornerIcon
 frame.leaderIcon = leaderIcon
+frame.masterIcon = masterIcon
 frame.restTexture = restTexture
 frame.healthText = healthText
 frame.powerText = powerText
@@ -296,11 +310,26 @@ local function updateStatus()
 	end
 end
 
+-- Leader, or raid assistant in its place (the raid list's rank icon); master looter as
+-- PlayerFrame_UpdatePartyLeader shows it
 local function updateLeader()
 	if IsPartyLeader and IsPartyLeader() then
+		ForeverUI.SetAtlas(leaderIcon, LEADER_ICON)
+		leaderIcon:Show()
+	elseif GetNumRaidMembers() > 0 and IsRaidOfficer() then
+		leaderIcon:SetTexture(ASSISTANT_ICON)
+		leaderIcon:SetTexCoord(0, 1, 0, 1)
+		leaderIcon:SetWidth(16)
+		leaderIcon:SetHeight(16)
 		leaderIcon:Show()
 	else
 		leaderIcon:Hide()
+	end
+	local _, master = GetLootMethod()
+	if master == 0 and (GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0) then
+		masterIcon:Show()
+	else
+		masterIcon:Hide()
 	end
 end
 
@@ -467,7 +496,8 @@ frame:SetScript("OnEvent", function(self, event, unit)
 		return
 	end
 
-	if event == "PARTY_LEADER_CHANGED" or event == "PARTY_MEMBERS_CHANGED" then
+	if event == "PARTY_LEADER_CHANGED" or event == "PARTY_MEMBERS_CHANGED"
+		or event == "PARTY_LOOT_METHOD_CHANGED" or event == "RAID_ROSTER_UPDATE" then
 		updateLeader()
 		return
 	end
@@ -535,6 +565,8 @@ frame:RegisterEvent("UNIT_MAXRUNIC_POWER")
 frame:RegisterEvent("PLAYER_UPDATE_RESTING")
 frame:RegisterEvent("PARTY_LEADER_CHANGED")
 frame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+frame:RegisterEvent("PARTY_LOOT_METHOD_CHANGED")
+frame:RegisterEvent("RAID_ROSTER_UPDATE")
 frame:RegisterEvent("UNIT_ENTERED_VEHICLE")
 frame:RegisterEvent("UNIT_EXITED_VEHICLE")
 frame:RegisterEvent("CVAR_UPDATE")
