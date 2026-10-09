@@ -1,8 +1,9 @@
 -- ForeverUI: the player's bars while a vehicle bar replaces them, on the client's own timing.
 -- They go the moment the player mounts (UNIT_ENTERING_VEHICLE, when the client starts sliding
 -- its bar away) and come back with the client's bar (MainMenuBar_ToPlayerArt, once the vehicle
--- bar has slid away). The action bar (protected) and the client's bars turn transparent, which
--- the client allows in combat; ForeverUI's other frames hide.
+-- bar has slid away), fading in while the client's bar rises. The action bar (protected) and
+-- the client's bars turn transparent, which the client allows in combat; ForeverUI's other
+-- frames hide.
 
 local ForeverUI = ForeverUI or {}
 _G.ForeverUI = ForeverUI
@@ -24,9 +25,27 @@ local HIDDEN = { "ForeverUIActionBarLeftCap", "ForeverUIActionBarRightCap", "For
 -- the frames hidden here, shown again on the way back (a gryphon without art stays hidden)
 local wasShown = {}
 
+-- Fade-in on the way back, as long as the client's bar takes to rise (MainMenuBar.lua)
+local FADE_TIME = MAINMENU_SLIDETIME or 0.3
+local fading = {}
+local fader = CreateFrame("Frame")
+fader:Hide()
+fader:SetScript("OnUpdate", function(self, elapsed)
+	self.elapsed = self.elapsed + (elapsed or 0)
+	local alpha = math.min(1, self.elapsed / FADE_TIME)
+	for _, frame in ipairs(fading) do
+		frame:SetAlpha(alpha)
+	end
+	if alpha >= 1 then
+		self:Hide()
+	end
+end)
+ForeverUI.VehicleFade = fader
+
 local function leave()
 	if ForeverUI.VehicleArt then return end
 	ForeverUI.VehicleArt = true
+	fader:Hide()
 	for _, frame in ipairs(FADED) do
 		frame:SetAlpha(0)
 	end
@@ -43,14 +62,25 @@ end
 local function back()
 	if not ForeverUI.VehicleArt then return end
 	ForeverUI.VehicleArt = false
+	fading = {}
+	for _, frame in ipairs(FADED) do
+		table.insert(fading, frame)
+	end
 	for frame in pairs(wasShown) do
+		frame:SetAlpha(0)
 		frame:Show()
+		table.insert(fading, frame)
 	end
 	wasShown = {}
-	for _, frame in ipairs(FADED) do
-		frame:SetAlpha(1)
+	for _, name in ipairs({ "ForeverUIExperienceBar", "ForeverUIReputationBar" }) do
+		if _G[name] then
+			_G[name]:SetAlpha(0)
+			table.insert(fading, _G[name])
+		end
 	end
 	if ForeverUI.StatusBarsUpdate then ForeverUI.StatusBarsUpdate() end
+	fader.elapsed = 0
+	fader:Show()
 	-- the stance, pet and totem bars and the right bars kept their places meanwhile
 	if ForeverUI.MultiBars then ForeverUI.MultiBars.Restack() end
 end
