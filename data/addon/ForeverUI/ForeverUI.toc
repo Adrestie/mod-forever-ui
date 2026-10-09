@@ -43,6 +43,7 @@ TotemBar.lua
 TabardColors.lua
 BottomBar.lua
 StatusBars.lua
+Vehicle.lua
 Minimap.lua
 WorldMapInstances.lua
 WorldMap.lua

@@ -36,8 +36,6 @@ local VEHICLE_MICRO_AREA = {
 	Mechanical = { left = -335, right = -219, bottom = 3, top = 77 },
 	Natural = { left = -363, right = -237, bottom = 3, top = 77 },
 }
--- Hidden while the vehicle bar replaces the player's bar (secure driver: works in combat)
-local VEHICLE_HIDDEN = "[vehicleui] hide; show"
 
 -- Backslash built with string.char, so the path needs no escaped separators.
 local SEP = string.char(92)
@@ -878,11 +876,6 @@ applyDefaultPositions()
 measureRow()
 placeEndCaps()
 layoutAll()
-
--- In a vehicle the client hides its bag buttons and moves its micro buttons into the vehicle
--- bar: the strip and the bags frame go too.
-RegisterStateDriver(micro, "visibility", VEHICLE_HIDDEN)
-RegisterStateDriver(bags, "visibility", VEHICLE_HIDDEN)
 
 -- Micro button added by another addon, without ForeverUI knowing that addon.
 -- ForeverUI.AddMicroButton(def), def fields:
