@@ -1347,6 +1347,12 @@ suivent la règle de la fiche réduite de camelot (250 de large, sur plusieurs
 lignes). Les composants sont rangés au pas de 163 au lieu de 185, pour que la
 deuxième colonne reste dans la fiche.
 
+### 1.14 La fenêtre de butin
+
+Pas de liseré d'objet de quête ni de monnaie : 3.3.5 ne les signale pas
+(`GetLootSlotInfo` ne rend ni `isQuestItem` ni `currencyID`). La place par défaut
+de camelot (16, -116) est fixe : la fenêtre n'est pas dans Customize UI.
+
 ---
 
 ## 2. Ce que 3.3.5 ne sait pas faire

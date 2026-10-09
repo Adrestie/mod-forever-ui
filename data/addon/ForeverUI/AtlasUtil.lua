@@ -194,6 +194,7 @@ end
 -- (docs/reference): (16, 14, 12), opaque. A translucent one turns bag slot gaps blue.
 -- Edges are stretched, not tiled: a tiled atlas texture spreads the whole sheet.
 local PANEL_BACKGROUND = { 16 / 255, 14 / 255, 12 / 255, 1 }
+ForeverUI.PanelBackground = PANEL_BACKGROUND
 
 -- HeldBagLayout (blizzard_sharedxml/mainline/nineslicelayouts.lua): the eight pieces are
 -- OVERLAY and each corner has its offset, copied as is. In OVERLAY the metal covers every
