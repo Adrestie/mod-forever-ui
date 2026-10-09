@@ -110,3 +110,4 @@ ProfessionsBook.lua
 BarberShopData.lua
 BarberShopColors.lua
 BarberShop.lua
+Loot.lua
