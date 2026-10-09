@@ -55,12 +55,14 @@ icon:SetWidth(ICON_SIZE)
 icon:SetHeight(ICON_SIZE)
 icon:SetPoint("RIGHT", frame, "LEFT", -ICON_GAP, 0)
 
--- The player bar's shield (CastBar.lua: camelot's 29 x 33 at (-24, 1.5)), scaled
-local shield = frame:CreateTexture(nil, "OVERLAY")
+-- camelot's target bar (SmallCastingBarFrameTemplate): the shield is behind the spell icon and
+-- holds it, 29 x 33 for a 20 x 20 icon, from (-5, 4) of the icon's top left; scaled to our icon
+local SHIELD_SCALE = ICON_SIZE / 20
+local shield = frame:CreateTexture(nil, "BACKGROUND")
 ForeverUI.SetAtlas(shield, "ui-castingbar-shield", true)
-shield:SetWidth(29 * K)
-shield:SetHeight(33 * K)
-shield:SetPoint("TOPLEFT", frame, "TOPLEFT", -24 * K, 1.5 * K)
+shield:SetWidth(29 * SHIELD_SCALE)
+shield:SetHeight(33 * SHIELD_SCALE)
+shield:SetPoint("TOPLEFT", icon, "TOPLEFT", -5 * SHIELD_SCALE, 4 * SHIELD_SCALE)
 shield:Hide()
 
 local spellText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
