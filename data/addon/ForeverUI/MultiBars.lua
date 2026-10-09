@@ -62,15 +62,23 @@ local function layout(bar)
 end
 
 -- Height the bottom row adds under the stance and pet bars: a bar 2 or 3 shown where the
--- stack puts it (a bar the player moved leaves the stack, as in camelot)
+-- stack puts it (a bar the player moved leaves the stack, as in camelot). While a vehicle bar
+-- replaces the player's bars (Vehicle.lua) the client hides bars 2 and 3: the height stays the
+-- last one, so that bars shown again in combat (where nothing moves) are where they belong.
+local lastLift = 0
 function M.Lift()
+	if ForeverUI.VehicleArt then
+		return lastLift
+	end
+	lastLift = 0
 	for k = 1, 2 do
 		local bar = M.bars[k]
 		if bar.frame and bar.frame:IsShown() and ForeverUI.Layout.IsDefault(bar.id) then
-			return 45 + ROW_SPACING
+			lastLift = 45 + ROW_SPACING
+			break
 		end
 	end
-	return 0
+	return lastLift
 end
 
 -- Top of a region in UIParent units
@@ -85,9 +93,10 @@ end
 local function fitRight()
 	local minimap, caps = MinimapCluster, ForeverUI.ActionBarEndCaps
 	local gryphon = caps and caps.right
-	-- A vehicle hides the gryphon, and the client these bars: they keep their last fit, so that
-	-- shown again in combat (where nothing moves) they do not cover the gryphon.
-	if gryphon and not gryphon:IsShown() and UnitHasVehicleUI and UnitHasVehicleUI("player") then
+	-- While a vehicle bar replaces the player's bars (Vehicle.lua), the gryphon is hidden and the
+	-- client hides these bars: they keep their last fit, so that shown again in combat (where
+	-- nothing moves) they do not cover the gryphon.
+	if ForeverUI.VehicleArt then
 		return
 	end
 	local high = UIParent:GetHeight()
@@ -146,12 +155,24 @@ local function setup()
 			bar.frame:HookScript("OnHide", M.Restack)
 		end
 	end
-	-- the right gryphon, hidden in a vehicle, bounds the right bars again when it comes back
-	local caps = ForeverUI.ActionBarEndCaps
-	if caps and caps.right then
-		caps.right:HookScript("OnShow", M.Restack)
-	end
 	M.Restack()
+end
+
+-- The client slides MultiBarRight back in whenever it brings its bar back (vehicle exit,
+-- loading screen: MainMenuBar_ToPlayerArt), anchoring it by BOTTOMRIGHT over ours without
+-- clearing it. When the slide ends (MainMenuBar_UnlockAB), ours is put back alone, after
+-- combat if need be.
+local rightPending = false
+local function reanchorRight()
+	if InCombatLockdown() then
+		rightPending = true
+		return
+	end
+	rightPending = false
+	ForeverUI.Layout.Apply("multibarright")
+end
+if type(_G["MainMenuBar_UnlockAB"]) == "function" then
+	hooksecurefunc("MainMenuBar_UnlockAB", reanchorRight)
 end
 
 -- An extra bar, the totem bar, the minimap or the right gryphon moved, resized or put back in
@@ -169,6 +190,8 @@ end
 watcher:SetScript("OnEvent", function(_, event)
 	if not laidOut then
 		setup()
+	elseif event == "PLAYER_REGEN_ENABLED" and rightPending then
+		reanchorRight()       -- re-stacks too (the Layout.Apply hook above)
 	elseif event ~= "PLAYER_REGEN_ENABLED" or pending then
 		M.Restack()
 	end

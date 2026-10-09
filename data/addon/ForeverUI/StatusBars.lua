@@ -106,18 +106,14 @@ local function placeReputation()
 	ForeverUI.Layout.SetDefaults("reputationbar", "BOTTOM", "BOTTOM", center, y)
 end
 
--- Both bars hide while the vehicle bar replaces the player's bar, as the client's do.
-local function inVehicle()
-	return UnitHasVehicleUI and UnitHasVehicleUI("player")
-end
-
 -- ---------- Experience
 local function updateExperience()
 	local maximum = UnitXPMax("player")
 	local level = UnitLevel("player")
 	local maxLevel = MAX_PLAYER_LEVEL or 80
 
-	if inVehicle() or not maximum or maximum <= 0 or (level and level >= maxLevel) then
+	-- hidden too while a vehicle bar replaces the player's bars (Vehicle.lua)
+	if ForeverUI.VehicleArt or not maximum or maximum <= 0 or (level and level >= maxLevel) then
 		experience:Hide()
 		placeReputation()
 		return
@@ -143,7 +139,7 @@ end
 -- ---------- Reputation
 local function updateReputation()
 	local name, standingId, minimum, maximum, value = GetWatchedFactionInfo()
-	if inVehicle() or not name or not maximum or maximum <= minimum then
+	if ForeverUI.VehicleArt or not name or not maximum or maximum <= minimum then
 		reputation:Hide()
 		return
 	end
@@ -185,12 +181,7 @@ listener:RegisterEvent("PLAYER_XP_UPDATE")
 listener:RegisterEvent("PLAYER_LEVEL_UP")
 listener:RegisterEvent("UPDATE_EXHAUSTION")
 listener:RegisterEvent("UPDATE_FACTION")
-listener:RegisterEvent("UNIT_ENTERED_VEHICLE")
-listener:RegisterEvent("UNIT_EXITED_VEHICLE")
-listener:SetScript("OnEvent", function(_self, event, unit)
-	if (event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE") and unit ~= "player" then
-		return
-	end
+listener:SetScript("OnEvent", function(_self, event)
 	if event == "PLAYER_ENTERING_WORLD" then
 		-- The client's bars: experience, rested tick, and reputation, which re-places itself on
 		-- every update.
