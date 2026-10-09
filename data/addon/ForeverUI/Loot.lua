@@ -120,25 +120,32 @@ P.zone, P.child = zone, child
 
 local step = N.card + N.spacing
 
--- Upper and lower shadows (_looting_itemcard_shadow-center at scale 0.2, the upper one flipped),
--- shown when there are cards beyond the view
+-- Upper and lower shadows, shown when there are cards beyond the view. As the ScrollBox's Shadows
+-- frame: 15 levels above the cards, at scale 0.2; _looting_itemcard_shadow-center at its size,
+-- 30 in from each side in that scale, the upper one flipped.
+local shadows = CreateFrame("Frame", nil, zone)
+shadows:SetAllPoints(zone)
+shadows:SetScale(N.shadow[2])
+shadows:SetFrameLevel(child:GetFrameLevel() + 15)
+P.shadows = shadows
 local function shadow(top)
-	local t = zone:CreateTexture(nil, "OVERLAY")
+	local t = shadows:CreateTexture(nil, "OVERLAY")
 	local e = ForeverUI.AtlasEntry("_looting_itemcard_shadow-center")
 	atlas(t, "_looting_itemcard_shadow-center")
-	t:SetHeight((e and e[7] or 150) * N.shadow[2])
+	t:SetHeight(e and e[7] or 150)
 	if top then
 		if e then t:SetTexCoord(e[2], e[3], e[5], e[4]) end
-		t:SetPoint("TOPLEFT", zone, "TOPLEFT", N.shadow[1], 0)
-		t:SetPoint("TOPRIGHT", zone, "TOPRIGHT", -N.shadow[1], 0)
+		t:SetPoint("TOPLEFT", shadows, "TOPLEFT", N.shadow[1], 0)
+		t:SetPoint("TOPRIGHT", shadows, "TOPRIGHT", -N.shadow[1], 0)
 	else
-		t:SetPoint("BOTTOMLEFT", zone, "BOTTOMLEFT", N.shadow[1], 0)
-		t:SetPoint("BOTTOMRIGHT", zone, "BOTTOMRIGHT", -N.shadow[1], 0)
+		t:SetPoint("BOTTOMLEFT", shadows, "BOTTOMLEFT", N.shadow[1], 0)
+		t:SetPoint("BOTTOMRIGHT", shadows, "BOTTOMRIGHT", -N.shadow[1], 0)
 	end
 	t:Hide()
 	return t
 end
 local upperShadow, lowerShadow = shadow(true), shadow(false)
+P.upperShadow, P.lowerShadow = upperShadow, lowerShadow
 
 local bar = ForeverUI.CreateScrollBar("ForeverUILootScrollBar", panel, zone)
 bar:ClearAllPoints()
@@ -380,10 +387,26 @@ if LootFrame then
 	LootFrame:HookScript("OnHide", P.Close)
 end
 
+-- The master loot list: GetMasterLootCandidate gives no name until the name cache has it (often
+-- the master looter's own); the client then queries it and sends UPDATE_MASTER_LOOT_LIST, which
+-- 3.3.5's LootFrame answers with UIDropDownMenu_Refresh, which does not rebuild the list. Opened,
+-- the list is opened again, so it lists the candidates whose names came.
+local function reopenMasterLootList()
+	if GroupLootDropDown and UIDROPDOWNMENU_OPEN_MENU == GroupLootDropDown and DropDownList1:IsShown() then
+		CloseDropDownMenus()
+		ToggleDropDownMenu(1, nil, GroupLootDropDown, LootFrame.selectedLootButton, 0, 0)
+	end
+end
+
 local events = CreateFrame("Frame")
 events:RegisterEvent("LOOT_SLOT_CLEARED")
 events:RegisterEvent("LOOT_SLOT_CHANGED")
+events:RegisterEvent("UPDATE_MASTER_LOOT_LIST")
 events:SetScript("OnEvent", function(_, event, slot)
+	if event == "UPDATE_MASTER_LOOT_LIST" then
+		reopenMasterLootList()
+		return
+	end
 	local card = slot and cards[slot]
 	if not (card and panel:IsShown()) then return end
 	if event == "LOOT_SLOT_CLEARED" then
