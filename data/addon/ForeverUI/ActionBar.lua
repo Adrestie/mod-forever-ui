@@ -230,6 +230,17 @@ end
 local leftCap = createEndCap("ForeverUIActionBarLeftCap", "ui-hud-actionbar-gryphon-left")
 local rightCap = createEndCap("ForeverUIActionBarRightCap", "ui-hud-actionbar-gryphon-right")
 
+-- In a vehicle the client hides its bar for the vehicle's: the bar's frame and the end caps go
+-- too. A secure driver, since buttons anchored to the holder make it protected in combat. A cap
+-- without art stays hidden.
+local VEHICLE_HIDDEN = "[vehicleui] hide; show"
+RegisterStateDriver(holder, "visibility", VEHICLE_HIDDEN)
+for _, cap in ipairs({ leftCap, rightCap }) do
+	if cap:IsShown() then
+		RegisterStateDriver(cap, "visibility", VEHICLE_HIDDEN)
+	end
+end
+
 -- The bonus bar takes the same place. On a stance change 3.3.5 shows BonusActionBarFrame
 -- over the main bar at its own position, so its buttons are anchored like the main ones and
 -- follow the holder. Nothing is reparented: buttons follow the client bar's visibility.

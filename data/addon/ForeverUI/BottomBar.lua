@@ -27,6 +27,18 @@ local MICRO_X, MICRO_Y = 116.5, 6
 local BAR_OFFSET_X, BAR_OFFSET_Y = -4.5, -4
 local BAGS_OFFSET_X, BAGS_OFFSET_Y = 7, -4
 
+-- In a vehicle the buttons go in two rows (camelot OverrideMicroMenuPosition: stacked, the
+-- strip's padding between rows too) at camelot's 0.85 scale, smaller if needed to fit the room
+-- the vehicle bar keeps for them. That room, per skin, from VehicleMenuBar's BOTTOMRIGHT: between
+-- the borders around it (VehicleMenuBar.lua SkinsData), above the bar's bottom, under its top border.
+local VEHICLE_MICRO_SCALE = 0.85
+local VEHICLE_MICRO_AREA = {
+	Mechanical = { left = -335, right = -219, bottom = 3, top = 77 },
+	Natural = { left = -363, right = -237, bottom = 3, top = 77 },
+}
+-- Hidden while the vehicle bar replaces the player's bar (secure driver: works in combat)
+local VEHICLE_HIDDEN = "[vehicleui] hide; show"
+
 -- Backslash built with string.char, so the path needs no escaped separators.
 local SEP = string.char(92)
 local BAG_ICON = "Interface" .. SEP .. "ForeverUI" .. SEP .. "icons" .. SEP .. "ui-hud-actionbar-bag"
@@ -225,10 +237,6 @@ local function skinMicro(definition, index)
 	button:SetHeight(MICRO_ART_H)
 	-- 3.3.5 makes the top 18 px ignore the mouse (decor of the old button art); undo that.
 	button:SetHitRectInsets(0, 0, 0, 0)
-	-- Buttons overlap by 5 px: the right one draws on top.
-	if MainMenuBarArtFrame then
-		button:SetFrameLevel(MainMenuBarArtFrame:GetFrameLevel() + index)
-	end
 
 	local entry = { button = button, atlasSet = definition.atlasSet, portrait = definition.portrait, created = definition.create }
 
@@ -300,6 +308,8 @@ local function skinMicro(definition, index)
 		-- that stretches into a big green square
 		MainMenuBarPerformanceBar:SetTexture(PERFORMANCE_IMAGE)
 		placeLatency(button)
+		-- the button's scale changes in a vehicle
+		entry.placeLatency = function() placeLatency(button) end
 		-- the pixel size changes with the screen or the scale
 		local latencyWatcher = CreateFrame("Frame")
 		latencyWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED")
@@ -493,22 +503,58 @@ if GameMenuFrame and GameMenuButtonMacros and GameMenuButtonLogout then
 	GameMenuFrame:SetHeight(GameMenuFrame:GetHeight() + help:GetHeight() + 2 * MENU_GAP - 1)
 end
 
+-- Skin of the vehicle bar holding the buttons, nil outside a vehicle
+-- (VehicleMenuBar_MoveMicroButtons).
+local vehicleSkin
+
 -- Buttons run from the strip's LEFT edge (camelot: layoutFramesGoingRight).
 -- Re-applied after VehicleMenuBar_MoveMicroButtons, which re-anchors CharacterMicroButton
 -- and SocialsMicroButton on every vehicle enter or exit (MainMenuBar_ToPlayerArt /
--- _ToVehicleArt). In a vehicle the client moves its buttons to VehicleMenuBarArtFrame;
--- created buttons follow, with frame levels counted from CharacterMicroButton.
+-- _ToVehicleArt). In a vehicle the client moves its buttons to VehicleMenuBarArtFrame and
+-- created buttons follow; there they fill the vehicle bar's room in two rows, the first
+-- holding the extra button of an odd count, at the scale that fits however many there are.
+-- Each button is scaled on its own, its anchor offsets divided by its scale. The right
+-- button (in a vehicle, the lower row too) draws on top.
 local function layoutMicro()
+	local area = vehicleSkin and VEHICLE_MICRO_AREA[vehicleSkin]
+	local scale, height, columns, left, top = 1, MICRO_ART_H
+	if area then
+		columns = math.ceil(#microButtons / 2)
+		local rows = #microButtons > 1 and 2 or 1
+		local blockWidth = columns * MICRO_PITCH - MICRO_PADDING
+		local blockHeight = rows * (MICRO_H + MICRO_PADDING) - MICRO_PADDING
+		local width, roomHeight = area.right - area.left, area.top - area.bottom
+		scale = math.min(VEHICLE_MICRO_SCALE, width / blockWidth, roomHeight / blockHeight)
+		height = MICRO_H
+		left = area.left + (width - blockWidth * scale) / 2
+		top = area.top - (roomHeight - blockHeight * scale) / 2
+	end
 	for index, entry in ipairs(microButtons) do
+		local button = entry.button
 		if entry.created and CharacterMicroButton then
 			local parent = CharacterMicroButton:GetParent()
-			if entry.button:GetParent() ~= parent then
-				entry.button:SetParent(parent)
+			if button:GetParent() ~= parent then
+				button:SetParent(parent)
 			end
-			entry.button:SetFrameLevel(CharacterMicroButton:GetFrameLevel() + index - 1)
 		end
-		entry.button:ClearAllPoints()
-		entry.button:SetPoint("LEFT", micro, "LEFT", (index - 1) * MICRO_PITCH, 0)
+		button:SetFrameLevel(button:GetParent():GetFrameLevel() + index)
+		button:SetScale(scale)
+		button:SetHeight(height)
+		if entry.pressedShadow then
+			entry.pressedShadow:SetHeight(height)
+		end
+		button:ClearAllPoints()
+		if area then
+			local row = index > columns and 1 or 0
+			local x = left + (index - 1 - row * columns) * MICRO_PITCH * scale
+			local y = top - row * (MICRO_H + MICRO_PADDING) * scale
+			button:SetPoint("TOPLEFT", VehicleMenuBar, "BOTTOMRIGHT", x / scale, y / scale)
+		else
+			button:SetPoint("LEFT", micro, "LEFT", (index - 1) * MICRO_PITCH, 0)
+		end
+		if entry.placeLatency then
+			entry.placeLatency()
+		end
 	end
 end
 
@@ -536,7 +582,11 @@ end
 layoutMicro()
 
 if hooksecurefunc and type(_G["VehicleMenuBar_MoveMicroButtons"]) == "function" then
-	hooksecurefunc("VehicleMenuBar_MoveMicroButtons", layoutMicro)
+	-- skinName: the vehicle bar's skin, nil when the player's bar comes back
+	hooksecurefunc("VehicleMenuBar_MoveMicroButtons", function(skinName)
+		vehicleSkin = skinName
+		layoutMicro()
+	end)
 end
 
 -- ------------------------------------------------------ Bags bar
@@ -829,6 +879,11 @@ measureRow()
 placeEndCaps()
 layoutAll()
 
+-- In a vehicle the client hides its bag buttons and moves its micro buttons into the vehicle
+-- bar: the strip and the bags frame go too.
+RegisterStateDriver(micro, "visibility", VEHICLE_HIDDEN)
+RegisterStateDriver(bags, "visibility", VEHICLE_HIDDEN)
+
 -- Micro button added by another addon, without ForeverUI knowing that addon.
 -- ForeverUI.AddMicroButton(def), def fields:
 --   name      global button name; a button already in the strip is returned, never doubled
@@ -870,13 +925,6 @@ function ForeverUI.AddMicroButton(def)
 	local entry = skinMicro(definition, rank)
 	if not entry then return nil end
 	table.insert(microButtons, rank, entry)
-	-- following buttons shift one slot: the right one stays on top
-	for index = rank + 1, #microButtons do
-		local e = microButtons[index]
-		if not e.created and MainMenuBarArtFrame then
-			e.button:SetFrameLevel(MainMenuBarArtFrame:GetFrameLevel() + index)
-		end
-	end
 	local n = #microButtons
 	micro:SetWidth(n * MICRO_W + (n - 1) * MICRO_PADDING)
 	applyDefaultPositions()
@@ -912,9 +960,10 @@ watcher:SetScript("OnEvent", function()
 end)
 
 -- /fui micro: prints each button's anchor, then for five seconds what the cursor hits.
--- An anchor other than ForeverUIMicroMenu, or an offset that is not a multiple of the
--- pitch, means something moved the buttons (in 3.3.5 only VehicleMenuBar_MoveMicroButtons
--- does, but another addon could). GetMouseFocus shows which frame really gets the click.
+-- Outside a vehicle (where they are anchored to VehicleMenuBar, scaled), an anchor other than
+-- ForeverUIMicroMenu, or an offset that is not a multiple of the pitch, means something moved
+-- the buttons (in 3.3.5 only VehicleMenuBar_MoveMicroButtons does, but another addon could).
+-- GetMouseFocus shows which frame really gets the click.
 function ForeverUI.MicroDebug()
 	local say = function(text)
 		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text)
