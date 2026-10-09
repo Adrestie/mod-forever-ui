@@ -258,6 +258,73 @@ function Layout.SetDefaults(id, point, relativePoint, x, y)
 	return true
 end
 
+-- Fractions of a box for an anchor point: x from the left, y from the bottom.
+local function fractions(point)
+	local fx = (string.find(point, "LEFT") and 0) or (string.find(point, "RIGHT") and 1) or 0.5
+	local fy = (string.find(point, "BOTTOM") and 0) or (string.find(point, "TOP") and 1) or 0.5
+	return fx, fy
+end
+
+-- An anchor of the element on another frame, as the same place given from the screen: offsets
+-- of point from the same point of UIParent, in the element's units at 100 %; nil while that
+-- frame is not laid out. relativeTo: a frame or its name; the other arguments as SetPoint's.
+local function onScreen(id, point, relativeTo, relativePoint, x, y)
+	local system = Layout.systems[id]
+	local other = type(relativeTo) == "string" and _G[relativeTo] or relativeTo or system.frame:GetParent()
+	local left, bottom = other and other:GetLeft(), other and other:GetBottom()
+	if not (left and bottom) then
+		return nil
+	end
+	local scale = Layout.Scale(id)
+	local k = unit(system, scale)              -- element's units at 100 %, in UIParent's
+	local ko = other:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local fx, fy = fractions(relativePoint or point)
+	local px = (left + other:GetWidth() * fx) * ko + (x or 0) * k * scale
+	local py = (bottom + other:GetHeight() * fy) * ko + (y or 0) * k * scale
+	local gx, gy = fractions(point)
+	return (px - gx * UIParent:GetWidth()) / k, (py - gy * UIParent:GetHeight()) / k
+end
+
+-- A client frame that the client itself keeps anchoring elsewhere (UIParent_ManageFramePositions),
+-- made movable like ForeverUI's elements. Until the player moves it, its default is the client's
+-- last anchor, given from the screen, and follows the frame that anchor refers to when that one
+-- moves; once moved, its own anchor comes back after each of the client's. Anchors on the screen
+-- (its own, Customize UI's while dragging) are left alone.
+function Layout.RegisterClientFrame(frame, id, label)
+	local last = {}                         -- the client's last anchor
+	local function placeDefault()
+		local dx, dy = onScreen(id, last.point, last.relativeTo, last.relativePoint, last.x, last.y)
+		if dx then
+			Layout.SetDefaults(id, last.point, last.point, dx, dy)
+		end
+	end
+	-- point..y: an anchor as SetPoint takes it
+	local function follow(point, relativeTo, relativePoint, x, y)
+		if not point or relativeTo == UIParent or relativeTo == "UIParent" then
+			return
+		end
+		last = { point = point, relativeTo = relativeTo, relativePoint = relativePoint, x = x, y = y }
+		if Layout.IsDefault(id) then
+			placeDefault()
+		else
+			Layout.Apply(id)
+		end
+	end
+	local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
+	Layout.Register(frame, id, label, "TOPRIGHT", "TOPRIGHT", 0, 0)
+	follow(point, relativeTo, relativePoint, x, y)
+	hooksecurefunc(frame, "SetPoint", function(_, ...) follow(...) end)
+	-- the frame the client's anchor refers to moved (the minimap, by the player)
+	hooksecurefunc(Layout, "Apply", function(other)
+		local moved = other ~= id and Layout.systems[other] and Layout.systems[other].frame
+		local target = type(last.relativeTo) == "string" and _G[last.relativeTo] or last.relativeTo
+		if moved and moved == target and Layout.IsDefault(id) then
+			placeDefault()
+		end
+	end)
+	return frame
+end
+
 -- ---------- Draw order
 -- camelot keeps the playing screen in LOW (unit frames, minimap, objectives) and MEDIUM (action
 -- bars, menu, bags bar) and raises each window above the whole MEDIUM strata (toplevel, Raise).
@@ -285,6 +352,11 @@ local function lowerClientFrames()
 	return true
 end
 local lowered = lowerClientFrames()
+
+-- The durability figure, stacked by the client under the minimap, moves like the elements.
+if DurabilityFrame then
+	Layout.RegisterClientFrame(DurabilityFrame, "durability", DURABILITY)
+end
 
 -- Places every element once saved variables are loaded.
 local watcher = CreateFrame("Frame")
