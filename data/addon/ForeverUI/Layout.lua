@@ -264,13 +264,19 @@ local function fractions(point)
 	local fy = (string.find(point, "BOTTOM") and 0) or (string.find(point, "TOP") and 1) or 0.5
 	return fx, fy
 end
+Layout.Fractions = fractions
+
+-- The frame an anchor refers to; relativeTo: a frame or its name, as SetPoint takes it.
+local function frameOf(relativeTo)
+	return type(relativeTo) == "string" and _G[relativeTo] or relativeTo
+end
 
 -- An anchor of the element on another frame, as the same place given from the screen: offsets
 -- of point from the same point of UIParent, in the element's units at 100 %; nil while that
--- frame is not laid out. relativeTo: a frame or its name; the other arguments as SetPoint's.
+-- frame is not laid out. The other arguments as SetPoint's (no relativeTo: the parent).
 local function onScreen(id, point, relativeTo, relativePoint, x, y)
 	local system = Layout.systems[id]
-	local other = type(relativeTo) == "string" and _G[relativeTo] or relativeTo or system.frame:GetParent()
+	local other = frameOf(relativeTo) or system.frame:GetParent()
 	local left, bottom = other and other:GetLeft(), other and other:GetBottom()
 	if not (left and bottom) then
 		return nil
@@ -286,12 +292,13 @@ local function onScreen(id, point, relativeTo, relativePoint, x, y)
 end
 
 -- A client frame that the client itself keeps anchoring elsewhere (UIParent_ManageFramePositions),
--- made movable like ForeverUI's elements. Until the player moves it, its default is the client's
--- last anchor, given from the screen, and follows the frame that anchor refers to when that one
--- moves; once moved, its own anchor comes back after each of the client's. Anchors on the screen
--- (its own, Customize UI's while dragging) are left alone.
+-- made movable like ForeverUI's elements. Its default is the client's last anchor, given from the
+-- screen, and follows the frame that anchor refers to when that one moves; once the player has
+-- moved it, its own anchor comes back after each of the client's. Anchors on the screen (its own,
+-- Customize UI's while dragging) are left alone. id, label: as Register's.
 function Layout.RegisterClientFrame(frame, id, label)
 	local last = {}                         -- the client's last anchor
+	-- kept up to date even while moved, so that a reset finds the client's place of the moment
 	local function placeDefault()
 		local dx, dy = onScreen(id, last.point, last.relativeTo, last.relativePoint, last.x, last.y)
 		if dx then
@@ -304,9 +311,8 @@ function Layout.RegisterClientFrame(frame, id, label)
 			return
 		end
 		last = { point = point, relativeTo = relativeTo, relativePoint = relativePoint, x = x, y = y }
-		if Layout.IsDefault(id) then
-			placeDefault()
-		else
+		placeDefault()
+		if not Layout.IsDefault(id) then
 			Layout.Apply(id)
 		end
 	end
@@ -317,8 +323,7 @@ function Layout.RegisterClientFrame(frame, id, label)
 	-- the frame the client's anchor refers to moved (the minimap, by the player)
 	hooksecurefunc(Layout, "Apply", function(other)
 		local moved = other ~= id and Layout.systems[other] and Layout.systems[other].frame
-		local target = type(last.relativeTo) == "string" and _G[last.relativeTo] or last.relativeTo
-		if moved and moved == target and Layout.IsDefault(id) then
+		if moved and moved == frameOf(last.relativeTo) then
 			placeDefault()
 		end
 	end)
@@ -353,9 +358,12 @@ local function lowerClientFrames()
 end
 local lowered = lowerClientFrames()
 
--- The durability figure, stacked by the client under the minimap, moves like the elements.
+-- The durability figure, stacked by the client under the minimap, moves like the elements. Its
+-- weapon, shield and ranged pieces reach past its 60 x 65 frame (DurabilityFrame.xml): kept on
+-- screen with it.
 if DurabilityFrame then
 	Layout.RegisterClientFrame(DurabilityFrame, "durability", DURABILITY)
+	DurabilityFrame:SetClampRectInsets(-12, 19, 0, -11)
 end
 
 -- Places every element once saved variables are loaded.

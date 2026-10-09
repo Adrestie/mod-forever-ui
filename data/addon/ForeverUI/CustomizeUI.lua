@@ -160,11 +160,7 @@ C.grid = grid
 -- ------------------------------------------------------------ Geometry
 
 -- Fractions of a box for an anchor point: x from the left, y from the bottom.
-local function fractions(point)
-	local fx = (string.find(point, "LEFT") and 0) or (string.find(point, "RIGHT") and 1) or 0.5
-	local fy = (string.find(point, "BOTTOM") and 0) or (string.find(point, "TOP") and 1) or 0.5
-	return fx, fy
-end
+local fractions = Layout.Fractions
 
 -- Screen point of the third a position falls in (x from the left, y from the bottom, UIParent
 -- units): TOPLEFT to BOTTOMRIGHT, CENTER in the middle one.
