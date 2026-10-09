@@ -65,9 +65,11 @@ end
 -- stack puts it (a bar the player moved leaves the stack, as in camelot). While a vehicle bar
 -- replaces the player's bars (Vehicle.lua) the client hides bars 2 and 3: the height stays the
 -- last one, so that bars shown again in combat (where nothing moves) are where they belong.
+-- The client's own state counts too: a swap without a mount event (reload, loading screen in a
+-- vehicle) hides those bars before Vehicle.lua hears of it.
 local lastLift = 0
 function M.Lift()
-	if ForeverUI.VehicleArt then
+	if ForeverUI.VehicleArt or (MainMenuBar and MainMenuBar.state == "vehicle") then
 		return lastLift
 	end
 	lastLift = 0
@@ -159,9 +161,9 @@ local function setup()
 end
 
 -- The client slides MultiBarRight back in whenever it brings its bar back (vehicle exit,
--- loading screen: MainMenuBar_ToPlayerArt), anchoring it by BOTTOMRIGHT over ours without
--- clearing it. When the slide ends (MainMenuBar_UnlockAB), ours is put back alone, after
--- combat if need be.
+-- loading screen, talent spec switch: MainMenuBar_ToPlayerArt), anchoring it by BOTTOMRIGHT
+-- over ours without clearing it. When the slide ends (MainMenuBar_UnlockAB), ours is put back
+-- alone, after combat if need be.
 local rightPending = false
 local function reanchorRight()
 	if InCombatLockdown() then
