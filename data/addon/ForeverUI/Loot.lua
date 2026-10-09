@@ -45,6 +45,55 @@ local function atlas(t, name)
 	return ForeverUI.SetAtlas(t, name, true)
 end
 
+-- ------------------------------------------------------------ animations
+
+-- camelot's animation groups, replayed by hand as in ObjectiveTracker.lua: 3.3.5 groups have no
+-- fromAlpha / toAlpha nor setToFinalAlpha. One step per frame (the panel, a card): a new step
+-- replaces the running one, stop drops it. fn(progress) runs each frame; finish once done,
+-- after the loop.
+local A = {
+	open = 0.1, close = 0.1, drop = 10,           -- ScrollingFlatPanel ShowAnim / HideAnim
+	card = 0.1,                                   -- element ShowAnim
+	slide = 0.3, slideX = 100, fade = 0.2, fadeDelay = 0.1, -- SlideOutRightAnim
+}
+local steps = {}
+local runner = CreateFrame("Frame")
+runner:Hide()
+runner:SetScript("OnUpdate", function(self, elapsed)
+	local finished
+	for key, e in pairs(steps) do
+		e.t = e.t + elapsed
+		if e.t >= e.delay then
+			local p = (e.duration > 0) and math.min(1, (e.t - e.delay) / e.duration) or 1
+			e.fn(p)
+			if p >= 1 then
+				steps[key] = nil
+				if e.finish then
+					finished = finished or {}
+					table.insert(finished, e.finish)
+				end
+			end
+		end
+	end
+	if finished then
+		for _, finish in ipairs(finished) do finish() end
+	end
+	if not next(steps) then self:Hide() end
+end)
+P.steps, P.runner = steps, runner
+
+local function play(key, duration, fn, finish)
+	steps[key] = { t = 0, delay = 0, duration = duration, fn = fn, finish = finish }
+	runner:Show()
+end
+
+local function stop(key)
+	steps[key] = nil
+end
+
+-- smoothing="IN"
+local function easeIn(p) return p * p end
+
 -- ------------------------------------------------------------ panel
 
 local panel = CreateFrame("Frame", "ForeverUILootFrame", UIParent)
@@ -181,6 +230,8 @@ local function quality(slot)
 end
 
 local function onEnter(card)
+	local enabled = card.item:IsEnabled()
+	if not enabled or enabled == 0 then return end
 	card.highlight:Show()
 	if LootSlotIsItem(card.slot) then
 		GameTooltip:SetOwner(card, "ANCHOR_NONE")
@@ -213,12 +264,19 @@ local function onClick(button)
 	LootSlot(card.slot)
 end
 
+-- the card at its place in the list, moved right by dx (slide out)
+local function placeCard(card, dx)
+	card:ClearAllPoints()
+	card:SetPoint("TOPLEFT", child, "TOPLEFT", N.pad + dx, card.top)
+	card:SetPoint("TOPRIGHT", child, "TOPRIGHT", -N.pad + dx, card.top)
+end
+
 -- LootFrameElementTemplate (+ LootFrameItemElementTemplate's stripe and quality name)
 local function createCard(i)
 	local card = CreateFrame("Frame", nil, child)
 	card:SetHeight(N.card)
-	card:SetPoint("TOPLEFT", child, "TOPLEFT", N.pad, -(N.pad + (i - 1) * step))
-	card:SetPoint("TOPRIGHT", child, "TOPRIGHT", -N.pad, -(N.pad + (i - 1) * step))
+	card.top = -(N.pad + (i - 1) * step)
+	placeCard(card, 0)
 	local nameFrame = card:CreateTexture(nil, "BACKGROUND")
 	atlas(nameFrame, "looting_itemcard_bg")
 	nameFrame:SetAllPoints(card)
@@ -274,6 +332,9 @@ end
 -- factory sorts them
 local function fill(card, slot)
 	card.slot = slot
+	stop(card)
+	placeCard(card, 0)
+	card:SetAlpha(1)
 	local isCoin, isItem = LootSlotIsCoin(slot), LootSlotIsItem(slot)
 	if not (isCoin or isItem) then
 		card:Hide()
@@ -320,7 +381,30 @@ local function fill(card, slot)
 	else
 		count:Hide()
 	end
+	card.item:Enable()
+	-- ShowAnim: fades in over 0.1 s
+	card:SetAlpha(0)
 	card:Show()
+	play(card, A.card, function(p) card:SetAlpha(easeIn(p)) end)
+end
+
+-- SlideOutRightAnim, on every looted slot: 100 right over 0.3 s, fading out over the last 0.2 s,
+-- then the card hides
+local function slideOut(card)
+	if GameTooltip:IsOwned(card) then GameTooltip:Hide() end
+	card.highlight:Hide()
+	card.pushed:Hide()
+	card.item:Disable()
+	card:SetAlpha(1)
+	play(card, A.slide, function(p)
+		placeCard(card, A.slideX * easeIn(p))
+		local f = math.min(1, math.max(0, (p * A.slide - A.fadeDelay) / A.fade))
+		card:SetAlpha(1 - easeIn(f))
+	end, function()
+		card:Hide()
+		placeCard(card, 0)
+		card:SetAlpha(1)
+	end)
 end
 
 -- ScrollingFlatPanelMixin:Resize: the panel fits its cards up to 290, wider by the bar when
@@ -339,6 +423,13 @@ local function resize(n)
 	scrollTo(0)
 end
 
+-- the panel at its place (P.anchor), moved down by dy
+local function placePanel(dy)
+	local a = P.anchor
+	panel:ClearAllPoints()
+	panel:SetPoint(a[1], a[2], a[3], a[4], a[5] + dy)
+end
+
 function P.Open()
 	local n = GetNumLootItems() or 0
 	for i = 1, n do
@@ -347,23 +438,49 @@ function P.Open()
 	end
 	for i = n + 1, #cards do cards[i]:Hide() end
 	resize(n)
-	panel:ClearAllPoints()
 	if GetCVar("lootUnderMouse") == "1" then
 		local C = N.cursor
 		local x, y = GetCursorPosition()
 		local scale = panel:GetEffectiveScale()
-		panel:SetPoint("TOPLEFT", nil, "BOTTOMLEFT", x / scale + C[1], math.max(y / scale + C[2], C[3]))
+		P.anchor = { "TOPLEFT", nil, "BOTTOMLEFT", x / scale + C[1], math.max(y / scale + C[2], C[3]) }
 	else
-		panel:SetPoint("TOPLEFT", UIParent, "TOPLEFT", N.default[1], N.default[2])
+		P.anchor = { "TOPLEFT", UIParent, "TOPLEFT", N.default[1], N.default[2] }
 	end
+	-- ShowAnim played backwards: comes up 10 and fades in over 0.1 s
+	stop(panel)
+	placePanel(-A.drop)
+	panel:SetAlpha(0)
 	panel:Show()
 	panel:Raise()
+	play(panel, A.open, function(p)
+		local back = easeIn(1 - p)
+		placePanel(-A.drop * back)
+		panel:SetAlpha(1 - back)
+	end)
 end
 
+-- HideAnim: goes down 10 and fades out over 0.1 s, then the panel hides (and its OnHide stops
+-- every animation, so nothing stays on screen when the last item closes the loot)
 function P.Close()
-	panel:Hide()
-	GameTooltip:Hide()
+	if GameTooltip:GetOwner() and GameTooltip:GetOwner():GetParent() == child then GameTooltip:Hide() end
+	if not panel:IsShown() then return end
+	play(panel, A.close, function(p)
+		local e = easeIn(p)
+		placePanel(-A.drop * e)
+		panel:SetAlpha(1 - e)
+	end, function() panel:Hide() end)
 end
+
+panel:SetScript("OnHide", function()
+	stop(panel)
+	panel:SetAlpha(1)
+	if P.anchor then placePanel(0) end
+	for _, card in ipairs(cards) do
+		stop(card)
+		placeCard(card, 0)
+		card:SetAlpha(1)
+	end
+end)
 
 -- ------------------------------------------------------------ host
 
@@ -410,8 +527,7 @@ events:SetScript("OnEvent", function(_, event, slot)
 	local card = slot and cards[slot]
 	if not (card and panel:IsShown()) then return end
 	if event == "LOOT_SLOT_CLEARED" then
-		if GameTooltip:IsOwned(card) then GameTooltip:Hide() end
-		card:Hide()
+		slideOut(card)
 	else
 		fill(card, slot)
 	end
