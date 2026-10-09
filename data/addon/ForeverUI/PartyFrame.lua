@@ -24,6 +24,9 @@ local P = {
 	vehicleHealth = "ui-hud-unitframe-party-portraiton-vehicle-bar-health",
 	leader = "ui-hud-unitframe-player-group-leadericon",
 	guide = "ui-hud-unitframe-player-group-guideicon",
+	-- camelot has no assistant nor master looter icon: the 3.3.5 ones (16 x 16)
+	assistant = "Interface" .. SEP .. "GroupFrame" .. SEP .. "UI-Group-AssistantIcon",
+	masterLooter = "Interface" .. SEP .. "GroupFrame" .. SEP .. "UI-Group-MasterLooter",
 	pvpFfa = "ui-hud-unitframe-player-pvp-ffaicon",
 	pvpHorde = "ui-hud-unitframe-player-pvp-hordeicon",
 	pvpAlliance = "ui-hud-unitframe-player-pvp-allianceicon",
@@ -237,7 +240,15 @@ local function createMember(i)
 	m.name:SetHeight(12)
 	m.leader = hovered:CreateTexture(nil, "OVERLAY")
 	m.leader:SetPoint("BOTTOM", m, "TOP", -10, -6)
+	ForeverUI.SetAtlas(m.leader, P.leader)
 	m.leader:Hide()
+	-- 32 right of the leader icon, as PartyMemberFrame places its MasterIcon
+	m.master = hovered:CreateTexture(nil, "OVERLAY")
+	m.master:SetTexture(P.masterLooter)
+	m.master:SetWidth(16)
+	m.master:SetHeight(16)
+	m.master:SetPoint("TOPLEFT", m.leader, "TOPLEFT", 32, 0)
+	m.master:Hide()
 	m.pvp = hovered:CreateTexture(nil, "OVERLAY")
 	m.pvp:Hide()
 	m.disconnected = hovered:CreateTexture(nil, "OVERLAY")
@@ -396,14 +407,25 @@ local function updatePortrait(m)
 	m.portrait:SetDesaturated(not UnitIsConnected(m.unit))
 end
 
--- Leader or guide (HasLFGRestrictions: a Dungeon Finder group)
+-- Leader or guide (HasLFGRestrictions: a Dungeon Finder group), or raid assistant in its place
+-- (the raid list's rank icon); master looter as PartyMemberFrame_UpdateLeader shows it
 local function updateLeader(m)
+	local raidIndex = UnitInRaid("party" .. m:GetID())
+	local rank = raidIndex and select(2, GetRaidRosterInfo(raidIndex + 1))
 	if GetPartyLeaderIndex() == m:GetID() then
 		ForeverUI.SetAtlas(m.leader, HasLFGRestrictions() and P.guide or P.leader)
+		m.leader:Show()
+	elseif rank == 1 then
+		m.leader:SetTexture(P.assistant)
+		m.leader:SetTexCoord(0, 1, 0, 1)
+		m.leader:SetWidth(16)
+		m.leader:SetHeight(16)
 		m.leader:Show()
 	else
 		m.leader:Hide()
 	end
+	local _, master = GetLootMethod()
+	if master == m:GetID() then m.master:Show() else m.master:Hide() end
 end
 
 local function updatePvP(m)
@@ -624,7 +646,8 @@ for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "PARTY_MEMBERS_CHANGED", "PARTY_L
 	"UNIT_MAXRAGE", "UNIT_MAXFOCUS", "UNIT_MAXENERGY", "UNIT_MAXRUNIC_POWER", "UNIT_NAME_UPDATE",
 	"UNIT_PORTRAIT_UPDATE", "UNIT_AURA", "UNIT_PET", "UNIT_FACTION", "UNIT_THREAT_SITUATION_UPDATE",
 	"UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE", "READY_CHECK", "READY_CHECK_CONFIRM",
-	"READY_CHECK_FINISHED", "PLAYER_ROLES_ASSIGNED", "CVAR_UPDATE", "PLAYER_REGEN_ENABLED" }) do
+	"READY_CHECK_FINISHED", "PLAYER_ROLES_ASSIGNED", "CVAR_UPDATE", "PLAYER_REGEN_ENABLED",
+	"PARTY_LOOT_METHOD_CHANGED", "RAID_ROSTER_UPDATE" }) do
 	listener:RegisterEvent(ev)
 end
 
@@ -650,6 +673,10 @@ listener:SetScript("OnEvent", function(self, ev, unit)
 	elseif ev == "READY_CHECK_FINISHED" then
 		for _, m in ipairs(G.members) do updateReadyCheck(m, true) end
 		timer:Show()
+	elseif ev == "PARTY_LOOT_METHOD_CHANGED" or ev == "RAID_ROSTER_UPDATE" then
+		for _, m in ipairs(G.members) do
+			if UnitExists("party" .. m:GetID()) then updateLeader(m) end
+		end
 	else
 		local m = memberOf(unit)
 		if m then G.updateMember(m) end
