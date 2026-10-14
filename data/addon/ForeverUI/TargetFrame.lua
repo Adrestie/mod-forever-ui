@@ -122,6 +122,32 @@ nameText:SetHeight(12)
 nameText:SetJustifyH("LEFT")
 nameText:SetPoint("TOPLEFT", 24, -26)
 
+-- PvP badge (camelot TargetFrameMixin:ShowPvPIcon): circle and icon at scale 0.8, the circle's
+-- TOP at (-23, -50) of the TOPRIGHT in its own scaled units. camelot keeps it in
+-- TargetFrameContentContextual, drawn over the level circle: here a child frame one level up,
+-- the circle and the icon over it each in their own layer.
+local PVP_SCALE = 0.8
+local pvpHolder = CreateFrame("Frame", nil, overlayHolder)
+pvpHolder:SetAllPoints(frame)
+pvpHolder:SetFrameLevel(overlayHolder:GetFrameLevel() + 1)
+
+local pvpCircle = pvpHolder:CreateTexture(nil, "BACKGROUND")
+ForeverUI.SetAtlas(pvpCircle, "ui-hud-unitframe-smallcircle")
+pvpCircle:SetWidth(pvpCircle:GetWidth() * PVP_SCALE)
+pvpCircle:SetHeight(pvpCircle:GetHeight() * PVP_SCALE)
+pvpCircle:SetPoint("TOP", frame, "TOPRIGHT", -23 * PVP_SCALE, -50 * PVP_SCALE)
+pvpCircle:Hide()
+
+local pvpIcon = pvpHolder:CreateTexture(nil, "BORDER")
+pvpIcon:SetPoint("CENTER", pvpCircle, "CENTER", 0, 0)
+pvpIcon:Hide()
+
+local PVP_ICONS = {
+	FFA = "ui-hud-unitframe-player-pvp-ffaicon",
+	Horde = "ui-hud-unitframe-smallcircle-horde",
+	Alliance = "ui-hud-unitframe-smallcircle-alliance",
+}
+
 local healthText = overlayHolder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 healthText:SetPoint("CENTER", frame, "TOPLEFT", 23 + 63, -40 - 10)
 healthText:Hide()
@@ -142,6 +168,9 @@ frame.levelText = levelText
 frame.healthText = healthText
 frame.powerText = powerText
 frame.overlayHolder = overlayHolder
+frame.pvpHolder = pvpHolder
+frame.pvpCircle = pvpCircle
+frame.pvpIcon = pvpIcon
 
 -- Target classification. It picks two separate things: the frame art family (normal, rare,
 -- minus) and the portrait ring (elite, rare, boss).
@@ -157,6 +186,28 @@ local function artKindFor(class)
 		return "rare"
 	end
 	return "normal"
+end
+
+-- camelot CheckFaction, PvP part: free-for-all badge, else the faction's for a flagged target
+-- (3.3.5 has no honor levels, so never the prestige variant)
+local function updatePvP()
+	local key
+	local faction = UnitFactionGroup("target")
+	if UnitIsPVPFreeForAll("target") then
+		key = "FFA"
+	elseif faction and faction ~= "Neutral" and UnitIsPVP("target") then
+		key = faction
+	end
+
+	if key and PVP_ICONS[key] and ForeverUI.SetAtlas(pvpIcon, PVP_ICONS[key]) then
+		pvpIcon:SetWidth(pvpIcon:GetWidth() * PVP_SCALE)
+		pvpIcon:SetHeight(pvpIcon:GetHeight() * PVP_SCALE)
+		pvpCircle:Show()
+		pvpIcon:Show()
+	else
+		pvpCircle:Hide()
+		pvpIcon:Hide()
+	end
 end
 
 -- camelot CheckFaction: the band takes the selection color; band and portrait turn grey
@@ -175,6 +226,7 @@ local function updateFaction()
 		end
 		portrait:SetVertexColor(1.0, 1.0, 1.0)
 	end
+	updatePvP()
 end
 
 -- Copy of TargetFrameMixin:CheckClassification: art, glow, and the bars' size and
