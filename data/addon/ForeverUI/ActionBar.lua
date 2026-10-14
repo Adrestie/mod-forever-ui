@@ -400,6 +400,9 @@ local function hideOldBarArt()
 			end
 			button:SetWidth(17)
 			button:SetHeight(14)
+			-- 3.3.5 insets the 32 x 32 arrows by 6 and 7 px: kept on 17 x 14, they leave no
+			-- clickable area. Camelot's arrows have none.
+			button:SetHitRectInsets(0, 0, 0, 0)
 			button:ClearAllPoints()
 			button:SetPoint("CENTER", page, "CENTER", 0, entry.y)
 			button.foreverSkinned = true

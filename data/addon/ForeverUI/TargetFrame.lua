@@ -273,13 +273,26 @@ local function updateName()
 	nameText:SetText(UnitName("target"))
 end
 
+-- camelot CheckLevel: an attackable target's level takes its difficulty color, any other the
+-- normal gold. 3.3.5 rates it with GetQuestDifficultyColor (its TargetFrame_CheckLevel); a level
+-- too high to tell is the hardest one.
+local LEVEL_GOLD = { r = 1.0, g = 0.82, b = 0.0 }
 local function updateLevel()
 	local level = UnitLevel("target")
+	local attackable = UnitCanAttack("player", "target")
+	local color = LEVEL_GOLD
 	if level and level > 0 then
 		levelText:SetText(level)
+		if attackable then
+			color = GetQuestDifficultyColor(level)
+		end
 	else
 		levelText:SetText("??")
+		if attackable then
+			color = QuestDifficultyColors.impossible
+		end
 	end
+	levelText:SetVertexColor(color.r, color.g, color.b)
 end
 
 local function updatePortrait()
@@ -372,6 +385,14 @@ frame:SetScript("OnEvent", function(self, event, unit)
 		return
 	end
 
+	-- The player's own faction (PvP flag) also decides which targets are attackable
+	if event == "UNIT_FACTION" and unit == "player" then
+		if UnitExists("target") then
+			updateLevel()
+		end
+		return
+	end
+
 	if unit ~= "target" then
 		return
 	end
@@ -391,6 +412,7 @@ frame:SetScript("OnEvent", function(self, event, unit)
 		updatePower()
 	elseif event == "UNIT_FACTION" then
 		updateFaction()
+		updateLevel()
 	elseif event == "UNIT_THREAT_SITUATION_UPDATE" then
 		updateThreat()
 	else
