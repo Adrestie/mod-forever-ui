@@ -299,3 +299,13 @@ fitWatcher:SetScript("OnEvent", function(_, event)
 	end
 	if event ~= "PLAYER_REGEN_ENABLED" or clampPending then clampPanels() end
 end)
+
+-- The client's raid warnings and boss emotes (RaidWarning.xml) are HIGH, above its own windows,
+-- but the map, journal and loot window here have HIGH parts too: frames of one strata interleave
+-- by frame level, so the messages mixed with them. One strata up, they stay above the windows.
+for _, name in ipairs({ "RaidWarningFrame", "RaidBossEmoteFrame" }) do
+	local f = _G[name]
+	if f then
+		f:SetFrameStrata("DIALOG")
+	end
+end
