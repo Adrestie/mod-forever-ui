@@ -23,9 +23,9 @@ local PLAYTIME_UNHEALTHY_ATLAS = "ui-hud-unitframe-player-playtimeunhealthy"
 -- so (16, -40) in the frame's
 local PVP_SCALE = 0.8
 -- Under the level circle (ARTWORK) and its text, as in camelot (PvP in OVERLAY 3, level in
--- OVERLAY 4): 3.3.5 has no sublevels, so both PvP textures go one layer down, the icon created
--- after the circle
-local pvpCircle = holder:CreateTexture(nil, "BORDER")
+-- OVERLAY 4). 3.3.5 has no sublevels and does not keep creation order within a layer in play:
+-- the circle and the icon over it each take their own layer.
+local pvpCircle = holder:CreateTexture(nil, "BACKGROUND")
 ForeverUI.SetAtlas(pvpCircle, PVP_CIRCLE)
 pvpCircle:SetPoint("TOP", frame, "TOPLEFT", 20 * PVP_SCALE, -50 * PVP_SCALE)
 pvpCircle:SetWidth(39 * PVP_SCALE)
