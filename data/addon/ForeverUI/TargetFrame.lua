@@ -275,11 +275,26 @@ end
 
 -- camelot CheckLevel: an attackable target's level takes its difficulty color, any other the
 -- normal gold. 3.3.5 rates it with GetQuestDifficultyColor (its TargetFrame_CheckLevel); a level
--- too high to tell is the hardest one.
+-- too high to tell is the hardest one. Among creatures, only neutral and hostile ones are rated:
+-- UnitCanAttack judges a creature from the player's side only, so a faction set at war while
+-- Friendly passes as attackable, which the server refuses.
 local LEVEL_GOLD = { r = 1.0, g = 0.82, b = 0.0 }
+local REACTION_NEUTRAL = 4
+
+local function isLevelRated()
+	if not UnitCanAttack("player", "target") then
+		return false
+	end
+	if UnitPlayerControlled("target") then
+		return true
+	end
+	local reaction = UnitReaction("target", "player")
+	return not reaction or reaction <= REACTION_NEUTRAL
+end
+
 local function updateLevel()
 	local level = UnitLevel("target")
-	local attackable = UnitCanAttack("player", "target")
+	local attackable = isLevelRated()
 	local color = LEVEL_GOLD
 	if level and level > 0 then
 		levelText:SetText(level)
