@@ -19,14 +19,20 @@ local PLAYTIME_TIRED_ATLAS = "ui-hud-unitframe-player-playtimetired"
 local PLAYTIME_UNHEALTHY_ATLAS = "ui-hud-unitframe-player-playtimeunhealthy"
 
 -- ------------------------------------------------------------------- PvP
-local pvpCircle = holder:CreateTexture(nil, "ARTWORK")
+-- camelot scales the circle by 0.8 and anchors it at (20, -50): offsets in its own scaled units,
+-- so (16, -40) in the frame's
+local PVP_SCALE = 0.8
+-- Under the level circle (ARTWORK) and its text, as in camelot (PvP in OVERLAY 3, level in
+-- OVERLAY 4): 3.3.5 has no sublevels, so both PvP textures go one layer down, the icon created
+-- after the circle
+local pvpCircle = holder:CreateTexture(nil, "BORDER")
 ForeverUI.SetAtlas(pvpCircle, PVP_CIRCLE)
-pvpCircle:SetPoint("TOP", frame, "TOPLEFT", 20, -50)
-pvpCircle:SetWidth(39 * 0.8)
-pvpCircle:SetHeight(39 * 0.8)
+pvpCircle:SetPoint("TOP", frame, "TOPLEFT", 20 * PVP_SCALE, -50 * PVP_SCALE)
+pvpCircle:SetWidth(39 * PVP_SCALE)
+pvpCircle:SetHeight(39 * PVP_SCALE)
 pvpCircle:Hide()
 
-local pvpIcon = holder:CreateTexture(nil, "OVERLAY")
+local pvpIcon = holder:CreateTexture(nil, "BORDER")
 pvpIcon:SetPoint("CENTER", pvpCircle, "CENTER", 0, 0)
 pvpIcon:Hide()
 
@@ -35,8 +41,8 @@ local function updatePvP()
 
 	if UnitIsPVPFreeForAll("player") then
 		if ForeverUI.SetAtlas(pvpIcon, PVP_FFA) then
-			pvpIcon:SetWidth(24 * 0.8)
-			pvpIcon:SetHeight(27 * 0.8)
+			pvpIcon:SetWidth(24 * PVP_SCALE)
+			pvpIcon:SetHeight(27 * PVP_SCALE)
 			pvpCircle:Show()
 			pvpIcon:Show()
 			return
@@ -44,8 +50,8 @@ local function updatePvP()
 	elseif faction and faction ~= "Neutral" and UnitIsPVP("player") then
 		local atlas = PVP_FACTION[faction]
 		if atlas and ForeverUI.SetAtlas(pvpIcon, atlas) then
-			pvpIcon:SetWidth(24 * 0.8)
-			pvpIcon:SetHeight(27 * 0.8)
+			pvpIcon:SetWidth(24 * PVP_SCALE)
+			pvpIcon:SetHeight(27 * PVP_SCALE)
 			pvpCircle:Show()
 			pvpIcon:Show()
 			return
