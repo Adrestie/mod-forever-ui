@@ -10,6 +10,9 @@
 -- it requests; its "show" snippet places the cells, then CallMethod runs ordinary code for
 -- textures and texts, which the client allows in combat. The same path runs out of combat.
 -- Only the computation waits for the end of combat (a spell learned or a pet summoned in it).
+-- Dragging goes through the controller too: each cell carries its book slot, and a snippet
+-- wrapped around OnDragStart has the client pick the spell up, so a spell reaches an action
+-- bar in combat as from WotLK's own book.
 --
 -- Differences with camelot:
 --   * 3.3.5 has no texture masks: square icons keep their corners; passive icons are rounded
@@ -522,6 +525,8 @@ local function createCheckbox(view, n)
 	b:SetScript("OnLeave", function(self)
 		self.isHovered, self.pressed = nil, nil
 		c.background:SetAlpha(0.25)
+		-- a spell picked up by DRAG skips OnDragStart: the pressed look ends here
+		self.hover:SetAlpha(0.35)
 		self.hover:Hide()
 		GameTooltip:Hide()
 		if c.spell and c.spell.flyout then S.placeArrow(self) end
@@ -536,6 +541,8 @@ local function createCheckbox(view, n)
 		self.hover:SetAlpha(0.35)
 		if c.spell and c.spell.flyout then S.placeArrow(self) end
 	end)
+	-- A spell is picked up by the controller's DRAG snippet, in combat too; this runs for a
+	-- group, or before the book is first published.
 	b:SetScript("OnDragStart", function(self)
 		local spell = c.spell
 		-- a group cannot go on an action bar: 3.3.5 has no flyouts there
@@ -1314,6 +1321,13 @@ local DISPLAY = [==[
 				b:SetAttribute("macrotext2", e[7])
 			end
 			if e[8] > 0 then b:SetAttribute("flyout", e[8]) end
+			if e[9] > 0 then
+				b:SetAttribute("bookslot", e[9])
+				b:SetAttribute("booktype", e[10])
+			else
+				b:SetAttribute("bookslot", nil)
+				b:SetAttribute("booktype", nil)
+			end
 			c:Show()
 		end
 	end
@@ -1420,6 +1434,14 @@ local SMALL_POST = [==[ FLYOUT:Hide() OPEN_OWNER = nil ]==]
 -- the book hides: the menu too (FlyoutButtonMixin:OnHide)
 local ON_HIDE = [==[ FLYOUT:Hide() OPEN_OWNER = nil ]==]
 
+-- Drag, wrapped around each cell's OnDragStart: the client picks the spell up itself
+-- (SecureHandlers.lua, Wrapped_Drag -> PickupAny), as WotLK's own spellbook does, so it
+-- reaches an action bar in combat too. A group has no book slot: its OnDragStart runs.
+local DRAG = [==[
+	local slot = self:GetAttribute("bookslot")
+	if slot then return "spell", slot, self:GetAttribute("booktype") end
+]==]
+
 -- Create the secure controller and give it the handles of the cells, buttons, flyout, pages,
 -- page arrows and settings rows.
 function S.createController(book)
@@ -1430,6 +1452,7 @@ function S.createController(book)
 		ctrl:SetFrameRef("b" .. k, c.button)
 		ctrl:WrapScript(c.button, "OnClick", OPEN:format(G.flyoutStart + G.flyoutEnd - G.flyoutGap,
 			G.smallSide + G.flyoutGap, G.flyoutOffset))
+		ctrl:WrapScript(c.button, "OnDragStart", DRAG)
 	end
 	ctrl:SetFrameRef("flyout", S.flyout)
 	ctrl:SetFrameRef("book", book)
@@ -1590,11 +1613,13 @@ function S.update()
 								largest = math.max(largest, #spell.members)
 							end
 							local castable = not (spell.passive or spell.flyout)
-							table.insert(entries, ("newtable(%d, %.14g, %d, %s, %s, %s, %s, %d)"):format(k,
+							-- book slot and book, for the secure drag (DRAG); 0 for a group
+							local bookSlot = (not spell.flyout and spell.slot) or 0
+							table.insert(entries, ("newtable(%d, %.14g, %d, %s, %s, %s, %s, %d, %d, %s)"):format(k,
 								(el.column - 1) * (G.cellW + G.gapX), -el.y,
 								q(castable and "spell" or ""), q(castable and S.spellText(spell) or ""),
 								q(spell.pet and "macro" or ""), q(spell.pet and ("/petautocasttoggle " .. spell.name) or ""),
-								spell.fk or 0))
+								spell.fk or 0, bookSlot, q(bookSlot > 0 and spell.book or "")))
 						end
 					end
 				end
