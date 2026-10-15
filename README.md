@@ -190,9 +190,9 @@ below) nor the addon's settings (step 4 below).
 No text is written in the code. Texts the 3.3.5 client already knows come from
 its own strings; the others come from `data/addon/ForeverUI/Texts_<locale>.lua`
 (and `ForeverUIGlueTexts_<locale>.lua` for the login screens). English is the
-base, French is provided. To add a language, copy the `enUS` file to the
-client's locale, translate the values only, and list it after the English one
-in the `.toc` (or in `ForeverUIGlue.xml`).
+base; French, German, Spanish and Russian are provided. To add a language, copy
+the `enUS` file to the client's locale, translate the values only, and list it
+after the English one in the `.toc` (or in `ForeverUIGlue.xml`).
 
 ## Licence
 

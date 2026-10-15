@@ -2,7 +2,7 @@
 
 ForeverUI brings the modern World of Warcraft interface (the "camelot" client)
 to a 3.3.5a client. This page lists everything it does. Every text follows the
-client's language: English and French are provided.
+client's language: English, French, German, Spanish and Russian are provided.
 
 ## Customize UI
 

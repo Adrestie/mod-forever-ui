@@ -6,6 +6,9 @@
 	<Script file="ForeverUIGlueTexts.lua"/>
 	<Script file="ForeverUIGlueTexts_enUS.lua"/>
 	<Script file="ForeverUIGlueTexts_frFR.lua"/>
+	<Script file="ForeverUIGlueTexts_deDE.lua"/>
+	<Script file="ForeverUIGlueTexts_esES.lua"/>
+	<Script file="ForeverUIGlueTexts_ruRU.lua"/>
 	<Script file="ForeverUIGlueAtlas.lua"/>
 	<Script file="ForeverUIGlueData.lua"/>
 	<Script file="ForeverUIGlueColors.lua"/>

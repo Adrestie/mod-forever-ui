@@ -17,6 +17,9 @@ UIAtlas_07_cutouts.lua
 Texts.lua
 Texts_enUS.lua
 Texts_frFR.lua
+Texts_deDE.lua
+Texts_esES.lua
+Texts_ruRU.lua
 
 AtlasUtil.lua
 Panes.lua
