@@ -44,7 +44,7 @@ local HOVER_PATH =
 -- Pane size, used when content is built on first open before the window is laid out
 -- (GetHeight returns 0 then). Same guard as reputation and skills.
 -- Right pane 233 x 464; the stone band takes the top 85.
-local PANE_W, PANE_H, STONE_H = 233, 464, 85
+local PANE_W, PANE_H, STONE_H = 233, 464, 60   -- StoneBG3 since camelot 70450
 
 local panel, offset, rows, titles, selected = nil, 0, {}, {}, -1
 

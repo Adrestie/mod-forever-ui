@@ -130,7 +130,12 @@ local TITLES_ICON =
 	"Interface\\ForeverUI\\PaperDollInfoFrame\\paperdollsidebartabs"
 local TITLES_ICON_COORD = { 0.015625, 0.53125, 0.32421875, 0.46093750 }
 
-local STONE_HEIGHT = 85               -- UI-Character-Info-Stat-StoneBG
+-- camelot 70450: UI-Character-Info-Stat-StoneBG3, 233 x 60 (the level line left the band for the
+-- left pane). StoneBG3 is StoneBG (233 x 85) with 25 px less in the middle: drawn from StoneBG's
+-- top and bottom 30 px, so no new art is needed.
+local STONE_HEIGHT = 60
+local STONE_SOURCE_HEIGHT = 85
+local STONE_PART = 30
 local SEPARATOR_WIDTH = 11
 local SEPARATOR_CAP = 4             -- cap height; the art is 11 x 50 with a cap at each end
 
@@ -166,14 +171,25 @@ local TITLE_STRIP_HEIGHT = 20
 
 -- The title always shows the character's name and title (camelot shows the open panel's name).
 
--- Level and class line in the right pane (camelot PaperDollLevelInfo: 220 x 20 at TOP (0, -50)
--- of the tab bar, itself at (0, -4) of the pane).
-local LEVEL_Y = -54
+-- Level and class line (camelot 70450 paperdollframe.xml): TopBackgroundStripHost, 36 high across
+-- the top of the left pane, UI-Background-Rock tiled with _UI-Frame-InnerTopTile along its bottom;
+-- PaperDollLevelInfo 220 x 20 at CENTER (0, -2) of the strip, GameFontNormalMed2Outline (14,
+-- outlined; 3.3.5 has no such font object), "Level %d |c<class color>Class|r"
+-- (PLAYER_LEVEL_NO_SPEC).
+local STRIP_HEIGHT = 36
+local STRIP_EDGE = 3
+local LEVEL_Y = -2
 local LEVEL_WIDTH, LEVEL_HEIGHT = 220, 20
+local LEVEL_FONT_SIZE = 14
+-- UI-Background-Rock is 1024 x 1024: the strip shows a crop at its own size (3.3.5 textures
+-- cannot tile)
+local ROCK_FILE = "Interface" .. string.char(92) .. "ForeverUI" .. string.char(92) .. "framegeneral"
+	.. string.char(92) .. "ui-background-rock"
+local ROCK_SIZE = 1024
 
--- Model rotation arrows, side by side, centered at the top of the left pane. ROTATION_Y is tuned
--- by eye: camelot has three buttons of another size.
-local ROTATION_Y = -12
+-- Model rotation arrows, side by side, centered at the top of the left pane, under the strip
+-- (camelot 70450: the model scene's ControlFrame at TOP (0, -40) of the left pane).
+local ROTATION_Y = -40
 local ROTATION_GAP = 4
 
 -- The model is raised in its pane: camelot's scene fills the pane, but the 3.3.5 camera frames
@@ -201,18 +217,15 @@ local STAT_TOP = 10                    -- below the stone band
 local STAT_GROUP_GAP = 16
 local STAT_PER_GROUP = 6
 
--- Category selectors (UIDropDownMenuTemplate): their gold art overflows and does not follow
--- the frame size, so it is hidden and camelot's header replaces it
--- (CharacterStatFrameCategoryTemplate: UI-Character-Info-Title, GameFontHighlight label at
--- (0, 1), 5 px wider than the rows on each side). The menu stays the client's.
--- Height 34, not camelot's 40: the 201 x 32 atlas stretches less.
-local STAT_HEADER = 34
-local STAT_HEADER_OVERHANG = 5
-
--- UI-Character-Info-Title is stretched, not sliced: its studs sit in the corners (201 x 32 drawn
--- at 203 x 34). SELECTOR_PIECES: the dropdown regions to hide.
-local ATLAS_STAT_HEADER = "ui-character-info-title"
-local SELECTOR_PIECES = { "Left", "Middle", "Right", "Text" }
+-- Category selectors (UIDropDownMenuTemplate): camelot's dropdown control,
+-- WowStyle1DropdownTemplate (blizzard_menu/mainline/MenuTemplates.xml, 25 high), laid over the
+-- client's menu by Tpl.MenuStyle1: common-dropdown-textholder background, common-dropdown-a-button
+-- arrow and its states, GameFontHighlight text on the left. The menu and its categories stay the
+-- client's. The control is as wide as the rows; its background reaches 8 px past them on each
+-- side (TOPLEFT (-8, 7) / BOTTOMRIGHT (8, -9)): STAT_HEADER leaves room for it.
+local STAT_SELECTOR_HEIGHT = 25
+local STAT_SELECTOR_TOP = 7       -- the background starts 7 px above the control
+local STAT_HEADER = STAT_SELECTOR_TOP + STAT_SELECTOR_HEIGHT + 9 + 2
 
 -- Alternating stat row bands (neither camelot nor 3.3.5 has them), from paperdollinfopart1c60:
 -- dark UI-Character-Info-ItemLevel-Bounce first, then light UI-Character-Info-Line-Bounce;
@@ -350,10 +363,25 @@ local function setupPanes(frame)
 	ForeverUI.SetAtlas(backgroundRight, ATLAS.backgroundRight, true)
 	backgroundRight:SetAllPoints(rightPane)
 
+	-- StoneBG3: StoneBG's top and bottom STONE_PART px, one under the other
 	local stone = rightPane:CreateTexture(nil, "ARTWORK")
-	ForeverUI.SetAtlas(stone, ATLAS.stone)
+	local stoneLower = rightPane:CreateTexture(nil, "ARTWORK")
+	local e = ForeverUI.AtlasEntry(ATLAS.stone)
+	if e then
+		local cut = (e[5] - e[4]) * STONE_PART / STONE_SOURCE_HEIGHT
+		stone:SetTexture(e[1])
+		stone:SetTexCoord(e[2], e[3], e[4], e[4] + cut)
+		stoneLower:SetTexture(e[1])
+		stoneLower:SetTexCoord(e[2], e[3], e[5] - cut, e[5])
+	end
+	stone:SetWidth(RIGHT_PANE)
+	stone:SetHeight(STONE_PART)
 	stone:SetPoint("TOPLEFT", rightPane, "TOPLEFT", 0, 0)
+	stoneLower:SetWidth(RIGHT_PANE)
+	stoneLower:SetHeight(STONE_HEIGHT - STONE_PART)
+	stoneLower:SetPoint("TOPLEFT", stone, "BOTTOMLEFT", 0, 0)
 	rightPane.stone = stone
+	rightPane.stoneLower = stoneLower
 
 	-- The divider has a cap at each end, so it is drawn in three slices. It sits one level above
 	-- the skin layer (ART_LEVEL), else the metal covers it; that layer does not exist yet here,
@@ -662,8 +690,9 @@ local function placeModel()
 		return
 	end
 
+	-- camelot 70450: the model scene starts under the level strip
 	model:ClearAllPoints()
-	model:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 0, MODEL_Y)
+	model:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 0, MODEL_Y - STRIP_HEIGHT)
 	model:SetPoint("BOTTOMRIGHT", leftPane, "BOTTOMRIGHT", 0, MODEL_Y)
 
 	-- Now, then every frame until the model has loaded
@@ -708,62 +737,14 @@ end
 -- would resolve to a nil global.
 local updateSelectorStates
 
--- Gives a category selector camelot's header art and label; the menu stays the client's
-local function skinSelector(selector)
-	if selector.foreverLabel then
+-- Gives a category selector camelot's dropdown look (Tpl.MenuStyle1); the menu stays the client's
+-- Templates.lua loads after this file: the first pass, at load, comes too early; the skin is
+-- applied again each time the sheet opens.
+local function skinSelector(selector, width)
+	if selector.foreverButton or not (ForeverUI.Templates and ForeverUI.Templates.MenuStyle1) then
 		return
 	end
-
-	local name = selector:GetName()
-
-	-- Hide the dropdown's gold art (it overflows and does not resize) and its text
-	for _, piece in ipairs(SELECTOR_PIECES) do
-		local region = name and _G[name .. piece]
-		if region then
-			region:Hide()
-		end
-	end
-
-	-- camelot CharacterStatFrameCategoryTemplate art, sized by its anchors (third argument: keep
-	-- the size)
-	local background = selector:CreateTexture(nil, "BACKGROUND")
-	ForeverUI.SetAtlas(background, ATLAS_STAT_HEADER, true)
-	background:SetAllPoints(selector)
-	selector.foreverBackground = background
-
-	local label = selector:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-	label:SetPoint("CENTER", selector, "CENTER", 0, 1)
-	selector.foreverLabel = label
-
-	-- Without an anchor, ToggleDropDownMenu anchors the list to the hidden <name>Left piece.
-	-- UIDropDownMenu_SetAnchor puts it right under the button.
-	if UIDropDownMenu_SetAnchor then
-		UIDropDownMenu_SetAnchor(selector, 0, 0, "TOPLEFT", selector, "BOTTOMLEFT")
-	end
-
-	-- Hide the client's arrow: the whole bar opens the menu
-	local button = name and _G[name .. "Button"]
-	if button then
-		button:Hide()
-	end
-
-	if not ForeverUI.statListHooked then
-		local list = _G["DropDownList1"]
-		if list and list.HookScript then
-			list:HookScript("OnShow", updateSelectorStates)
-			list:HookScript("OnHide", updateSelectorStates)
-			ForeverUI.statListHooked = true
-		end
-	end
-
-	selector:EnableMouse(true)
-	selector:SetScript("OnMouseUp", function(self)
-		ToggleDropDownMenu(nil, nil, self)
-		if PlaySound then
-			PlaySound("igMainMenuOptionCheckBoxOn")
-		end
-		updateSelectorStates()
-	end)
+	ForeverUI.Templates.MenuStyle1(selector, width, STAT_SELECTOR_HEIGHT)
 end
 
 -- Pressed state of the selectors while their list is open. The list closes through
@@ -803,8 +784,8 @@ end
 -- Category label: the CVar holds a key (PLAYERSTAT_BASE_STATS); the global of that name is the
 -- text.
 local function writeCategory(selector, key)
-	if selector and selector.foreverLabel then
-		selector.foreverLabel:SetText((key and _G[key]) or "")
+	if selector and key and _G[key] and UIDropDownMenu_SetText then
+		UIDropDownMenu_SetText(selector, _G[key])
 	end
 end
 
@@ -865,17 +846,16 @@ local function placeStatistics()
 	for _, group in ipairs(STAT_GROUPS) do
 		local selector = _G[group.selector]
 		if selector then
-			skinSelector(selector)
+			skinSelector(selector, width)
 			writeCategory(selector, GetCVar and GetCVar(group.cvar))
 
 			-- Size kept: the client resets it each time the menu opens
-			selector.foreverSize = { width + 2 * STAT_HEADER_OVERHANG, STAT_HEADER }
+			selector.foreverSize = { width, STAT_SELECTOR_HEIGHT }
 			selector:SetFrameLevel(level)
 			selector:SetWidth(selector.foreverSize[1])
 			selector:SetHeight(selector.foreverSize[2])
 			selector:ClearAllPoints()
-			selector:SetPoint("TOPLEFT", rightPane, "TOPLEFT",
-				STAT_MARGIN - STAT_HEADER_OVERHANG, y)
+			selector:SetPoint("TOPLEFT", rightPane, "TOPLEFT", STAT_MARGIN, y - STAT_SELECTOR_TOP)
 			y = y - STAT_HEADER
 		end
 
@@ -899,35 +879,76 @@ end
 
 -- Level and class line. 3.3.5 FontStrings have no SetParent, and the client's line belongs to
 -- CharacterFrame, so it would draw under the panes (child frames). It is hidden and our own
--- line in the right pane shows the text.
+-- line, in the rock strip at the top of the left pane, shows the text.
+local function buildLevelStrip()
+	if leftPane.levelStrip then
+		return leftPane.levelStrip
+	end
+
+	local strip = CreateFrame("Frame", "ForeverUICharacterLevelStrip", leftPane)
+	strip:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 0, 0)
+	strip:SetPoint("TOPRIGHT", leftPane, "TOPRIGHT", 0, 0)
+	strip:SetHeight(STRIP_HEIGHT)
+	-- Above the model (camelot: frameLevel 50 against the scene's 50, declared later), below the
+	-- collapse button and the rotation arrows (model + 2)
+	local model = _G["CharacterModelFrame"]
+	strip:SetFrameLevel(((model and model:GetFrameLevel()) or leftPane:GetFrameLevel()) + 1)
+
+	local rock = strip:CreateTexture(nil, "ARTWORK")
+	rock:SetTexture(ROCK_FILE)
+	rock:SetTexCoord(0, LEFT_PANE / ROCK_SIZE, 0, STRIP_HEIGHT / ROCK_SIZE)
+	rock:SetAllPoints(strip)
+
+	local edge = strip:CreateTexture(nil, "OVERLAY")
+	ForeverUI.SetAtlas(edge, "_ui-frame-innertoptile", true)
+	edge:SetHeight(STRIP_EDGE)
+	edge:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", 0, 0)
+	edge:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", 0, 0)
+
+	local line = strip:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	local fontFile = line:GetFont()
+	line:SetFont(fontFile, LEVEL_FONT_SIZE, "OUTLINE")
+	line:SetPoint("CENTER", strip, "CENTER", 0, LEVEL_Y)
+	line:SetWidth(LEVEL_WIDTH)
+	line:SetHeight(LEVEL_HEIGHT)
+	line:SetJustifyH("CENTER")
+	line:SetJustifyV("MIDDLE")
+
+	strip.rock, strip.edge, strip.text = rock, edge, line
+	leftPane.levelStrip = strip
+	return strip
+end
+
 local function placeLevel()
 	local source = _G["CharacterLevelText"]
-
-	if not rightPane.levelRow then
-		local row = rightPane:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-		row:SetPoint("TOP", rightPane, "TOP", 0, LEVEL_Y)
-		row:SetWidth(LEVEL_WIDTH)
-		row:SetHeight(LEVEL_HEIGHT)
-		row:SetJustifyH("CENTER")
-		row:SetJustifyV("MIDDLE")
-		rightPane.levelRow = row
-	end
+	local strip = buildLevelStrip()
 
 	if source then
 		source:Hide()
 	end
 
-	-- No race, like camelot's PLAYER_LEVEL_NO_SPEC, which 3.3.5 lacks (its PLAYER_LEVEL includes
-	-- the race): built from UNIT_LEVEL_TEMPLATE and the class name, so it stays localized.
+	-- camelot PLAYER_LEVEL_NO_SPEC: "Level %d", then the class in its color. 3.3.5 has neither that
+	-- string nor colorStr: built from UNIT_LEVEL_TEMPLATE and RAID_CLASS_COLORS, so it stays
+	-- localized.
 	local level = UnitLevel and UnitLevel("player")
-	local className = UnitClass and UnitClass("player")
+	-- not "UnitClass and UnitClass(...)": "and" keeps only the first value, the token is lost
+	local className, classToken
+	if UnitClass then
+		className, classToken = UnitClass("player")
+	end
 	local text = ""
 	if level and className then
-		text = string.format(UNIT_LEVEL_TEMPLATE, level) .. " " .. className
+		local color = RAID_CLASS_COLORS and classToken and RAID_CLASS_COLORS[classToken]
+		local name = className
+		if color then
+			local function byte(v) return math.floor(v * 255 + 0.5) end
+			name = string.format("|cff%02x%02x%02x%s|r", byte(color.r), byte(color.g), byte(color.b), className)
+		end
+		text = string.format(UNIT_LEVEL_TEMPLATE, level) .. " " .. name
 	elseif source then
 		text = source:GetText() or ""
 	end
-	rightPane.levelRow:SetText(text)
+	strip.text:SetText(text)
 end
 
 -- Creates a right pane tab: camelot's frame art, an icon under it and a selection mark.
@@ -1153,11 +1174,13 @@ local function declareContents()
 	-- (camelot: UpdateRightPaneHeader, HidePaperDollRightPane).
 	Panes.Furniture("right", CHARACTER_SCREEN, {
 		rightPane.stone,
+		rightPane.stoneLower,
 		rightPane.statsTab,
 		rightPane.equipmentTab,
 		rightPane.titlesTab,
-		rightPane.levelRow,
 	})
+	-- The level strip belongs to the character group too (camelot: PaperDollFrame's own child)
+	Panes.Furniture("left", CHARACTER_SCREEN, { buildLevelStrip() })
 
 	-- The four other client screens keep the right pane: a module may fill it (reputation shows the
 	-- selected faction); an empty page still keeps the host open and the window wide.
