@@ -64,10 +64,12 @@ portrait:SetWidth(58)
 portrait:SetHeight(58)
 portrait:SetPoint("TOPRIGHT", -26, -19)
 
-local healthFill = frame:CreateTexture(nil, "BORDER")
+-- Bars above the art (OVERLAY): camelot draws its StatusBars over the frame texture, whose
+-- bar slots are a dark veil
+local healthFill = frame:CreateTexture(nil, "OVERLAY")
 healthFill:SetPoint("TOPLEFT", 21, -41)
 
-local powerFill = frame:CreateTexture(nil, "BORDER")
+local powerFill = frame:CreateTexture(nil, "OVERLAY")
 powerFill:SetPoint("TOPLEFT", 17, -60)
 
 local art = frame:CreateTexture(nil, "ARTWORK")
@@ -645,10 +647,10 @@ totPortrait:SetWidth(37)
 totPortrait:SetHeight(37)
 totPortrait:SetPoint("TOPLEFT", 5, -5)
 
-local totHealth = tot:CreateTexture(nil, "BORDER")
+local totHealth = tot:CreateTexture(nil, "OVERLAY")
 totHealth:SetPoint("TOPLEFT", 45, -17.5)
 
-local totPower = tot:CreateTexture(nil, "BORDER")
+local totPower = tot:CreateTexture(nil, "OVERLAY")
 totPower:SetPoint("TOPLEFT", 43, -29.5)
 
 local totArt = tot:CreateTexture(nil, "ARTWORK")

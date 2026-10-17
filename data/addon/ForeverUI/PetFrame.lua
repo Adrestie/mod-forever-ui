@@ -56,10 +56,11 @@ portrait:SetWidth(37)
 portrait:SetHeight(37)
 portrait:SetPoint("TOPLEFT", 5, -5)
 
-local healthFill = frame:CreateTexture(nil, "BORDER")
+-- Bars above the art (OVERLAY), as camelot's StatusBars over the frame texture
+local healthFill = frame:CreateTexture(nil, "OVERLAY")
 healthFill:SetPoint("TOPLEFT", 45, -17.5)
 
-local powerFill = frame:CreateTexture(nil, "BORDER")
+local powerFill = frame:CreateTexture(nil, "OVERLAY")
 powerFill:SetPoint("TOPLEFT", 43, -29.5)
 
 local art = frame:CreateTexture(nil, "ARTWORK")

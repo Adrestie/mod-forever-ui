@@ -48,10 +48,12 @@ portrait:SetPoint("TOPLEFT", 24, -19)
 -- camelot: health container 124 x 15 at (87, -46), the 124 x 20 bar 3 px above it; mana bar at
 -- (87, -61). The mana bar is created after the health bar, so it covers the 2 px the health art
 -- reaches below -61 (camelot's mask cuts them; 3.3.5 has none).
-local healthFill = frame:CreateTexture(nil, "BORDER")
+-- OVERLAY, above the art: camelot's bars are StatusBars, child frames drawn over the frame
+-- texture, whose bar slots are a dark veil (74 % opaque since 70450, 40 % before).
+local healthFill = frame:CreateTexture(nil, "OVERLAY")
 healthFill:SetPoint("TOPLEFT", 87, -43)
 
-local powerFill = frame:CreateTexture(nil, "BORDER")
+local powerFill = frame:CreateTexture(nil, "OVERLAY")
 powerFill:SetPoint("TOPLEFT", 87, -61)
 
 local art = frame:CreateTexture(nil, "ARTWORK")
