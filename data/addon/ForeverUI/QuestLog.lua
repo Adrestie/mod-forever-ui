@@ -67,7 +67,6 @@ local TEXT = {
 	ready = L.QUESTLOG_READY,                         -- QUEST_WATCH_QUEST_READY
 	details = L.QUESTLOG_CLICK_DETAILS,              -- CLICK_QUEST_DETAILS
 	untrack = L.QUESTLOG_UNTRACK_QUEST,         -- UNTRACK_QUEST
-	shareInChat = L.QUESTLOG_SHARE_IN_CHAT,         -- SHARE_IN_CHAT
 	trackAll = L.QUESTLOG_TRACK_ALL,               -- QUEST_LOG_TRACK_ALL
 	untrackAll = L.QUESTLOG_UNTRACK_ALL,           -- QUEST_LOG_UNTRACK_ALL
 	-- Quest details page
@@ -122,9 +121,35 @@ local function entry(index)
 	}
 end
 
+-- camelot 70450 QuestMapFrameOverrides.titleFrameLeftPadding
+local QUEST_LEFT_PADDING = 4
+
 local function isElite(info)
 	return info.questTag == ELITE
 end
+
+-- camelot QuestUtilsOverrides.GetQuestTagText (1.60.1.70450): the quest type as text, for four
+-- types only: "(Elite)", "(Dungeon)", "(PvP)", "(Raid)" (CALENDAR_TYPE_DUNGEON, CALENDAR_TYPE_PVP,
+-- RAID). 3.3.5 GetQuestLogTitle gives the type as a localized text (QuestInfo.dbc): compared with
+-- the client's own strings; "Raid (10)" / "Raid (25)" start with RAID. Group and Heroic: nothing.
+-- Shared with the objective tracker.
+local function questTagText(tag)
+	if not tag or tag == "" then
+		return nil
+	end
+	local label
+	if tag == ELITE then
+		label = ELITE
+	elseif tag == CALENDAR_TYPE_DUNGEON or tag == LFG_TYPE_DUNGEON then
+		label = CALENDAR_TYPE_DUNGEON
+	elseif tag == PVP or tag == CALENDAR_TYPE_PVP then
+		label = CALENDAR_TYPE_PVP
+	elseif RAID and string.sub(tag, 1, string.len(RAID)) == RAID then
+		label = RAID
+	end
+	return label and format(PARENS_TEMPLATE, label) or nil
+end
+ForeverUI.QuestTagText = questTagText
 
 -- QuestLogQuests_GetTitle with camelot's override: "[" level ("+" if elite) "] ",
 -- preceded by "[n] " if n party members have the quest.
@@ -335,15 +360,7 @@ local function questMenu(row)
 		disabled = not shareable,
 		func = function() shareQuest(index) end,
 	})
-	table.insert(l, {
-		text = TEXT.shareInChat,
-		func = function()
-			local link = GetQuestLink(index)
-			if link and not (ChatEdit_InsertLink and ChatEdit_InsertLink(link)) then
-				ChatFrame_OpenChat(link)
-			end
-		end,
-	})
+	-- camelot 70450 drops "Share in chat" outside the gamepad UI; Shift-click links the quest
 	table.insert(l, {
 		text = ABANDON_QUEST,
 		func = function() abandonQuest(index) end,
@@ -1744,8 +1761,9 @@ local function fillQuest(v, b, info, count)
 	b.text:SetText(questTitle(info))
 	color(b.text, c)
 	color(b.tag, c)
-	if isElite(info) then
-		b.tag:SetText(format(PARENS_TEMPLATE, ELITE))
+	local tagText = questTagText(info.questTag)
+	if tagText then
+		b.tag:SetText(tagText)
 		b.tag:Show()
 		b.text:SetPoint("RIGHT", b.tag, "LEFT", -4, 0)
 	else
@@ -1885,7 +1903,8 @@ function J.update()
 				count.q = count.q + 1
 				local b = acquire(v, v.quests, count.q, createQuest)
 				fillQuest(v, b, info, count)
-				place(b, "quest", 0)
+				-- camelot 70450 QuestMapFrameOverrides.titleFrameLeftPadding: quest rows 4 px in
+				place(b, "quest", QUEST_LEFT_PADDING)
 			end
 		end
 	end

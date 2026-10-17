@@ -55,8 +55,15 @@ sa lueur, lueurs d'animation, cadre de l'objet de quête. Feuille
 
 ## Décisions (2026-09-25)
 
-1. **Titre** : Camelot par défaut — titre seul, doré uniforme, sans niveau ni
-   couleur de difficulté.
+1. **Titre** : ~~Camelot par défaut — titre seul, doré uniforme, sans niveau ni
+   couleur de difficulté.~~ **Révisé le 2026-10-17** (camelot 1.60.1.70450,
+   appliqué à la demande de l'utilisateur) : `[niveau(+)] Titre (Type)` —
+   préfixe de niveau toujours posé, « + » pour une quête élite
+   (`QuestUtilsOverrides.GetQuestTitlePrefix`), puis le type pour quatre cas
+   seulement : (Élite), (Donjon), (JcJ), (Raid) (`GetQuestTagText`). Toujours
+   doré uniforme : la couleur de difficulté dépend de la CVar moderne
+   `showQuestDifficultyColor`, absente de 3.3.5. « Lien dans la discussion »
+   quitte le menu de la quête (camelot ne le garde qu'en mode manette).
 2. **Fonctions propres à WotLK** : gardées, habillées Camelot — tri et filtres
    dans le bouton filtre de l'en-tête, déplacement manuel dans le menu de la
    quête, minuteurs de quête en barre de temps dans le bloc.

@@ -49,7 +49,6 @@ local TEXT = {
 	viewPage = OBJECTIVES_VIEW_IN_QUESTLOG,  -- OBJECTIVES_VIEW_IN_QUESTLOG (in 3.3.5)
 	viewMap = L.OBJECTIVETRACKER_OPEN_MAP, -- OBJECTIVES_SHOW_QUEST_MAP
 	untrack = L.OBJECTIVETRACKER_UNTRACK, -- OBJECTIVES_STOP_TRACKING
-	shareInChat = L.OBJECTIVETRACKER_SHARE_IN_CHAT, -- SHARE_IN_CHAT
 	abandonQuest = ABANDON_QUEST_ABBREV,       -- ABANDON_QUEST_ABBREV (in 3.3.5)
 	viewAchievement = OBJECTIVES_VIEW_ACHIEVEMENT, -- OBJECTIVES_VIEW_ACHIEVEMENT (in 3.3.5)
 	minutes = "%.2d:%.2d",                    -- MINUTES_SECONDS
@@ -471,6 +470,23 @@ end
 
 -- Widths are set by hand: the block is not placed yet when its texts are measured, and
 -- 3.3.5 only measures a text that has a width (camelot relies on anchors).
+-- camelot 70450 block title (QuestObjectiveTrackerMixin:UpdateSingle with QuestUtilsOverrides):
+-- "[" level ("+" if elite) "] " title, then the quest type ("(Elite)", "(Dungeon)"...). The
+-- difficulty color (showQuestDifficultyColor) is a modern CVar 3.3.5 lacks: not applied.
+local function trackerTitle(title, level, questTag)
+	if not title then
+		return title
+	end
+	local tagText = ForeverUI.QuestTagText and ForeverUI.QuestTagText(questTag)
+	if tagText then
+		title = title .. " " .. tagText
+	end
+	if level and level > 0 then
+		title = "[" .. level .. ((questTag == ELITE) and "+" or "") .. "] " .. title
+	end
+	return title
+end
+
 local function setBlockTitle(b, text)
 	b.title:SetWidth(G.width - G.blockX + b.right)
 	b.title:SetHeight(0)
@@ -717,7 +733,7 @@ local function displayQuests(lineFrame, initialOffset, maxHeight, frameWidth)
 	for w = 1, numWatched do
 		local index = GetQuestIndexForWatch(w)
 		if index then
-			local title, _, _, _, _, _, isComplete, _, questID = GetQuestLogTitle(index)
+			local title, level, questTag, _, _, _, isComplete, _, questID = GetQuestLogTitle(index)
 			local required = GetQuestLogRequiredMoney(index)
 			local numObjectives = GetNumQuestLeaderBoards(index)
 			local failed = isComplete and isComplete < 0
@@ -752,7 +768,7 @@ local function displayQuests(lineFrame, initialOffset, maxHeight, frameWidth)
 					button = T.object(objects, lineFrame, index, object, charges)
 					b.right = -(G.itemSide + G.rightGap)
 				end
-				setBlockTitle(b, title)
+				setBlockTitle(b, trackerTitle(title, level, questTag))
 
 				local animate = {}
 				if isComplete then
@@ -1019,12 +1035,7 @@ local function questClick(b, mouse)
 			table.insert(l, { text = SHARE_QUEST, func = function() WatchFrame_ShareQuest(nil, w) end })
 		end
 	end
-	table.insert(l, { text = TEXT.shareInChat, func = function()
-		local link = GetQuestLink(index)
-		if link and not (ChatEdit_InsertLink and ChatEdit_InsertLink(link)) then
-			ChatFrame_OpenChat(link)
-		end
-	end })
+	-- camelot 70450 drops "Share in chat" outside the gamepad UI; Shift-click links the quest
 	table.insert(l, { text = TEXT.abandonQuest, func = function() WatchFrame_AbandonQuest(nil, w) end })
 	-- WotLK manual ordering
 	local n = #VISIBLE_WATCHES
