@@ -213,8 +213,8 @@ local RESISTANCES_X = 30
 -- The client's FrameXML is in patch-enUS-2/3 (patch-enUS-9 is disabled).
 local STAT_STEP = 13                     -- StatFrameTemplate height
 local STAT_MARGIN = 20                   -- on each side of the pane
-local STAT_TOP = 10                    -- below the stone band
--- 12 (was 16): three groups fill the 404 px under the 60 px stone (10 + 3 x (43 + 78) + 2 x 12)
+local STAT_TOP = 2                     -- below the stone band (tightened by the user, 2026-10-17)
+-- 12 (was 16): three groups under the 60 px stone take 2 + 3 x (35 + 78) + 2 x 12 = 365 of 404 px
 local STAT_GROUP_GAP = 12
 local STAT_PER_GROUP = 6
 
@@ -226,7 +226,9 @@ local STAT_PER_GROUP = 6
 -- side (TOPLEFT (-8, 7) / BOTTOMRIGHT (8, -9)): STAT_HEADER leaves room for it.
 local STAT_SELECTOR_HEIGHT = 25
 local STAT_SELECTOR_TOP = 7       -- the background starts 7 px above the control
-local STAT_HEADER = STAT_SELECTOR_TOP + STAT_SELECTOR_HEIGHT + 9 + 2
+-- rows start 3 px under the control, inside the shadow its background casts (tightened by the
+-- user, 2026-10-17: was the whole 9 px shadow + 2)
+local STAT_HEADER = STAT_SELECTOR_TOP + STAT_SELECTOR_HEIGHT + 3
 
 -- Alternating stat row bands (neither camelot nor 3.3.5 has them), from paperdollinfopart1c60:
 -- dark UI-Character-Info-ItemLevel-Bounce first, then light UI-Character-Info-Line-Bounce;
