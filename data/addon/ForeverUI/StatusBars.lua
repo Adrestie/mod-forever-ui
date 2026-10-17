@@ -10,9 +10,17 @@
 -- StatusTrackingBarManager fills containers from the bottom). Reputation hides when no
 -- faction is watched.
 -- Both bars span the bottom row (action bar, micro menu, bags) and sit on its top, measured
--- by BottomBar (ForeverUI.BottomRow). Each stays movable.
+-- by BottomBar (ForeverUI.BottomRow). Each stays movable. Both carry camelot's 19 dividers.
 
 local HEIGHT = 13   -- camelot image height (1020 x 13)
+
+-- Dividers (camelot StatusTrackingBarContainerMixin:UpdateDividers, unchanged in 70450):
+-- STATUS_BAR_NUM_SEGMENTS = 20 segments, so 19 StatusBarDividerTemplate frames (3 x 10,
+-- ui-hud-experiencebar-divider, OVERLAY) at LEFT (width / 20 * i, 0), above the fill.
+-- Rested tick (ExhaustionTick, UI-HUD-ExperienceBar-Frame-Pip, 10 x 14): centered on the right
+-- end of the rested fill, shown while rested experience remains.
+local SEGMENTS = 20
+local DIVIDER_W, DIVIDER_H = 3, 10
 local L = ForeverUI.L
 
 local ATLAS_REPUTATION = {
@@ -82,6 +90,23 @@ local function createBar(name)
 	bar.background, bar.rested, bar.fill, bar.frame, bar.text =
 		background, rested, fill, frame, text
 
+	-- Dividers and rested tick, in a child frame above the fill and the frame art
+	local marks = CreateFrame("Frame", nil, bar)
+	marks:SetAllPoints(bar)
+	marks:SetFrameLevel(bar:GetFrameLevel() + 1)
+	bar.dividers = {}
+	for i = 1, SEGMENTS - 1 do
+		local divider = marks:CreateTexture(nil, "OVERLAY")
+		ForeverUI.SetAtlas(divider, "ui-hud-experiencebar-divider", true)
+		divider:SetWidth(DIVIDER_W)
+		divider:SetHeight(DIVIDER_H)
+		bar.dividers[i] = divider
+	end
+	local tick = marks:CreateTexture(nil, "OVERLAY")
+	ForeverUI.SetAtlas(tick, "ui-hud-experiencebar-frame-pip-camelot")
+	tick:Hide()
+	bar.marks, bar.tick = marks, tick
+
 	bar:SetScript("OnEnter", function(self)
 		self.text:Show()
 	end)
@@ -90,6 +115,15 @@ local function createBar(name)
 	end)
 
 	return bar
+end
+
+-- Places the dividers on the bar's current width (camelot: on each layout change)
+local function placeDividers(bar)
+	local width = bar:GetWidth() or 0
+	for i, divider in ipairs(bar.dividers) do
+		divider:ClearAllPoints()
+		divider:SetPoint("LEFT", bar, "LEFT", math.floor(width / SEGMENTS * i + 0.5), 0)
+	end
 end
 
 local experience = createBar("ForeverUIExperienceBar")
@@ -129,6 +163,15 @@ local function updateExperience()
 
 	populate(experience.rested, "ui-hud-experiencebar-fill-rested-camelot",
 		(earned + rested) / maximum, width)
+	-- rested tick at the end of the rested part
+	if rested > 0 then
+		local x = math.min(1, (earned + rested) / maximum) * width
+		experience.tick:ClearAllPoints()
+		experience.tick:SetPoint("CENTER", experience, "LEFT", x, 0)
+		experience.tick:Show()
+	else
+		experience.tick:Hide()
+	end
 	populate(experience.fill, "ui-hud-experiencebar-fill-experience-camelot",
 		fraction, width)
 
@@ -170,6 +213,8 @@ local function place()
 
 	experience:SetWidth(width)
 	reputation:SetWidth(width)
+	placeDividers(experience)
+	placeDividers(reputation)
 
 	ForeverUI.Layout.SetDefaults("experiencebar", "BOTTOM", "BOTTOM", center, rowLine.top)
 	placeReputation()

@@ -1404,12 +1404,19 @@ masque de camelot `uiminimapmaskgeneralc60.blp` — voir 1.12.f.
 
 ## 3. Ce qui manque aux barres d'état
 
-- **Pas de séparateurs.** La référence découpe la barre en 20 segments
-  (`STATUS_BAR_NUM_SEGMENTS`) avec l'image `ui-hud-experiencebar-divider`
-  (4 x 7). Non posés.
-- **Pas de repère de repos.** L'ancienne `ExhaustionTick` est neutralisée, et
-  la référence a son propre repère (`ui-hud-experiencebar-frame-pip`, 10 x 14,
-  et sa version survolée). Non posé.
+- **Séparateurs : posés le 2026-10-17.** Comme la référence
+  (`StatusTrackingBarContainerMixin:UpdateDividers`, identique en 70450) : 20
+  segments (`STATUS_BAR_NUM_SEGMENTS`), donc 19 `StatusBarDividerTemplate` de
+  3 x 10 (`ui-hud-experiencebar-divider`, 4 x 7 étiré) à `LEFT (largeur / 20 x i, 0)`,
+  dans un cadre fils au-dessus du remplissage et du cadre. Replacés quand la
+  barre prend sa largeur (`place`) ; le redimensionnement de Customize UI passe
+  par l'échelle, qui les entraîne.
+- **Repère de repos : posé le 2026-10-17**, sans infobulle ni état survolé.
+  `ui-hud-experiencebar-frame-pip` (10 x 14) centré sur le bout droit de la
+  partie reposée, montré tant qu'il reste du repos. La référence en fait un
+  bouton (`ExhaustionTick`, strate MEDIUM) avec l'infobulle
+  `ExhaustionToolTipText` et `-pip-mouseover` en ADD : à reprendre si l'on veut
+  l'infobulle.
 - **Texte seulement au survol.** La référence suit les variables
   `statusText` du client (toujours, jamais, pourcentage). À reprendre comme
   c'est déjà fait pour les barres du cadre joueur.
