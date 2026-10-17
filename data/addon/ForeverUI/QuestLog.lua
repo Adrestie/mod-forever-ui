@@ -67,6 +67,7 @@ local TEXT = {
 	ready = L.QUESTLOG_READY,                         -- QUEST_WATCH_QUEST_READY
 	details = L.QUESTLOG_CLICK_DETAILS,              -- CLICK_QUEST_DETAILS
 	untrack = L.QUESTLOG_UNTRACK_QUEST,         -- UNTRACK_QUEST
+	shareInChat = L.QUESTLOG_SHARE_IN_CHAT,         -- SHARE_IN_CHAT
 	trackAll = L.QUESTLOG_TRACK_ALL,               -- QUEST_LOG_TRACK_ALL
 	untrackAll = L.QUESTLOG_UNTRACK_ALL,           -- QUEST_LOG_UNTRACK_ALL
 	-- Quest details page
@@ -360,7 +361,17 @@ local function questMenu(row)
 		disabled = not shareable,
 		func = function() shareQuest(index) end,
 	})
-	-- camelot 70450 drops "Share in chat" outside the gamepad UI; Shift-click links the quest
+	-- camelot 70450 drops "Share in chat" outside the gamepad UI; kept in the log on the user's
+	-- request (2026-10-18), removed from the tracker only
+	table.insert(l, {
+		text = TEXT.shareInChat,
+		func = function()
+			local link = GetQuestLink(index)
+			if link and not (ChatEdit_InsertLink and ChatEdit_InsertLink(link)) then
+				ChatFrame_OpenChat(link)
+			end
+		end,
+	})
 	table.insert(l, {
 		text = ABANDON_QUEST,
 		func = function() abandonQuest(index) end,
