@@ -566,6 +566,93 @@ local function skinSlot(name, side, frameAtlas)
 	return button
 end
 
+-- Equipment flyout arrows (camelot EquipmentFlyoutPopoutButtonTemplate, 1.60.1.70450): the 3.3.5
+-- popout button of each slot (PaperDollFrameItemPopoutButton: same flyout, same "ignore this
+-- slot" entries; shown while GearManagerDialog is, so on the equipment page only) gets camelot's
+-- art and place. Left column: points right, 20 x 43 at LEFT on the slot's RIGHT (5, 0); right
+-- column: points left, at RIGHT on its LEFT (-5, 0); weapons: points up, 43 x 20 at BOTTOM on
+-- its TOP (0, 5). UI-Character-Info-Button-PullSide / PullUp, -Open while the flyout is locked
+-- open, -Pressed, highlight = the image in ADD. camelot rotates the side image for the right
+-- direction; 3.3.5 has no SetRotation: the half turn is done by swapping the tex coords.
+local POPOUT = {
+	side = { w = 20, h = 43, atlas = "ui-character-info-button-pullside" },
+	up = { w = 43, h = 20, atlas = "ui-character-info-button-pullup" },
+	gap = 5,
+}
+
+-- Sets atlas name on texture, turned half a turn when flip is set
+local function popoutTexture(texture, name, flip)
+	local e = texture and ForeverUI.AtlasEntry(name)
+	if not e then
+		return
+	end
+	texture:SetTexture(e[1])
+	if flip then
+		texture:SetTexCoord(e[3], e[2], e[5], e[4])
+	else
+		texture:SetTexCoord(e[2], e[3], e[4], e[5])
+	end
+	texture:ClearAllPoints()
+	texture:SetAllPoints(texture:GetParent())
+end
+
+-- direction: "LEFT", "RIGHT" or "UP"; open: the flyout is locked open
+local function paintPopout(popout, direction, open)
+	local set = (direction == "UP") and POPOUT.up or POPOUT.side
+	-- the side image points left (camelot's rotation for LEFT is 0)
+	local flip = direction == "RIGHT"
+	local normal = set.atlas .. (open and "-open" or "")
+	popout:SetWidth(set.w)
+	popout:SetHeight(set.h)
+	popoutTexture(popout:GetNormalTexture(), normal, flip)
+	popoutTexture(popout:GetPushedTexture(), set.atlas .. "-pressed", flip)
+	local highlight = popout:GetHighlightTexture()
+	popoutTexture(highlight, normal, flip)
+	if highlight then
+		highlight:SetBlendMode("ADD")
+	end
+end
+
+local function skinPopout(name, direction)
+	local slot = _G["Character" .. name .. "Slot"]
+	local popout = slot and (slot.popoutButton or _G["Character" .. name .. "SlotPopoutButton"])
+	if not popout then
+		return
+	end
+	-- the Pushed state does not exist in the client's template
+	if not popout:GetPushedTexture() and popout.SetPushedTexture then
+		local e = ForeverUI.AtlasEntry(POPOUT.side.atlas)
+		if e then
+			popout:SetPushedTexture(e[1])
+		end
+	end
+	popout.foreverDirection = direction
+	paintPopout(popout, direction, popout.flyoutLocked)
+	popout:ClearAllPoints()
+	if direction == "RIGHT" then
+		popout:SetPoint("LEFT", slot, "RIGHT", POPOUT.gap, 0)
+	elseif direction == "LEFT" then
+		popout:SetPoint("RIGHT", slot, "LEFT", -POPOUT.gap, 0)
+	else
+		popout:SetPoint("BOTTOM", slot, "TOP", 0, POPOUT.gap)
+	end
+end
+
+local function skinPopouts()
+	for _, name in ipairs(LEFT_COLUMN) do skinPopout(name, "RIGHT") end
+	for _, name in ipairs(RIGHT_COLUMN) do skinPopout(name, "LEFT") end
+	for _, name in ipairs(WEAPON_ROW) do skinPopout(name, "UP") end
+end
+
+-- The client turns its arrow when the flyout opens or closes: our image follows, open or not
+if hooksecurefunc and type(PaperDollFrameItemPopoutButton_SetReversed) == "function" then
+	hooksecurefunc("PaperDollFrameItemPopoutButton_SetReversed", function(popout, reversed)
+		if popout and popout.foreverDirection then
+			paintPopout(popout, popout.foreverDirection, reversed)
+		end
+	end)
+end
+
 local function placeSlots()
 	local previous
 	for index, name in ipairs(LEFT_COLUMN) do
@@ -615,6 +702,8 @@ local function placeSlots()
 		ammo:ClearAllPoints()
 		ammo:SetPoint("LEFT", previous, "RIGHT", AMMO_GAP, 0)
 	end
+
+	skinPopouts()
 end
 
 ForeverUI.ModelSetting = { scale = MODEL_SCALE, position = MODEL_POSITION }
