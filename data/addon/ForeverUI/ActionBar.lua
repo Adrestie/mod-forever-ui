@@ -1,5 +1,6 @@
 -- Main action bar: the client's secure action buttons, kept and reskinned (camelot
--- ActionButtonTemplate, MainActionBar), with the bar border, page arrows and gryphon end caps.
+-- ActionButtonTemplate, MainActionBar), with the bar border, page arrows and end caps (gryphons,
+-- wyverns for the Horde).
 -- Recreating the buttons would mean rewriting spells, macros and drag and drop, and risk taint.
 -- Nothing is resized or moved in combat, where the client forbids it.
 
@@ -230,6 +231,20 @@ end
 local leftCap = createEndCap("ForeverUIActionBarLeftCap", "ui-hud-actionbar-gryphon-left")
 local rightCap = createEndCap("ForeverUIActionBarRightCap", "ui-hud-actionbar-gryphon-right")
 
+-- Faction art: camelot always draws the gryphons (camelot/MainMenuBarEndCaps.xml); on the user's
+-- request (2026-10-18) the Horde gets the wyverns of the same sheet (ui-hud-actionbar-wyvern-*,
+-- same 240 x 140 size). The faction is read again on PLAYER_ENTERING_WORLD.
+local function applyFactionCaps()
+	local kind = (UnitFactionGroup and UnitFactionGroup("player") == "Horde") and "wyvern" or "gryphon"
+	if leftCap.kind == kind then
+		return
+	end
+	leftCap.kind = kind
+	ForeverUI.SetAtlas(leftCap.texture, "ui-hud-actionbar-" .. kind .. "-left", true)
+	ForeverUI.SetAtlas(rightCap.texture, "ui-hud-actionbar-" .. kind .. "-right", true)
+end
+applyFactionCaps()
+
 -- The bonus bar takes the same place. On a stance change 3.3.5 shows BonusActionBarFrame
 -- over the main bar at its own position, so its buttons are anchored like the main ones and
 -- follow the holder. Nothing is reparented: buttons follow the client bar's visibility.
@@ -450,7 +465,10 @@ watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
 watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
 watcher:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
 watcher:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-watcher:SetScript("OnEvent", function()
+watcher:SetScript("OnEvent", function(_self, event)
+	if event == "PLAYER_ENTERING_WORLD" then
+		applyFactionCaps()
+	end
 	skinAll()
 	layoutButtons()
 end)
@@ -479,7 +497,8 @@ end
 
 ForeverUI.ActionBarHolder = holder
 ForeverUI.ActionBarBorder = border
-ForeverUI.ActionBarEndCaps = { left = leftCap, right = rightCap, inset = END_CAP_INSET, drop = END_CAP_DROP }
+ForeverUI.ActionBarEndCaps = { left = leftCap, right = rightCap, inset = END_CAP_INSET, drop = END_CAP_DROP,
+	faction = applyFactionCaps }
 -- camelot/EditModePresetLayoutConstants.lua: BOTTOMRIGHT on the micro-menu's BOTTOMLEFT at
 -- (-4.5, -4); the micro-menu at BOTTOM (116.5, 6), 275 wide, puts the bar's right edge at
 -- -25.5 from the screen center, 2 from the bottom. BottomBar.lua redoes this with the real
