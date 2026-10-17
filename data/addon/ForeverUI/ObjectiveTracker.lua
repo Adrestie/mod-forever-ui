@@ -42,6 +42,7 @@ COLOR.failedHover.inverse = COLOR.failed
 
 -- 3.3.5 strings when it has them, camelot's otherwise (Textes_<locale>.lua)
 local TEXT = {
+	shareInChat = L.OBJECTIVETRACKER_SHARE_IN_CHAT, -- SHARE_IN_CHAT
 	all = L.OBJECTIVETRACKER_ALL_OBJECTIVES, -- TRACKER_ALL_OBJECTIVES
 	quests = QUESTS_LABEL,                   -- TRACKER_HEADER_QUESTS (3.3.5: QUESTS_LABEL)
 	achievements = ACHIEVEMENTS,               -- TRACKER_HEADER_ACHIEVEMENTS (3.3.5: ACHIEVEMENTS)
@@ -1035,7 +1036,14 @@ local function questClick(b, mouse)
 			table.insert(l, { text = SHARE_QUEST, func = function() WatchFrame_ShareQuest(nil, w) end })
 		end
 	end
-	-- camelot 70450 drops "Share in chat" outside the gamepad UI; Shift-click links the quest
+	-- camelot 70450 drops "Share in chat" outside the gamepad UI; kept on the user's request
+	-- (2026-10-18)
+	table.insert(l, { text = TEXT.shareInChat, func = function()
+		local link = GetQuestLink(index)
+		if link and not (ChatEdit_InsertLink and ChatEdit_InsertLink(link)) then
+			ChatFrame_OpenChat(link)
+		end
+	end })
 	table.insert(l, { text = TEXT.abandonQuest, func = function() WatchFrame_AbandonQuest(nil, w) end })
 	-- WotLK manual ordering
 	local n = #VISIBLE_WATCHES
