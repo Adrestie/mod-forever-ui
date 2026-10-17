@@ -1,4 +1,5 @@
--- Player unit frame. Geometry from Blizzard_UnitFrame/mainline/PlayerFrame.xml (camelot flavor).
+-- Player unit frame. Geometry from Blizzard_UnitFrame/mainline/PlayerFrame.xml, as camelot
+-- PlayerFrame.lua overrides it since 1.60.1.70450 (PlayerFrame_Update*Visuals).
 -- The art sits above the square portrait and its ring covers the corners: 3.3.5 has no
 -- MaskTexture to make the portrait round.
 -- Position is decided and saved by ForeverUI.Layout (see Layout.lua).
@@ -44,21 +45,25 @@ portrait:SetWidth(60)
 portrait:SetHeight(60)
 portrait:SetPoint("TOPLEFT", 24, -19)
 
+-- camelot: health container 124 x 15 at (87, -46), the 124 x 20 bar 3 px above it; mana bar at
+-- (87, -61). The mana bar is created after the health bar, so it covers the 2 px the health art
+-- reaches below -61 (camelot's mask cuts them; 3.3.5 has none).
 local healthFill = frame:CreateTexture(nil, "BORDER")
-healthFill:SetPoint("TOPLEFT", 85, -40)
+healthFill:SetPoint("TOPLEFT", 87, -43)
 
 local powerFill = frame:CreateTexture(nil, "BORDER")
-powerFill:SetPoint("TOPLEFT", 85, -61)
+powerFill:SetPoint("TOPLEFT", 87, -61)
 
 local art = frame:CreateTexture(nil, "ARTWORK")
 art:SetPoint("CENTER", 0, 0)
 ForeverUI.SetAtlas(art, ART_NORMAL)
 
+-- camelot PlayerFrame_UpdatePlayerNameTextAnchor: centered, 116 wide, center at (149, -37)
 local nameText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-nameText:SetWidth(96)
+nameText:SetWidth(116)
 nameText:SetHeight(12)
-nameText:SetJustifyH("LEFT")
-nameText:SetPoint("TOPLEFT", 88, -27)
+nameText:SetJustifyH("CENTER")
+nameText:SetPoint("CENTER", frame, "TOPLEFT", 149, -37)
 
 -- The level lives in a child frame one level up, not in a layer of the main frame. Textures
 -- in one layer are ordered only by creation, and the art is re-set during play, which put it
@@ -102,7 +107,7 @@ statusTexture:SetBlendMode("ADD")
 statusTexture:Hide()
 
 local threatGlow = overlayHolder:CreateTexture(nil, "BORDER")
-threatGlow:SetPoint("CENTER", frame, "CENTER", -1.5, 1)
+threatGlow:SetPoint("CENTER", frame, "CENTER", 0, 0)
 ForeverUI.SetAtlas(threatGlow, THREAT_GLOW)
 threatGlow:Hide()
 
@@ -136,11 +141,11 @@ restTexture:SetHeight(30)
 restTexture:Hide()
 
 local healthText = overlayHolder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-healthText:SetPoint("CENTER", frame, "TOPLEFT", 85 + 62, -40 - 10)
+healthText:SetPoint("CENTER", frame, "TOPLEFT", 87 + 62, -43 - 10)
 healthText:Hide()
 
 local powerText = overlayHolder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-powerText:SetPoint("CENTER", frame, "TOPLEFT", 85 + 62, -61 - 5)
+powerText:SetPoint("CENTER", frame, "TOPLEFT", 87 + 62, -61 - 5)
 powerText:Hide()
 
 frame.overlayHolder = overlayHolder
@@ -262,8 +267,9 @@ updateThreat = function()
 	end
 end
 
--- Player state, in the order of 3.3.5 PlayerFrame_UpdateStatus: nothing in a vehicle,
--- otherwise rest before combat.
+-- Player state, in the order of the modern PlayerFrame_UpdateStatus (camelot 70450): nothing in
+-- a vehicle, otherwise combat, then the hate list, then rest. 3.3.5 put rest first: in an inn,
+-- the veil was gold even in combat.
 local restElapsed = 0
 
 local function updateStatus()
@@ -281,15 +287,7 @@ local function updateStatus()
 	--   onHateList -- PLAYER_REGEN_DISABLED: you are on someone's hate list. Icon only.
 	-- The onHateList branch leaves the veil alone, as both clients do: it keeps its color until
 	-- combat really ends.
-	if IsResting() then
-		statusTexture:SetVertexColor(1.0, 0.88, 0.25)
-		statusTexture:Show()
-		restTexture:Show()
-		combatIcon:Hide()
-		cornerIcon:Show()
-		frame.resting = true
-		restElapsed = 0
-	elseif frame.inCombat then
+	if frame.inCombat then
 		statusTexture:SetVertexColor(1.0, 0.0, 0.0)
 		statusTexture:Show()
 		combatIcon:Show()
@@ -301,6 +299,14 @@ local function updateStatus()
 		cornerIcon:Hide()
 		restTexture:Hide()
 		frame.resting = false
+	elseif IsResting() then
+		statusTexture:SetVertexColor(1.0, 0.88, 0.25)
+		statusTexture:Show()
+		restTexture:Show()
+		combatIcon:Hide()
+		cornerIcon:Show()
+		frame.resting = true
+		restElapsed = 0
 	else
 		statusTexture:Hide()
 		combatIcon:Hide()

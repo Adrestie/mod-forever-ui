@@ -1,7 +1,8 @@
 -- Target frame and target-of-target frame, rebuilt from camelot.
--- Sizes and anchors: mainline/TargetFrame.xml; bars and art: CheckClassification in
--- mainline/TargetFrame.lua; name, level and reaction color: camelot/TargetFrame.lua
--- (TargetFrameMixin:OnLoad, CheckFaction).
+-- Sizes and anchors: mainline/TargetFrame.xml, as camelot/TargetFrame.lua overrides them since
+-- 1.60.1.70450 (TargetFrameMixin:OnLoad, UpdateHealthBarVisuals, TargetOfTargetMixin:OnLoad);
+-- art by classification: CheckClassification in mainline/TargetFrame.lua; combo points:
+-- camelot/ComboFrame.lua.
 
 local FRAME_WIDTH, FRAME_HEIGHT = 232, 100
 local L = ForeverUI.L
@@ -11,21 +12,15 @@ local ART = {
 	rare = "ui-hud-unitframe-target-rare-portraiton",
 	minus = "ui-hud-unitframe-target-minusmob-portraiton",
 }
-local THREAT_GLOW = {
-	normal = "ui-hud-unitframe-target-portraiton-incombat",
-	minus = "ui-hud-unitframe-target-minusmob-portraiton-incombat",
-}
-local HEALTH_FILL = {
-	normal = "ui-hud-unitframe-target-portraiton-bar-health",
-	minus = "ui-hud-unitframe-target-minusmob-portraiton-bar-health",
-}
+local THREAT_GLOW = "ui-hud-unitframe-target-portraiton-incombat"
+local HEALTH_FILL = "ui-hud-unitframe-target-portraiton-bar-health"
 
--- Bar geometry set by CheckClassification (in code, not XML, on every target change):
--- health 126 x 20 at TOPLEFT (23, -40), power 134 x 10 at (23, -61); minus mobs: health
--- 125 x 12 at (23, -39) and no power bar.
+-- camelot TargetFrameMixin:UpdateHealthBarVisuals ignores the classification: a minus mob takes
+-- the normal bar. Health container 126 x 15 at TOPLEFT (21, -44), the 126 x 20 bar 3 px above
+-- it, so (21, -41); power 134 x 10 at (17, -60), hidden for minus mobs (mainline).
 local BAR_LAYOUT = {
-	normal = { health = { 23, -40, 126, 20 }, power = { 23, -61, 134, 10 }, showPower = true },
-	minus = { health = { 23, -39, 125, 12 }, power = nil, showPower = false },
+	normal = { health = { 21, -41, 126, 20 }, power = { 17, -60, 134, 10 }, showPower = true },
+	minus = { health = { 21, -41, 126, 20 }, power = nil, showPower = false },
 }
 local POWER_FILL = {
 	normal = {
@@ -34,13 +29,6 @@ local POWER_FILL = {
 		FOCUS = "ui-hud-unitframe-target-portraiton-bar-focus",
 		ENERGY = "ui-hud-unitframe-target-portraiton-bar-energy",
 		RUNIC_POWER = "ui-hud-unitframe-target-portraiton-bar-runicpower",
-	},
-	minus = {
-		MANA = "ui-hud-unitframe-target-minusmob-portraiton-bar-mana",
-		RAGE = "ui-hud-unitframe-target-minusmob-portraiton-bar-rage",
-		FOCUS = "ui-hud-unitframe-target-minusmob-portraiton-bar-focus",
-		ENERGY = "ui-hud-unitframe-target-minusmob-portraiton-bar-energy",
-		RUNIC_POWER = "ui-hud-unitframe-target-minusmob-portraiton-bar-runicpower",
 	},
 }
 
@@ -77,10 +65,10 @@ portrait:SetHeight(58)
 portrait:SetPoint("TOPRIGHT", -26, -19)
 
 local healthFill = frame:CreateTexture(nil, "BORDER")
-healthFill:SetPoint("TOPLEFT", 23, -39)
+healthFill:SetPoint("TOPLEFT", 21, -41)
 
 local powerFill = frame:CreateTexture(nil, "BORDER")
-powerFill:SetPoint("TOPLEFT", 23, -60)
+powerFill:SetPoint("TOPLEFT", 17, -60)
 
 local art = frame:CreateTexture(nil, "ARTWORK")
 art:SetPoint("CENTER", 0, 0)
@@ -88,7 +76,7 @@ ForeverUI.SetAtlas(art, ART.normal)
 
 -- Reputation band: it carries the reaction color, not the health bar.
 local reputation = frame:CreateTexture(nil, "BACKGROUND")
-reputation:SetPoint("TOPRIGHT", -75, -25)
+reputation:SetPoint("TOPRIGHT", -82, -26)
 ForeverUI.SetAtlas(reputation, "ui-hud-unitframe-target-portraiton-type")
 
 -- As on the player frame: whatever must stay above the art lives in a child frame, never
@@ -98,8 +86,8 @@ overlayHolder:SetAllPoints(frame)
 overlayHolder:SetFrameLevel(frame:GetFrameLevel() + 1)
 
 local threatGlow = overlayHolder:CreateTexture(nil, "BACKGROUND")
-threatGlow:SetPoint("CENTER", frame, "CENTER", 1.5, 1)
-ForeverUI.SetAtlas(threatGlow, THREAT_GLOW.normal)
+threatGlow:SetPoint("CENTER", frame, "CENTER", -1, 1)
+ForeverUI.SetAtlas(threatGlow, THREAT_GLOW)
 threatGlow:Hide()
 
 -- Ring: GetBossPortraitFrameData anchors it TOPRIGHT on the container. The source puts it
@@ -119,27 +107,20 @@ levelText:SetPoint("CENTER", levelCircle, "CENTER", 0, -0.5)
 local nameText = overlayHolder:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 nameText:SetWidth(117)
 nameText:SetHeight(12)
-nameText:SetJustifyH("LEFT")
-nameText:SetPoint("TOPLEFT", 24, -26)
+-- camelot: centered, TOPLEFT on the band's TOPRIGHT at (-126, -4)
+nameText:SetJustifyH("CENTER")
+nameText:SetPoint("TOPLEFT", 24, -30)
 
--- PvP badge (camelot TargetFrameMixin:ShowPvPIcon): circle and icon at scale 0.8, the circle's
--- TOP at (-23, -50) of the TOPRIGHT in its own scaled units. camelot keeps it in
--- TargetFrameContentContextual, drawn over the level circle: here a child frame one level up,
--- the circle and the icon over it each in their own layer.
+-- PvP badge (camelot 70450 PvpBackgroundIconTemplate): no circle any more, the icon alone at
+-- scale 0.8, its TOP at (-24, -65) of the TOPRIGHT in its own scaled units. camelot keeps it in
+-- TargetFrameContentContextual, drawn over the level circle: here a child frame one level up.
 local PVP_SCALE = 0.8
 local pvpHolder = CreateFrame("Frame", nil, overlayHolder)
 pvpHolder:SetAllPoints(frame)
 pvpHolder:SetFrameLevel(overlayHolder:GetFrameLevel() + 1)
 
-local pvpCircle = pvpHolder:CreateTexture(nil, "BACKGROUND")
-ForeverUI.SetAtlas(pvpCircle, "ui-hud-unitframe-smallcircle")
-pvpCircle:SetWidth(pvpCircle:GetWidth() * PVP_SCALE)
-pvpCircle:SetHeight(pvpCircle:GetHeight() * PVP_SCALE)
-pvpCircle:SetPoint("TOP", frame, "TOPRIGHT", -23 * PVP_SCALE, -50 * PVP_SCALE)
-pvpCircle:Hide()
-
 local pvpIcon = pvpHolder:CreateTexture(nil, "BORDER")
-pvpIcon:SetPoint("CENTER", pvpCircle, "CENTER", 0, 0)
+pvpIcon:SetPoint("TOP", frame, "TOPRIGHT", -24 * PVP_SCALE, -65 * PVP_SCALE)
 pvpIcon:Hide()
 
 local PVP_ICONS = {
@@ -149,11 +130,11 @@ local PVP_ICONS = {
 }
 
 local healthText = overlayHolder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-healthText:SetPoint("CENTER", frame, "TOPLEFT", 23 + 63, -40 - 10)
+healthText:SetPoint("CENTER", frame, "TOPLEFT", 21 + 63, -41 - 10)
 healthText:Hide()
 
 local powerText = overlayHolder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-powerText:SetPoint("CENTER", frame, "TOPLEFT", 23 + 67, -61 - 5)
+powerText:SetPoint("CENTER", frame, "TOPLEFT", 17 + 67, -60 - 5)
 powerText:Hide()
 
 frame.portrait = portrait
@@ -169,7 +150,6 @@ frame.healthText = healthText
 frame.powerText = powerText
 frame.overlayHolder = overlayHolder
 frame.pvpHolder = pvpHolder
-frame.pvpCircle = pvpCircle
 frame.pvpIcon = pvpIcon
 
 -- Target classification. It picks two separate things: the frame art family (normal, rare,
@@ -202,11 +182,14 @@ local function updatePvP()
 	if key and PVP_ICONS[key] and ForeverUI.SetAtlas(pvpIcon, PVP_ICONS[key]) then
 		pvpIcon:SetWidth(pvpIcon:GetWidth() * PVP_SCALE)
 		pvpIcon:SetHeight(pvpIcon:GetHeight() * PVP_SCALE)
-		pvpCircle:Show()
 		pvpIcon:Show()
 	else
-		pvpCircle:Hide()
 		pvpIcon:Hide()
+	end
+	frame.pvpShown = pvpIcon:IsShown()
+	-- the badge moves the start of the combo point arc
+	if ForeverUI.ComboPoints then
+		ForeverUI.ComboPoints.place()
 	end
 end
 
@@ -238,7 +221,7 @@ local function updateArt()
 	local layout = BAR_LAYOUT[barKind]
 
 	ForeverUI.SetAtlas(art, ART[artKind] or ART.normal)
-	ForeverUI.SetAtlas(threatGlow, THREAT_GLOW[barKind] or THREAT_GLOW.normal)
+	ForeverUI.SetAtlas(threatGlow, THREAT_GLOW)
 
 	healthFill:ClearAllPoints()
 	healthFill:SetPoint("TOPLEFT", layout.health[1], layout.health[2])
@@ -274,7 +257,7 @@ local function updateHealth()
 		fraction = UnitHealth("target") / maximum
 	end
 	local layout = frame.layout or BAR_LAYOUT.normal
-	ForeverUI.SetAtlasFill(healthFill, HEALTH_FILL[frame.barKind or "normal"], fraction, layout.health[3])
+	ForeverUI.SetAtlasFill(healthFill, HEALTH_FILL, fraction, layout.health[3])
 end
 
 local function updatePower()
@@ -285,7 +268,7 @@ local function updatePower()
 	end
 
 	local powerType, powerToken = UnitPowerType("target")
-	local set = POWER_FILL[frame.barKind or "normal"]
+	local set = POWER_FILL.normal
 	local atlas = set[powerToken or ""] or set.MANA
 	local maximum = UnitPowerMax("target", powerType)
 	local fraction = 0
@@ -405,17 +388,139 @@ local function updateAll()
 	updateTexts()
 end
 
+-- ------------------------------------------------------------- Combo points
+-- camelot/ComboFrame.lua (1.60.1.70450): five RogueComboPoint (20 x 20) at scale 0.6, on an
+-- arc around the target's portrait: centre = portrait centre + (2, 2), radius 66 in the points'
+-- scale (39.6 px), angles -10 + 21 * (i - 1) degrees, from 2 degrees when the PvP badge shows.
+-- Filled from the top (one point lights the 74-degree one); shown from one point, fading in
+-- over 0.3 s. Atlases uf-roguecp-*-c60 (red only: camelot has no charged points). 3.3.5 has no
+-- FlipBook: the slash animation is not reproduced, the icon fades in instead.
+local COMBO_COUNT, COMBO_SCALE, COMBO_RADIUS, COMBO_STEP = 5, 0.6, 66, 21
+local COMBO_START, COMBO_START_PVP = -10, 2
+local COMBO_FADE, COMBO_ICON_FADE = 0.3, 0.27
+
+local combo = CreateFrame("Frame", "ForeverUIComboPoints", frame)
+combo:SetWidth(1)
+combo:SetHeight(1)
+combo:SetPoint("CENTER", portrait, "CENTER", 2, 2)
+combo:SetFrameLevel(pvpHolder:GetFrameLevel() + 1)
+combo:Hide()
+
+-- one point: shadow, inactive and active backgrounds, red icon, each at its atlas size x 0.6
+local function comboLayer(point, layer, atlas, x, y)
+	local t = point:CreateTexture(nil, layer)
+	ForeverUI.SetAtlas(t, atlas)
+	t:SetWidth(t:GetWidth() * COMBO_SCALE)
+	t:SetHeight(t:GetHeight() * COMBO_SCALE)
+	t:SetPoint("CENTER", point, "CENTER", (x or 0) * COMBO_SCALE, (y or 0) * COMBO_SCALE)
+	return t
+end
+
+combo.dots = {}
+for i = 1, COMBO_COUNT do
+	local point = CreateFrame("Frame", nil, combo)
+	point:SetWidth(20 * COMBO_SCALE)
+	point:SetHeight(20 * COMBO_SCALE)
+	point.shadow = comboLayer(point, "BACKGROUND", "uf-roguecp-bg-shadow", 0, -4)
+	point.inactive = comboLayer(point, "BORDER", "uf-roguecp-bg-dis")
+	point.active = comboLayer(point, "BORDER", "uf-roguecp-bg")
+	point.icon = comboLayer(point, "ARTWORK", "uf-roguecp-icon-red")
+	point.active:Hide()
+	point.icon:Hide()
+	combo.dots[i] = point
+end
+
+-- arc positions; the PvP badge moves the start of the arc
+local function placeComboPoints()
+	local start = frame.pvpShown and COMBO_START_PVP or COMBO_START
+	for i, point in ipairs(combo.dots) do
+		local angle = math.rad(start + COMBO_STEP * (i - 1))
+		point:ClearAllPoints()
+		point:SetPoint("CENTER", combo, "CENTER",
+			COMBO_RADIUS * COMBO_SCALE * math.cos(angle), COMBO_RADIUS * COMBO_SCALE * math.sin(angle))
+	end
+end
+
+local function setPointActive(point, active, animate)
+	if point.isActive == active then return end
+	point.isActive = active
+	if active then
+		point.inactive:Hide()
+		point.active:Show()
+		point.icon:Show()
+	else
+		point.inactive:Show()
+		point.active:Hide()
+		point.icon:Hide()
+	end
+	point.fade = (active and animate) and 0 or nil
+	point.icon:SetAlpha((active and animate) and 0 or 1)
+end
+
+-- animate: false on a target change (camelot SetActiveNoAnimation)
+local function updateComboPoints(animate)
+	local count = (UnitExists("target") and GetComboPoints("player", "target")) or 0
+	placeComboPoints()
+	local first = COMBO_COUNT - count + 1
+	for i, point in ipairs(combo.dots) do
+		setPointActive(point, i >= first, animate)
+	end
+	if count > 0 then
+		if not combo:IsShown() then
+			combo.fade = 0
+			combo:SetAlpha(0)
+			combo:Show()
+		end
+	else
+		combo:Hide()
+	end
+	combo.count = count
+end
+
+combo:SetScript("OnUpdate", function(self, elapsed)
+	if self.fade then
+		self.fade = self.fade + elapsed
+		self:SetAlpha(math.min(1, self.fade / COMBO_FADE))
+		if self.fade >= COMBO_FADE then self.fade = nil end
+	end
+	for _, point in ipairs(self.dots) do
+		if point.fade then
+			point.fade = point.fade + elapsed
+			point.icon:SetAlpha(math.min(1, point.fade / COMBO_ICON_FADE))
+			if point.fade >= COMBO_ICON_FADE then point.fade = nil end
+		end
+	end
+end)
+
+-- The arc lives on the target frame but listens on its own: the target frame hides with no
+-- target, and combo points belong to the player
+local comboEvents = CreateFrame("Frame")
+comboEvents:SetScript("OnEvent", function(_self, event, unit)
+	if event == "PLAYER_TARGET_CHANGED" then
+		updateComboPoints(false)
+	elseif event == "UNIT_COMBO_POINTS" then
+		if unit == nil or unit == "player" or unit == "vehicle" then
+			updateComboPoints(true)
+		end
+	elseif event == "UNIT_FACTION" and unit == "target" then
+		updateComboPoints(false)
+	end
+end)
+comboEvents:RegisterEvent("PLAYER_TARGET_CHANGED")
+comboEvents:RegisterEvent("UNIT_COMBO_POINTS")
+comboEvents:RegisterEvent("UNIT_FACTION")
+
+frame.combo = combo
+ForeverUI.ComboPoints = { frame = combo, update = updateComboPoints, place = placeComboPoints }
+
 local function hideDefaultTargetFrame()
 	if InCombatLockdown() or not TargetFrame then
 		return
 	end
 	ForeverUI.Suppress(TargetFrame)
-	-- ComboFrame is the client's only combo point display (rogue, cat form): kept, on our
-	-- portrait instead of the hidden TargetFrame's. ComboFrame.xml puts it at (-2, 3) from the
-	-- portrait's top right corner (TOPRIGHT -44, -9 on TargetFrame, portrait at -42, -12).
+	-- The client's ComboFrame gives way to camelot's arc (ForeverUI.ComboPoints below)
 	if ComboFrame then
-		ComboFrame:ClearAllPoints()
-		ComboFrame:SetPoint("TOPRIGHT", portrait, "TOPRIGHT", -2, 3)
+		ForeverUI.Suppress(ComboFrame)
 	end
 end
 
@@ -521,8 +626,10 @@ end
 
 -- ------------------------------------------------- Target of target
 -- mainline/TargetFrame.xml TargetofTargetFrameTemplate: 120 x 49, TOPRIGHT on the target
--- frame's BOTTOMRIGHT at (12, 10), portrait 37 x 37 at (5, -5), name right of the portrait,
--- health bar 70 x 10 BOTTOMRIGHT on the RIGHT point at (-6, -2.5), i.e. TOPLEFT (44, -17).
+-- frame's BOTTOMRIGHT at (12, 10), portrait 37 x 37 at (5, -5). camelot 70450
+-- TargetOfTargetMixin:OnLoad: name centered right of the portrait (2, -1); health bar 70 x 10
+-- BOTTOMRIGHT on the RIGHT point at (-5, -3), i.e. TOPLEFT (45, -17.5); power bar 74 x 7 at
+-- (-2, -2) of the health bar's BOTTOMLEFT, i.e. (43, -29.5).
 
 local tot = CreateFrame("Button", "ForeverUITargetOfTarget", frame, "SecureUnitButtonTemplate")
 tot:SetWidth(120)
@@ -539,10 +646,10 @@ totPortrait:SetHeight(37)
 totPortrait:SetPoint("TOPLEFT", 5, -5)
 
 local totHealth = tot:CreateTexture(nil, "BORDER")
-totHealth:SetPoint("TOPLEFT", 44, -17)
+totHealth:SetPoint("TOPLEFT", 45, -17.5)
 
 local totPower = tot:CreateTexture(nil, "BORDER")
-totPower:SetPoint("TOPLEFT", 44, -29)
+totPower:SetPoint("TOPLEFT", 43, -29.5)
 
 local totArt = tot:CreateTexture(nil, "ARTWORK")
 totArt:SetPoint("CENTER")
@@ -551,8 +658,8 @@ ForeverUI.SetAtlas(totArt, "ui-hud-unitframe-targetoftarget-portraiton")
 local totName = tot:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 totName:SetWidth(68)
 totName:SetHeight(10)
-totName:SetJustifyH("LEFT")
-totName:SetPoint("TOPLEFT", totPortrait, "TOPRIGHT", 2, 0)
+totName:SetJustifyH("CENTER")
+totName:SetPoint("TOPLEFT", totPortrait, "TOPRIGHT", 2, -1)
 
 local TOT_POWER = {
 	MANA = "ui-hud-unitframe-targetoftarget-portraiton-bar-mana",

@@ -42,9 +42,11 @@ local P = {
 	auras = 4, auraSide = 15, auraGap = 2,
 	pulse = 0.5, pulseMin = 127 / 255,
 	-- Normal / vehicle: anchors and widths set by ToPlayerArt and ToVehicleArt
-	-- ({ x, y } or { x, y, width })
-	player = { art = { 1, -2 }, glow = { 1, -2 }, status = { 1, -2 }, health = { 45, -19, 70 },
-		resource = { 42, -30, 73 }, name = { 46, -6, 57 } },
+	-- ({ x, y } or { x, y, width }). Normal: camelot/PartyMemberFrame.lua ArtLayoutInfo.Player
+	-- (1.60.1.70450). Vehicle: mainline's, kept as before (70450 puts its health bar at the
+	-- mana bar's y, -29, which looks like a copy slip).
+	player = { art = { 1, -2 }, glow = { 1, -1 }, status = { -1, -1 }, health = { 47, -20, 70 },
+		resource = { 45, -31, 73 }, name = { 48, -7, 55 } },
 	vehicle = { art = { 0, 0 }, glow = { -4, 4 }, status = { -3, 3 }, health = { 48, -18, 67 },
 		resource = { 45, -29, 70 }, name = { 49, -6, 56 } },
 }
@@ -260,7 +262,7 @@ local function createMember(i)
 	m.role = hovered:CreateTexture(nil, "OVERLAY")
 	m.role:SetWidth(12)
 	m.role:SetHeight(12)
-	m.role:SetPoint("TOPRIGHT", m, "TOPRIGHT", -5, -5)
+	m.role:SetPoint("TOPRIGHT", m, "TOPRIGHT", -5, -7)
 	m.role:Hide()
 
 	-- Ready check icon: 36 x 36, two levels above (RaiseFrameLevelByTwo). The marks are
@@ -364,8 +366,16 @@ local function updateHealth(m)
 	local atlas = m.vehicle and P.vehicleHealth or P.health
 	local connected = UnitIsConnected(m.unit)
 	local health, max = UnitHealth(u), UnitHealthMax(u)
-	-- Disconnected: full bar, desaturated
-	ForeverUI.SetAtlasFill(m.health, atlas, connected and fraction(health, max) or 1, geo.health[3])
+	-- Disconnected: full bar, desaturated; empty if also dead (mainline UnitFrameHealthBar_Update)
+	local shown
+	if connected then
+		shown = fraction(health, max)
+	elseif UnitIsDead(u) then
+		shown = 0
+	else
+		shown = 1
+	end
+	ForeverUI.SetAtlasFill(m.health, atlas, shown, geo.health[3])
 	m.health:SetDesaturated(not connected)
 	m.healthText:ClearAllPoints()
 	m.healthText:SetPoint("CENTER", m, "TOPLEFT", geo.health[1] + geo.health[3] / 2, geo.health[2] - 5)

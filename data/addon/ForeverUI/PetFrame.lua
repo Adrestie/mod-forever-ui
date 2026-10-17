@@ -1,4 +1,5 @@
--- ForeverUI: the pet frame, from Camelot's mainline PetFrame template. The 3.3.5 PetFrame is a
+-- ForeverUI: the pet frame, from Camelot's mainline PetFrame template as camelot/PetFrame.lua
+-- (1.60.1.70450, PetFrameMixin:OnLoad) re-anchors it. The 3.3.5 PetFrame is a
 -- child of PlayerFrame, so it goes away with the client's player frame (see PlayerFrame.lua).
 -- It uses the target-of-target art on purpose. 3.3.5 has no MaskTexture, so the bars are not
 -- clipped to the frame shape. The debuff icons under the frame are left out; buffs stay in the
@@ -56,22 +57,22 @@ portrait:SetHeight(37)
 portrait:SetPoint("TOPLEFT", 5, -5)
 
 local healthFill = frame:CreateTexture(nil, "BORDER")
-healthFill:SetPoint("TOPLEFT", 44, -17)
+healthFill:SetPoint("TOPLEFT", 45, -17.5)
 
 local powerFill = frame:CreateTexture(nil, "BORDER")
-powerFill:SetPoint("TOPLEFT", 40, -28)
+powerFill:SetPoint("TOPLEFT", 43, -29.5)
 
 local art = frame:CreateTexture(nil, "ARTWORK")
 art:SetPoint("CENTER")
 ForeverUI.SetAtlas(art, FRAME_ART)
 
 local threat = frame:CreateTexture(nil, "OVERLAY")
-threat:SetPoint("TOPLEFT", 1, 0)
+threat:SetPoint("TOPLEFT", 0, 0)
 ForeverUI.SetAtlas(threat, THREAT_ART)
 threat:Hide()
 
 local attack = frame:CreateTexture(nil, "OVERLAY")
-attack:SetPoint("TOPLEFT", 0, 1)
+attack:SetPoint("TOPLEFT", 0, 0)
 ForeverUI.SetAtlas(attack, ATTACK_ART)
 attack:SetBlendMode("ADD")
 attack:Hide()
@@ -79,16 +80,16 @@ attack:Hide()
 local nameText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 nameText:SetWidth(68)
 nameText:SetHeight(10)
-nameText:SetJustifyH("LEFT")
+nameText:SetJustifyH("CENTER")
 nameText:SetJustifyV("BOTTOM")
-nameText:SetPoint("TOPLEFT", portrait, "TOPRIGHT", 2, 0)
+nameText:SetPoint("TOPLEFT", portrait, "TOPRIGHT", 2, -1)
 
 local healthText = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-healthText:SetPoint("CENTER", frame, "TOPLEFT", 44 + 35, -17 - 5)
+healthText:SetPoint("CENTER", frame, "TOPLEFT", 45 + 35, -17.5 - 5)
 healthText:Hide()
 
 local powerText = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-powerText:SetPoint("CENTER", frame, "TOPLEFT", 40 + 37 + 2, -28 - 3.5)
+powerText:SetPoint("CENTER", frame, "TOPLEFT", 43 + 37, -29.5 - 3.5)
 powerText:Hide()
 
 local hitText = frame:CreateFontString(nil, "OVERLAY", "NumberFontNormalHuge")

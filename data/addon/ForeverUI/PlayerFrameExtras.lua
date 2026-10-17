@@ -1,12 +1,11 @@
 -- ForeverUI: player frame extras: PvP icon, raid group, play time and damage taken.
 -- They live in ForeverUI.PlayerFrame's overlayHolder (above the art) and move with the frame.
--- Sizes and offsets: camelot PlayerFrame_ShowPvPIcon (circle at scale 0.8) and mainline
+-- Sizes and offsets: camelot PvP icon (scale 0.8, no circle since 70450) and mainline
 -- PlayerFrame.xml (GroupIndicator, PlayerPlayTime, HitIndicator).
 
 local frame = ForeverUI.PlayerFrame
 local holder = frame.overlayHolder
 
-local PVP_CIRCLE = "ui-hud-unitframe-smallcircle"
 local PVP_FFA = "ui-hud-unitframe-player-pvp-ffaicon"
 local PVP_FACTION = {
 	Alliance = "ui-hud-unitframe-smallcircle-alliance",
@@ -19,21 +18,15 @@ local PLAYTIME_TIRED_ATLAS = "ui-hud-unitframe-player-playtimetired"
 local PLAYTIME_UNHEALTHY_ATLAS = "ui-hud-unitframe-player-playtimeunhealthy"
 
 -- ------------------------------------------------------------------- PvP
--- camelot scales the circle by 0.8 and anchors it at (20, -50): offsets in its own scaled units,
--- so (16, -40) in the frame's
+-- camelot 70450 (PlayerPvpBackgroundIconTemplate, scale 0.8, UnitFramePvPIndicatorStyle): no
+-- background circle any more; the icon alone, TOP at (22, -65) in its scaled units, so
+-- (17.6, -52) in the frame's. Faction icons are 24 x 27, the FFA one keeps its atlas size
+-- (28 x 44), both at 0.8.
 local PVP_SCALE = 0.8
 -- Under the level circle (ARTWORK) and its text, as in camelot (PvP in OVERLAY 3, level in
--- OVERLAY 4). 3.3.5 has no sublevels and does not keep creation order within a layer in play:
--- the circle and the icon over it each take their own layer.
-local pvpCircle = holder:CreateTexture(nil, "BACKGROUND")
-ForeverUI.SetAtlas(pvpCircle, PVP_CIRCLE)
-pvpCircle:SetPoint("TOP", frame, "TOPLEFT", 20 * PVP_SCALE, -50 * PVP_SCALE)
-pvpCircle:SetWidth(39 * PVP_SCALE)
-pvpCircle:SetHeight(39 * PVP_SCALE)
-pvpCircle:Hide()
-
+-- OVERLAY 4).
 local pvpIcon = holder:CreateTexture(nil, "BORDER")
-pvpIcon:SetPoint("CENTER", pvpCircle, "CENTER", 0, 0)
+pvpIcon:SetPoint("TOP", frame, "TOPLEFT", 22 * PVP_SCALE, -65 * PVP_SCALE)
 pvpIcon:Hide()
 
 local function updatePvP()
@@ -41,9 +34,8 @@ local function updatePvP()
 
 	if UnitIsPVPFreeForAll("player") then
 		if ForeverUI.SetAtlas(pvpIcon, PVP_FFA) then
-			pvpIcon:SetWidth(24 * PVP_SCALE)
-			pvpIcon:SetHeight(27 * PVP_SCALE)
-			pvpCircle:Show()
+			pvpIcon:SetWidth(28 * PVP_SCALE)
+			pvpIcon:SetHeight(44 * PVP_SCALE)
 			pvpIcon:Show()
 			return
 		end
@@ -52,13 +44,11 @@ local function updatePvP()
 		if atlas and ForeverUI.SetAtlas(pvpIcon, atlas) then
 			pvpIcon:SetWidth(24 * PVP_SCALE)
 			pvpIcon:SetHeight(27 * PVP_SCALE)
-			pvpCircle:Show()
 			pvpIcon:Show()
 			return
 		end
 	end
 
-	pvpCircle:Hide()
 	pvpIcon:Hide()
 end
 
@@ -200,7 +190,6 @@ extras:SetScript("OnUpdate", function(_self, elapsed)
 end)
 
 ForeverUI.PlayerFrameExtras = {
-	pvpCircle = pvpCircle,
 	pvpIcon = pvpIcon,
 	groupIndicator = groupIndicator,
 	groupText = groupText,
