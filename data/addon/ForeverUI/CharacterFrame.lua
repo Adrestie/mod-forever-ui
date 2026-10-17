@@ -214,7 +214,8 @@ local RESISTANCES_X = 30
 local STAT_STEP = 13                     -- StatFrameTemplate height
 local STAT_MARGIN = 20                   -- on each side of the pane
 local STAT_TOP = 10                    -- below the stone band
-local STAT_GROUP_GAP = 16
+-- 12 (was 16): three groups fill the 404 px under the 60 px stone (10 + 3 x (43 + 78) + 2 x 12)
+local STAT_GROUP_GAP = 12
 local STAT_PER_GROUP = 6
 
 -- Category selectors (UIDropDownMenuTemplate): camelot's dropdown control,
@@ -244,7 +245,19 @@ local STAT_GROUPS = {
 		prefix = "PlayerStatFrameRight",
 		cvar = "playerStatRightDropdown",
 	},
+	-- A third group, ForeverUI's own (not in camelot nor in 3.3.5), in the 25 px the stone gave
+	-- back: same dropdown and rows, its choice kept in ForeverUIDB.statThirdCategory (3.3.5 cannot
+	-- create a CVar); by default a category the two others do not show.
+	{
+		selector = "ForeverUIStatFrameThirdDropDown",
+		prefix = "ForeverUIStatFrameThird",
+		third = true,
+	},
 }
+-- The client's category list (PaperDollFrame.lua PLAYERSTAT_DROPDOWN_OPTIONS), in its order
+local STAT_CATEGORIES = PLAYERSTAT_DROPDOWN_OPTIONS or { "PLAYERSTAT_BASE_STATS",
+	"PLAYERSTAT_MELEE_COMBAT", "PLAYERSTAT_RANGED_COMBAT", "PLAYERSTAT_SPELL_COMBAT",
+	"PLAYERSTAT_DEFENSES" }
 
 local CLOSE_SIZE = 24
 local CLOSE_X, CLOSE_Y = 1, 0
@@ -363,25 +376,30 @@ local function setupPanes(frame)
 	ForeverUI.SetAtlas(backgroundRight, ATLAS.backgroundRight, true)
 	backgroundRight:SetAllPoints(rightPane)
 
-	-- StoneBG3: StoneBG's top and bottom STONE_PART px, one under the other
-	local stone = rightPane:CreateTexture(nil, "ARTWORK")
-	local stoneLower = rightPane:CreateTexture(nil, "ARTWORK")
+	-- StoneBG3: StoneBG's top and bottom STONE_PART px, one under the other, in a 233 x 60 frame
+	-- that is the stone band for whatever anchors under it (equipment and titles pages)
+	local stone = CreateFrame("Frame", "ForeverUICharacterStone", rightPane)
+	stone:SetWidth(RIGHT_PANE)
+	stone:SetHeight(STONE_HEIGHT)
+	stone:SetPoint("TOPLEFT", rightPane, "TOPLEFT", 0, 0)
+	stone:SetFrameLevel(rightPane:GetFrameLevel())
+	local upper = stone:CreateTexture(nil, "ARTWORK")
+	local lower = stone:CreateTexture(nil, "ARTWORK")
 	local e = ForeverUI.AtlasEntry(ATLAS.stone)
 	if e then
 		local cut = (e[5] - e[4]) * STONE_PART / STONE_SOURCE_HEIGHT
-		stone:SetTexture(e[1])
-		stone:SetTexCoord(e[2], e[3], e[4], e[4] + cut)
-		stoneLower:SetTexture(e[1])
-		stoneLower:SetTexCoord(e[2], e[3], e[5] - cut, e[5])
+		upper:SetTexture(e[1])
+		upper:SetTexCoord(e[2], e[3], e[4], e[4] + cut)
+		lower:SetTexture(e[1])
+		lower:SetTexCoord(e[2], e[3], e[5] - cut, e[5])
 	end
-	stone:SetWidth(RIGHT_PANE)
-	stone:SetHeight(STONE_PART)
-	stone:SetPoint("TOPLEFT", rightPane, "TOPLEFT", 0, 0)
-	stoneLower:SetWidth(RIGHT_PANE)
-	stoneLower:SetHeight(STONE_HEIGHT - STONE_PART)
-	stoneLower:SetPoint("TOPLEFT", stone, "BOTTOMLEFT", 0, 0)
+	upper:SetPoint("TOPLEFT", stone, "TOPLEFT", 0, 0)
+	upper:SetPoint("TOPRIGHT", stone, "TOPRIGHT", 0, 0)
+	upper:SetHeight(STONE_PART)
+	lower:SetPoint("TOPLEFT", upper, "BOTTOMLEFT", 0, 0)
+	lower:SetPoint("BOTTOMRIGHT", stone, "BOTTOMRIGHT", 0, 0)
+	stone.upper, stone.lower = upper, lower
 	rightPane.stone = stone
-	rightPane.stoneLower = stoneLower
 
 	-- The divider has a cap at each end, so it is drawn in three slices. It sits one level above
 	-- the skin layer (ART_LEVEL), else the metal covers it; that layer does not exist yet here,
@@ -737,6 +755,75 @@ end
 -- would resolve to a nil global.
 local updateSelectorStates
 
+-- Third group: its category, from ForeverUIDB, else the first category the two client groups do
+-- not show, casters' spell and hunters' ranged categories first
+local THIRD_PREFERRED = {
+	HUNTER = "PLAYERSTAT_RANGED_COMBAT", MAGE = "PLAYERSTAT_SPELL_COMBAT",
+	PRIEST = "PLAYERSTAT_SPELL_COMBAT", WARLOCK = "PLAYERSTAT_SPELL_COMBAT",
+	DRUID = "PLAYERSTAT_SPELL_COMBAT", SHAMAN = "PLAYERSTAT_SPELL_COMBAT",
+	PALADIN = "PLAYERSTAT_SPELL_COMBAT",
+}
+
+local function thirdCategory()
+	ForeverUIDB = ForeverUIDB or {}
+	local saved = ForeverUIDB.statThirdCategory
+	if saved and _G[saved] then
+		return saved
+	end
+	local shown = {}
+	shown[GetCVar and GetCVar("playerStatLeftDropdown") or ""] = true
+	shown[GetCVar and GetCVar("playerStatRightDropdown") or ""] = true
+	local _, classToken = UnitClass("player")
+	local preferred = classToken and THIRD_PREFERRED[classToken]
+	if preferred and _G[preferred] and not shown[preferred] then
+		return preferred
+	end
+	for _, key in ipairs(STAT_CATEGORIES) do
+		if _G[key] and not shown[key] then
+			return key
+		end
+	end
+	return STAT_CATEGORIES[1]
+end
+
+-- PlayerStatFrameLeftDropDown_Initialize / _OnClick for the third group
+local function initializeThird(self)
+	local current = thirdCategory()
+	for _, key in ipairs(STAT_CATEGORIES) do
+		if _G[key] then
+			local info = UIDropDownMenu_CreateInfo()
+			info.text = _G[key]
+			info.value = key
+			info.checked = (key == current) and 1 or nil
+			info.func = function(button)
+				ForeverUIDB = ForeverUIDB or {}
+				ForeverUIDB.statThirdCategory = button.value
+				UIDropDownMenu_SetSelectedValue(_G["ForeverUIStatFrameThirdDropDown"], button.value)
+				UpdatePaperdollStats("ForeverUIStatFrameThird", button.value)
+			end
+			UIDropDownMenu_AddButton(info)
+		end
+	end
+end
+
+-- Creates the third group once, in CharacterAttributesFrame like the client's two (the stats page
+-- shows and hides that frame)
+local function createThirdGroup()
+	local parent = _G["CharacterAttributesFrame"]
+	if not parent or _G["ForeverUIStatFrameThirdDropDown"] then
+		return
+	end
+	for i = 1, STAT_PER_GROUP do
+		CreateFrame("Frame", "ForeverUIStatFrameThird" .. i, parent, "StatFrameTemplate")
+	end
+	local dropdown = CreateFrame("Frame", "ForeverUIStatFrameThirdDropDown", parent, "UIDropDownMenuTemplate")
+	UIDropDownMenu_Initialize(dropdown, initializeThird)
+	UIDropDownMenu_SetSelectedValue(dropdown, thirdCategory())
+	if type(UpdatePaperdollStats) == "function" then
+		UpdatePaperdollStats("ForeverUIStatFrameThird", thirdCategory())
+	end
+end
+
 -- Gives a category selector camelot's dropdown look (Tpl.MenuStyle1); the menu stays the client's
 -- Templates.lua loads after this file: the first pass, at load, comes too early; the skin is
 -- applied again each time the sheet opens.
@@ -843,11 +930,12 @@ local function placeStatistics()
 	local level = rightPane:GetFrameLevel() + 3
 	local y = -(STONE_HEIGHT + STAT_TOP)
 
+	createThirdGroup()
 	for _, group in ipairs(STAT_GROUPS) do
 		local selector = _G[group.selector]
 		if selector then
 			skinSelector(selector, width)
-			writeCategory(selector, GetCVar and GetCVar(group.cvar))
+			writeCategory(selector, group.third and thirdCategory() or (GetCVar and GetCVar(group.cvar)))
 
 			-- Size kept: the client resets it each time the menu opens
 			selector.foreverSize = { width, STAT_SELECTOR_HEIGHT }
@@ -1174,7 +1262,6 @@ local function declareContents()
 	-- (camelot: UpdateRightPaneHeader, HidePaperDollRightPane).
 	Panes.Furniture("right", CHARACTER_SCREEN, {
 		rightPane.stone,
-		rightPane.stoneLower,
 		rightPane.statsTab,
 		rightPane.equipmentTab,
 		rightPane.titlesTab,
@@ -1805,7 +1892,16 @@ end
 
 -- The client calls UpdatePaperdollStats(prefix, key) when a category changes: update the
 -- matching header label
+local refreshingThird = false
 local function trackCategory(prefix, key)
+	-- The client refreshes its two groups on every stat change (PaperDollFrame_UpdateStats): the
+	-- third follows, from the same call
+	if not refreshingThird and (prefix == "PlayerStatFrameLeft" or prefix == "PlayerStatFrameRight")
+			and _G["ForeverUIStatFrameThirdDropDown"] then
+		refreshingThird = true
+		UpdatePaperdollStats("ForeverUIStatFrameThird", thirdCategory())
+		refreshingThird = false
+	end
 	for _, group in ipairs(STAT_GROUPS) do
 		if group.prefix == prefix then
 			writeCategory(_G[group.selector], key)
