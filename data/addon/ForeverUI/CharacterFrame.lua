@@ -644,6 +644,29 @@ local function skinPopouts()
 	for _, name in ipairs(WEAPON_ROW) do skinPopout(name, "UP") end
 end
 
+-- The flyout opens the way its arrow points (camelot EquipmentFlyout: flyoutDirection); 3.3.5
+-- always opens it right of the arrow (below it for the weapons). Re-anchored after the client's
+-- PaperDollFrameItemFlyout_Show, which runs again on each update of the open list.
+if hooksecurefunc and type(PaperDollFrameItemFlyout_Show) == "function" then
+	hooksecurefunc("PaperDollFrameItemFlyout_Show", function(slot)
+		local popout = slot and slot.popoutButton
+		local flyout = _G["PaperDollFrameItemFlyout"]
+		local list = flyout and flyout.buttonFrame
+		local direction = popout and popout.foreverDirection
+		if not list or not direction then
+			return
+		end
+		list:ClearAllPoints()
+		if direction == "LEFT" then
+			list:SetPoint("TOPRIGHT", popout, "TOPLEFT", 0, 0)
+		elseif direction == "UP" then
+			list:SetPoint("BOTTOMLEFT", popout, "TOPLEFT", 0, PDFITEMFLYOUT_BORDERWIDTH or 0)
+		else
+			list:SetPoint("TOPLEFT", popout, "TOPRIGHT", 0, 0)
+		end
+	end)
+end
+
 -- The client turns its arrow when the flyout opens or closes: our image follows, open or not
 if hooksecurefunc and type(PaperDollFrameItemPopoutButton_SetReversed) == "function" then
 	hooksecurefunc("PaperDollFrameItemPopoutButton_SetReversed", function(popout, reversed)
