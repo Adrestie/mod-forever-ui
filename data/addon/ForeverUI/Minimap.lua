@@ -1,4 +1,8 @@
--- Minimap in camelot style: mainline Minimap.xml as reskinned by camelot Skin.lua and Diel.lua.
+-- Minimap in camelot style. Since 1.60.1.70450 camelot has its own minimap code (camelot/
+-- Minimap.lua, MinimapZoneTextButton, MiniMapTrackingButton, MiniMapMailFrameTemplate,
+-- GameTimeFrame, Diel.lua; Skin.lua is gone): a one-image zone bar, 23 px calendar and tracking
+-- buttons, the mail under the bar. camelot drops the instance difficulty; ForeverUI keeps it
+-- (user's choice), under the right end of the bar.
 -- The client's Minimap frame is kept (only the client draws terrain, blips and the player
 -- arrow): it is resized, masked and scaled, and everything around it is replaced.
 -- Sizes and anchors: mainline Minimap.xml, GameTime.xml and Blizzard_TimeManager.xml.
@@ -32,20 +36,24 @@ local ARROWS = {
 	{ method = "SetCorpsePOIArrowTexture", file = "rotating-minimapcorpsearrow" },
 }
 
--- Zone name bar
-local BAR_KIT = "ui-hud-minimap-button"
-local BAR_W, BAR_H = 175, 16
-local BAR_X, BAR_Y = 15, -4
-local ZONE_W, ZONE_H = 135, 12
-local ZONE_X = 4
-local TEXT_W, TEXT_H = 130, 12
-local TEXT_Y = 1
+-- Zone name bar (camelot MinimapZoneTextButtonTemplate): 152 x 23 at TOP (10, 0) of the cluster,
+-- its own background ui-hud-minimap-header-button; text GameFontHighlightSmall 110 x 12 at
+-- LEFT (8, -1). Hover and press: a copy of the same image in ADD at alpha 0.1 / 0.2
+-- (mouseoverAddAlpha, mousedownAddAlpha), for the bar, the calendar and the tracking button.
+local BAR_ATLAS = "ui-hud-minimap-header-button"
+local BAR_W, BAR_H = 152, 23
+local BAR_X, BAR_Y = 10, 0
+local TEXT_W, TEXT_H = 110, 12
+local TEXT_X, TEXT_Y = 8, -1
+local HOVER_ALPHA, PRESS_ALPHA = 0.1, 0.2
 
--- Tracking and mail
+-- Tracking (camelot MiniMapTrackingButtonTemplate): 17 x 17 frame RIGHT on the bar's LEFT, its
+-- button 23 x 23 centered. Mail (MiniMapMailFrameTemplate): 32 x 24, TOPLEFT on the bar's
+-- BOTTOMLEFT, a still icon.
 local TRACKING_SIDE = 17
-local TRACKING_X = -2
-local TRACKING_BUTTON_W, TRACKING_BUTTON_H = 13, 14
-local MAIL_W, MAIL_H = 20, 15
+local TRACKING_X = 0
+local TRACKING_BUTTON = 23
+local MAIL_W, MAIL_H = 32, 24
 
 -- Zoom (buttons hidden unless hovered)
 local ZOOM_ZONE = 40
@@ -55,31 +63,36 @@ local ZOOM_PLUS_X, ZOOM_PLUS_Y = 88, -68
 local ZOOM_MINUS_W, ZOOM_MINUS_H = 17, 9
 local ZOOM_MINUS_X, ZOOM_MINUS_Y = 72, -84
 
--- Day/night ring (camelot Diel.lua). 3.3.5 has no DIEL_CYCLE_CHANGED or IsDayTime, only the
--- server hour: day is 6 h to 18 h.
+-- Day/night ring (camelot Diel.lua, 70450: parent MinimapContainer, CENTER (55, 86)). 3.3.5 has
+-- no DIEL_CYCLE_CHANGED or IsDayTime, only the server hour: day is 6 h to 18 h.
 local ATLAS_CYCLE = "ui-hud-minimap-frame-cycle-c60"
 local ATLAS_DAY = "ui-hud-minimap-daycycle-c60"
 local ATLAS_NIGHT = "ui-hud-minimap-nightcycle-c60"
 local CYCLE_SIDE = 42
 local ORB_SIDE = 33
-local CYCLE_X, CYCLE_Y = 63, 72
+local CYCLE_X, CYCLE_Y = 55, 86
 local CYCLE_LEVEL = 5
 local DAWN, DUSK = 6, 18
 local CYCLE_PERIOD = 60          -- re-read the server hour once a minute
 
-local DIFFICULTY_Y = -15
+-- Instance difficulty: kept (camelot removes it), under the right end of the bar, where camelot
+-- has its addon compartment (absent here)
+local DIFFICULTY_X, DIFFICULTY_Y = 0, 2
 
 -- One table per element rather than one local per value: Lua 5.1 allows at most 60 upvalues
 -- per function, and build() exceeded it.
 
--- Calendar, right of the bar
-local CALENDAR = { L = 19, H = 18, X = 1, ATLAS = "ui-hud-calendar-%d-%s" }
+-- Calendar (camelot GameTimeFrameTemplate): 23 x 23, TOPLEFT on the bar's TOPRIGHT (-4, 0), one
+-- fixed image: camelot no longer shows the day
+local CALENDAR = { L = 23, H = 23, X = -4, ATLAS = "ui-hud-minimap-calendar-button" }
 
 -- Clock, in the bar
+-- camelot 70450 (Blizzard_TimeManagerOverrides): RIGHT on the bar's RIGHT (-3, -1), ticker
+-- CENTER (3, 0); at the alarm the ticker flashes instead of the glow.
 local CLOCK = {
-	L = 40, H = 16, X = -4,
+	L = 40, H = 16, X = -3, Y = -1,
 	MARGINS = { 8, 5, 3, 3 },
-	TEXT_X = 3, TEXT_Y = 1,
+	TEXT_X = 3, TEXT_Y = 0,
 -- WhiteNormalNumberFont (GameFontStyles.xml): FRIZQT__ 10, white, black shadow (1, -1).
 -- 3.3.5 lacks this font object, so its settings are applied one by one.
 	FONT = "Fonts\\FRIZQT__.TTF", SIZE = 10,
@@ -150,57 +163,6 @@ local function applyButtonState(button, state, name)
 	return texture
 end
 
--- Nine-slice with one atlas per piece (camelot UniqueCornersLayout), unlike
--- ForeverUI.SetAtlasNineSlice which cuts one image. The `_` and `!` prefixes are part of the
--- names (tile flags); 3.3.5 cannot tile an atlas rectangle, so pieces stretch (the edges are
--- gradients). kit: atlas name prefix; layer: draw layer
-local function sliceNine(frame, kit, layer)
-	local p = {}
-
-	local function piece(name, keepSize)
-		local t = frame:CreateTexture(nil, layer or "BACKGROUND")
-		if not ForeverUI.SetAtlas(t, name, keepSize) then
-			t:Hide()
-		end
-		return t
-	end
-
-	p.topLeftCorner = piece(kit .. "-nineslice-cornertopleft")
-	p.topLeftCorner:SetPoint("TOPLEFT", frame, "TOPLEFT")
-
-	p.topRightCorner = piece(kit .. "-nineslice-cornertopright")
-	p.topRightCorner:SetPoint("TOPRIGHT", frame, "TOPRIGHT")
-
-	p.bottomLeftCorner = piece(kit .. "-nineslice-cornerbottomleft")
-	p.bottomLeftCorner:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT")
-
-	p.bottomRightCorner = piece(kit .. "-nineslice-cornerbottomright")
-	p.bottomRightCorner:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT")
-
-	-- Edges and center are anchored between opposite corners: no size to compute.
-	p.topEdge = piece("_" .. kit .. "-nineslice-edgetop", true)
-	p.topEdge:SetPoint("TOPLEFT", p.topLeftCorner, "TOPRIGHT")
-	p.topEdge:SetPoint("BOTTOMRIGHT", p.topRightCorner, "BOTTOMLEFT")
-
-	p.bottomEdge = piece("_" .. kit .. "-nineslice-edgebottom", true)
-	p.bottomEdge:SetPoint("TOPLEFT", p.bottomLeftCorner, "TOPRIGHT")
-	p.bottomEdge:SetPoint("BOTTOMRIGHT", p.bottomRightCorner, "BOTTOMLEFT")
-
-	p.leftEdge = piece("!" .. kit .. "-nineslice-edgeleft", true)
-	p.leftEdge:SetPoint("TOPLEFT", p.topLeftCorner, "BOTTOMLEFT")
-	p.leftEdge:SetPoint("BOTTOMRIGHT", p.bottomLeftCorner, "TOPRIGHT")
-
-	p.rightEdge = piece("!" .. kit .. "-nineslice-edgeright", true)
-	p.rightEdge:SetPoint("TOPLEFT", p.topRightCorner, "BOTTOMLEFT")
-	p.rightEdge:SetPoint("BOTTOMRIGHT", p.bottomRightCorner, "TOPRIGHT")
-
-	p.center = piece(kit .. "-nineslice-center", true)
-	p.center:SetPoint("TOPLEFT", p.topLeftCorner, "BOTTOMRIGHT")
-	p.center:SetPoint("BOTTOMRIGHT", p.bottomRightCorner, "TOPLEFT")
-
-	return p
-end
-
 -- Places a frame on the ring at angle degrees: 0 is east, counterclockwise.
 local function placeOnRing(frame, map, angle)
 	local radians = angle * math.pi / 180
@@ -212,23 +174,50 @@ end
 local M = {}
 ForeverUI.Minimap = M
 
--- Day of the month shown by the calendar image, as in camelot. The 3.3.5 GameTimeFrame_SetDate
--- writes it as text; it still runs (it tracks day changes) and its text is hidden.
+-- camelot's hover and press (OnButtonStateChanged): a copy of the button's image in ADD, alpha
+-- 0.1 on hover and 0.2 pressed, hidden otherwise. target: the frame that gets the mouse; host:
+-- the frame that holds the copy; atlas: the image.
+local function addGlow(target, host, atlas)
+	if target.foreverGlow then
+		return target.foreverGlow
+	end
+	local glow = host:CreateTexture(nil, "OVERLAY")
+	ForeverUI.SetAtlas(glow, atlas, true)
+	glow:SetAllPoints(host)
+	glow:SetBlendMode("ADD")
+	glow:Hide()
+	target.foreverGlow = glow
+	local function paint()
+		if target.foreverPressed then
+			glow:SetAlpha(PRESS_ALPHA)
+			glow:Show()
+		elseif target.foreverHovered then
+			glow:SetAlpha(HOVER_ALPHA)
+			glow:Show()
+		else
+			glow:Hide()
+		end
+	end
+	target:HookScript("OnEnter", function(self) self.foreverHovered = true paint() end)
+	target:HookScript("OnLeave", function(self) self.foreverHovered, self.foreverPressed = nil, nil paint() end)
+	target:HookScript("OnMouseDown", function(self) self.foreverPressed = true paint() end)
+	target:HookScript("OnMouseUp", function(self) self.foreverPressed = nil paint() end)
+	return glow
+end
+
+-- Calendar: one fixed image (camelot OnButtonStateChanged ignores the day). The 3.3.5
+-- GameTimeFrame_SetDate still writes the day as text: hidden.
 function M.updateCalendar()
 	local button = _G["GameTimeFrame"]
 	if not button then
 		return
 	end
-	local day = 1
-	if CalendarGetDate then
-		local _, _, j = CalendarGetDate()
-		day = j or day
-	end
-	applyButtonState(button, "Normal", string.format(CALENDAR.ATLAS, day, "up"))
-	applyButtonState(button, "Pushed", string.format(CALENDAR.ATLAS, day, "down"))
-	local hover = applyButtonState(button, "Highlight", string.format(CALENDAR.ATLAS, day, "mouseover"))
-	if hover then
-		hover:SetBlendMode("BLEND")
+	applyButtonState(button, "Normal", CALENDAR.ATLAS)
+	applyButtonState(button, "Pushed", CALENDAR.ATLAS)
+	-- the client highlight gives way to the ADD copy (addGlow)
+	local highlight = button.GetHighlightTexture and button:GetHighlightTexture()
+	if highlight then
+		highlight:SetAlpha(0)
 	end
 	local text = button.GetFontString and button:GetFontString()
 	if text then
@@ -255,8 +244,9 @@ function M.skinClock()
 	clock:SetWidth(CLOCK.L)
 	clock:SetHeight(CLOCK.H)
 	clock:ClearAllPoints()
-	clock:SetPoint("TOPRIGHT", bar, "TOPRIGHT", CLOCK.X, 0)
-	clock:SetFrameLevel(bar:GetFrameLevel() + 1)
+	clock:SetPoint("RIGHT", bar, "RIGHT", CLOCK.X, CLOCK.Y)
+	-- above the zone button, which covers the bar
+	clock:SetFrameLevel(bar:GetFrameLevel() + 2)
 	clock:SetHitRectInsets(CLOCK.MARGINS[1], CLOCK.MARGINS[2],
 		CLOCK.MARGINS[3], CLOCK.MARGINS[4])
 	if text then
@@ -266,6 +256,29 @@ function M.skinClock()
 		text:SetTextColor(1, 1, 1)
 		text:ClearAllPoints()
 		text:SetPoint("CENTER", clock, "CENTER", CLOCK.TEXT_X, CLOCK.TEXT_Y)
+	end
+	-- camelot TimeManager_FireAlarm / _TurnOffAlarm: the glow stays hidden, the ticker flashes
+	if not M.alarmHooked and hooksecurefunc and TimeManager_FireAlarm and TimeManager_TurnOffAlarm then
+		hooksecurefunc("TimeManager_FireAlarm", function()
+			local glow, ticker = _G["TimeManagerAlarmFiredTexture"], _G["TimeManagerClockTicker"]
+			if glow then
+				if UIFrameFlashStop then UIFrameFlashStop(glow) end
+				glow:SetAlpha(1)
+				glow:Hide()
+			end
+			if ticker and UIFrameFlash then
+				UIFrameFlash(ticker, 0.5, 0.5, -1)
+			end
+		end)
+		hooksecurefunc("TimeManager_TurnOffAlarm", function()
+			local ticker = _G["TimeManagerClockTicker"]
+			if ticker then
+				if UIFrameFlashStop then UIFrameFlashStop(ticker) end
+				ticker:SetAlpha(1)
+				ticker:Show()
+			end
+		end)
+		M.alarmHooked = true
 	end
 	M.clockSkinned = true
 end
@@ -398,7 +411,9 @@ local function build()
 	if not bar then
 		bar = CreateFrame("Frame", "ForeverUIMinimapBorderTop", cluster)
 		M.bar = bar
-		sliceNine(bar, BAR_KIT, "BACKGROUND")
+		bar.background = bar:CreateTexture(nil, "BACKGROUND")
+		ForeverUI.SetAtlas(bar.background, BAR_ATLAS, true)
+		bar.background:SetAllPoints(bar)
 	end
 	bar:SetWidth(BAR_W)
 	bar:SetHeight(BAR_H)
@@ -408,21 +423,26 @@ local function build()
 	local zoneButton = _G["MinimapZoneTextButton"]
 	if zoneButton then
 		zoneButton:SetParent(cluster)
-		zoneButton:SetWidth(ZONE_W)
-		zoneButton:SetHeight(ZONE_H)
+		-- the button is the bar (camelot: the bar's image is the button's StateTexture)
 		zoneButton:ClearAllPoints()
-		zoneButton:SetPoint("LEFT", bar, "LEFT", ZONE_X, 0)
+		zoneButton:SetAllPoints(bar)
 		zoneButton:SetFrameLevel(bar:GetFrameLevel() + 1)
+		addGlow(zoneButton, bar, BAR_ATLAS)
 	end
 
 	local zoneText = _G["MinimapZoneText"]
 	if zoneText then
+		-- GameFontHighlightSmall; the client keeps setting the color (Minimap_Update, PvP status)
+		local r, g, b = zoneText:GetTextColor()
+		zoneText:SetFontObject(GameFontHighlightSmall)
+		if r then
+			zoneText:SetTextColor(r, g, b)
+		end
 		zoneText:SetWidth(TEXT_W)
 		zoneText:SetHeight(TEXT_H)
 		zoneText:ClearAllPoints()
-		zoneText:SetPoint("CENTER", zoneButton or bar, "CENTER", 0, TEXT_Y)
+		zoneText:SetPoint("LEFT", zoneButton or bar, "LEFT", TEXT_X, TEXT_Y)
 		zoneText:SetDrawLayer("OVERLAY")
-		-- Left justification comes from the camelot template attribute; GameFontNormal has none.
 		zoneText:SetJustifyH("LEFT")
 		zoneText:SetJustifyV("MIDDLE")
 	end
@@ -441,16 +461,10 @@ local function build()
 		suppress(_G["MiniMapTrackingIcon"])
 		suppress(_G["MiniMapTrackingIconOverlay"])
 
-		if not M.trackingBackground then
-			M.trackingBackground = tracking:CreateTexture(nil, "BACKGROUND")
-		end
-		ForeverUI.SetAtlas(M.trackingBackground, BAR_KIT, true)
-		M.trackingBackground:SetAllPoints(tracking)
-
 		local button = _G["MiniMapTrackingButton"]
 		if button then
-			button:SetWidth(TRACKING_BUTTON_W)
-			button:SetHeight(TRACKING_BUTTON_H)
+			button:SetWidth(TRACKING_BUTTON)
+			button:SetHeight(TRACKING_BUTTON)
 			button:ClearAllPoints()
 			button:SetPoint("CENTER", tracking, "CENTER", 0, 0)
 			button:SetHitRectInsets(0, 0, 0, 0)
@@ -458,16 +472,17 @@ local function build()
 			suppress(_G["MiniMapTrackingButtonBorder"])
 			suppress(_G["MiniMapTrackingButtonShine"])
 
-			applyButtonState(button, "Normal", "ui-hud-minimap-tracking-up")
-			applyButtonState(button, "Pushed", "ui-hud-minimap-tracking-down")
-			local hover = applyButtonState(button, "Highlight", "ui-hud-minimap-tracking-mouseover")
-			if hover then
-				hover:SetBlendMode("BLEND")
+			applyButtonState(button, "Normal", "ui-hud-minimap-tracking-button")
+			applyButtonState(button, "Pushed", "ui-hud-minimap-tracking-button")
+			local highlight = button.GetHighlightTexture and button:GetHighlightTexture()
+			if highlight then
+				highlight:SetAlpha(0)
 			end
+			addGlow(button, button, "ui-hud-minimap-tracking-button")
 		end
 	end
 
-	-- 6. Mail, under tracking.
+	-- 6. Mail, under the bar's left end.
 	local rowLine = M.rowLine
 	if not rowLine then
 		rowLine = CreateFrame("Frame", "ForeverUIMinimapIndicators", cluster)
@@ -476,7 +491,7 @@ local function build()
 	rowLine:SetWidth(MAIL_W)
 	rowLine:SetHeight(MAIL_H)
 	rowLine:ClearAllPoints()
-	rowLine:SetPoint("TOPRIGHT", tracking or bar, "BOTTOMRIGHT", 0, 0)
+	rowLine:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, 0)
 
 	local mail = _G["MiniMapMailFrame"]
 	if mail then
@@ -492,7 +507,7 @@ local function build()
 		if not M.mailIcon then
 			M.mailIcon = mail:CreateTexture(nil, "ARTWORK")
 		end
-		ForeverUI.SetAtlas(M.mailIcon, "ui-hud-minimap-mail-up")
+		ForeverUI.SetAtlas(M.mailIcon, "ui-hud-minimap-mail-icon")
 		M.mailIcon:ClearAllPoints()
 		M.mailIcon:SetPoint("TOPLEFT", mail, "TOPLEFT", 0, 0)
 	end
@@ -597,7 +612,7 @@ local function build()
 	-- 8. Day/night ring.
 	local cycle = M.cycle
 	if not cycle then
-		cycle = CreateFrame("Frame", "ForeverUIMinimapDiel", cluster)
+		cycle = CreateFrame("Frame", "ForeverUIMinimapDiel", container)
 		cycle:SetFrameLevel(CYCLE_LEVEL)
 		M.cycle = cycle
 		M.orb = cycle:CreateTexture(nil, "BACKGROUND")
@@ -608,17 +623,17 @@ local function build()
 	cycle:SetWidth(CYCLE_SIDE)
 	cycle:SetHeight(CYCLE_SIDE)
 	cycle:ClearAllPoints()
-	cycle:SetPoint("CENTER", cluster, "CENTER", CYCLE_X, CYCLE_Y)
+	cycle:SetPoint("CENTER", container, "CENTER", CYCLE_X, CYCLE_Y)
 	ForeverUI.SetAtlas(M.cycleEdge, ATLAS_CYCLE, true)
 	M.orb:SetWidth(ORB_SIDE)
 	M.orb:SetHeight(ORB_SIDE)
 
-	-- 9. Instance difficulty, at the bar's corner.
+	-- 9. Instance difficulty (camelot removes it; kept), under the bar's right end.
 	local difficulty = _G["MiniMapInstanceDifficulty"]
 	if difficulty then
 		difficulty:SetParent(cluster)
 		difficulty:ClearAllPoints()
-		difficulty:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, DIFFICULTY_Y)
+		difficulty:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT", DIFFICULTY_X, DIFFICULTY_Y)
 	end
 
 	-- 10. Calendar, right of the bar.
@@ -633,6 +648,7 @@ local function build()
 		-- 3.3.5 gives it hit insets of 6/0/5/10 for a 40 px button; camelot declares none.
 		calendar:SetHitRectInsets(0, 0, 0, 0)
 		M.updateCalendar()
+		addGlow(calendar, calendar, CALENDAR.ATLAS)
 	end
 
 	-- 11. Clock, in the bar. Blizzard_TimeManager loads on demand: ADDON_LOADED skins it later.

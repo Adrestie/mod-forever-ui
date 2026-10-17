@@ -1184,6 +1184,35 @@ que seul le moteur sait fabriquer, et c'est lui qui dessine le terrain, les
 points et la flèche du joueur. On le garde, on le retaille, on le masque, et
 on remplace tout ce qui l'entoure. La règle du cœur d'abord le commande.
 
+#### 0. Mise à jour camelot 1.60.1.70450 (2026-10-18)
+
+Camelot a maintenant **son propre code de minimap** : `camelot/Minimap.lua`,
+`MinimapZoneTextButton`, `MiniMapTrackingButton`, `MiniMapMailFrameTemplate`,
+`MinimapIndicatorFrameTemplate`, `GameTimeFrame`, et `Skin.lua` est supprimé
+(son code est passé dans `MinimapClusterMixin:UpdateMinimapConfig`). Les
+points a, c et i ci-dessous décrivent l'état d'avant. Repris :
+
+| Élément | Avant (69893) | Maintenant (70450) |
+|---|---|---|
+| Barre de zone | neuf morceaux `ui-hud-minimap-button`, 175 × 16 à TOP (15, −4) | une image `ui-hud-minimap-header-button` 152 × 23 à TOP (10, 0) ; le bouton de zone la couvre |
+| Texte de zone | GameFontNormal 130 × 12 centré | GameFontHighlightSmall 110 × 12 à LEFT (8, −1) |
+| Survol / clic (barre, calendrier, suivi) | images `-mouseover` / `-down`, BLEND | copie de l'image en ADD, alpha 0,1 au survol, 0,2 enfoncé |
+| Calendrier | 19 × 18, `ui-hud-calendar-<jour>` | 23 × 23 à TOPLEFT sur le TOPRIGHT de la barre (−4, 0), image fixe `ui-hud-minimap-calendar-button`, **plus de jour** |
+| Suivi | bouton 13 × 14, cadre à (−2, 0) | bouton 23 × 23 `ui-hud-minimap-tracking-button`, cadre à (0, 0) |
+| Courrier | 20 × 15 sous le suivi | 32 × 24 à TOPLEFT sur le BOTTOMLEFT de la barre, icône fixe `ui-hud-minimap-mail-icon` |
+| Horloge | TOPRIGHT de la barre (−4, 0), ticker (3, 1) | RIGHT sur le RIGHT de la barre (−3, −1), ticker (3, 0) ; à l'alarme le ticker clignote, la lueur reste cachée |
+| Anneau jour/nuit | CENTER (63, 72) du cluster | CENTER (55, 86) du conteneur (≈ 2 px à droite, 14,5 plus bas) |
+| Difficulté d'instance | TOPRIGHT de la barre (0, −15) | camelot la **supprime** ; **gardée** sur demande, à TOPRIGHT sur le BOTTOMRIGHT de la barre (0, 2), où camelot met son compartiment d'addons |
+
+Non repris : le compartiment d'addons (les addons 3.3.5 ne s'y inscrivent
+pas) et le bouton d'événement externe (`C_ExternalEventURL`).
+
+La feuille `uiminimapc60` a été réagencée : la version 70450 est versée et
+ses entrées refaites (`tools/atlas_dump.json` porte ses régions 70450). Le
+cycle jour/nuit y a changé de place. `tools/add_sheets.py` ne remet plus dans
+`UIAtlas_06` un nom brut déjà servi par une autre table (les noms du groupe,
+servis en c60 par `UIAtlas_04`).
+
 #### a. Il n'y a pas de source camelot pour la minimap — et pourtant si
 
 `blizzard_minimap.toc` charge `[Family]\Minimap.lua` et `[Family]\Minimap.xml`
