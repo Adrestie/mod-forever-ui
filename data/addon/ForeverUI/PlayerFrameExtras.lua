@@ -18,15 +18,16 @@ local PLAYTIME_TIRED_ATLAS = "ui-hud-unitframe-player-playtimetired"
 local PLAYTIME_UNHEALTHY_ATLAS = "ui-hud-unitframe-player-playtimeunhealthy"
 
 -- ------------------------------------------------------------------- PvP
--- camelot 70450 (PlayerPvpBackgroundIconTemplate, scale 0.8, UnitFramePvPIndicatorStyle): no
--- background circle any more; the icon alone, TOP at (22, -65) in its scaled units, so
--- (17.6, -52) in the frame's. Faction icons are 24 x 27, the FFA one keeps its atlas size
--- (28 x 44), both at 0.8.
-local PVP_SCALE = 0.8
--- Under the level circle (ARTWORK) and its text, as in camelot (PvP in OVERLAY 3, level in
--- OVERLAY 4).
-local pvpIcon = holder:CreateTexture(nil, "BORDER")
-pvpIcon:SetPoint("TOP", frame, "TOPLEFT", 22 * PVP_SCALE, -65 * PVP_SCALE)
+-- camelot 70450 (PlayerPvpBackgroundIconTemplate, UnitFramePvPIndicatorStyle): no background
+-- circle any more; the icon alone. camelot puts it at scale 0.8 with its TOP at (17.6, -52),
+-- under the level circle, where it is hardly seen: on the user's request (2026-10-17) it is at
+-- full size and sits just above the level circle (circle top at -54), its BOTTOM at
+-- (17.6, -53). Faction icons 24 x 27; the FFA one (28 x 44) keeps scale 0.8, else it would
+-- reach the portrait's top.
+local PVP_X, PVP_BOTTOM = 17.6, -53
+local PVP_FFA_SCALE = 0.8
+local pvpIcon = holder:CreateTexture(nil, "OVERLAY")
+pvpIcon:SetPoint("BOTTOM", frame, "TOPLEFT", PVP_X, PVP_BOTTOM)
 pvpIcon:Hide()
 
 local function updatePvP()
@@ -34,16 +35,16 @@ local function updatePvP()
 
 	if UnitIsPVPFreeForAll("player") then
 		if ForeverUI.SetAtlas(pvpIcon, PVP_FFA) then
-			pvpIcon:SetWidth(28 * PVP_SCALE)
-			pvpIcon:SetHeight(44 * PVP_SCALE)
+			pvpIcon:SetWidth(28 * PVP_FFA_SCALE)
+			pvpIcon:SetHeight(44 * PVP_FFA_SCALE)
 			pvpIcon:Show()
 			return
 		end
 	elseif faction and faction ~= "Neutral" and UnitIsPVP("player") then
 		local atlas = PVP_FACTION[faction]
 		if atlas and ForeverUI.SetAtlas(pvpIcon, atlas) then
-			pvpIcon:SetWidth(24 * PVP_SCALE)
-			pvpIcon:SetHeight(27 * PVP_SCALE)
+			pvpIcon:SetWidth(24)
+			pvpIcon:SetHeight(27)
 			pvpIcon:Show()
 			return
 		end
