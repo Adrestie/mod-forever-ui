@@ -19,15 +19,18 @@ local PLAYTIME_UNHEALTHY_ATLAS = "ui-hud-unitframe-player-playtimeunhealthy"
 
 -- ------------------------------------------------------------------- PvP
 -- camelot 70450 (PlayerPvpBackgroundIconTemplate, UnitFramePvPIndicatorStyle): no background
--- circle any more; the icon alone. camelot puts it at scale 0.8 with its TOP at (17.6, -52),
--- under the level circle, where it is hardly seen: on the user's request (2026-10-17) it is at
--- full size and sits just above the level circle (circle top at -54), its BOTTOM at
--- (17.6, -53). Faction icons 24 x 27; the FFA one (28 x 44) keeps scale 0.8, else it would
--- reach the portrait's top.
-local PVP_X, PVP_BOTTOM = 17.6, -53
+-- circle any more; the icon alone, at scale 0.8 with its TOP at (22, -65) in its own units, so
+-- centered at (17.6, -62.8) for a 24 x 27 icon. Kept at that center, but at full size and drawn
+-- ABOVE the level circle and its text (user's request, 2026-10-17: camelot puts it under them,
+-- where it is hardly seen): a child frame one level above the holder. The FFA icon (28 x 44)
+-- keeps scale 0.8.
+local PVP_X, PVP_Y = 17.6, -62.8
 local PVP_FFA_SCALE = 0.8
-local pvpIcon = holder:CreateTexture(nil, "OVERLAY")
-pvpIcon:SetPoint("BOTTOM", frame, "TOPLEFT", PVP_X, PVP_BOTTOM)
+local pvpHolder = CreateFrame("Frame", nil, holder)
+pvpHolder:SetAllPoints(holder)
+pvpHolder:SetFrameLevel(holder:GetFrameLevel() + 1)
+local pvpIcon = pvpHolder:CreateTexture(nil, "OVERLAY")
+pvpIcon:SetPoint("CENTER", frame, "TOPLEFT", PVP_X, PVP_Y)
 pvpIcon:Hide()
 
 local function updatePvP()
@@ -192,6 +195,7 @@ end)
 
 ForeverUI.PlayerFrameExtras = {
 	pvpIcon = pvpIcon,
+	pvpHolder = pvpHolder,
 	groupIndicator = groupIndicator,
 	groupText = groupText,
 	playTime = playTime,

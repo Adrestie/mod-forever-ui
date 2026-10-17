@@ -113,17 +113,17 @@ nameText:SetHeight(12)
 nameText:SetJustifyH("CENTER")
 nameText:SetPoint("TOPLEFT", 24, -30)
 
--- PvP badge (camelot 70450 PvpBackgroundIconTemplate): no circle any more, the icon alone. camelot
--- puts it at scale 0.8 with its TOP at (-19.2, -52) of the TOPRIGHT, under the level circle: on
--- the user's request (2026-10-17) it is at full size, just above the level circle, its BOTTOM at
--- (-19.2, -53); the FFA icon (28 x 44) keeps scale 0.8. A child frame one level up.
+-- PvP badge (camelot 70450 PvpBackgroundIconTemplate): no circle any more, the icon alone, at
+-- scale 0.8 with its TOP at (-24, -65) of the TOPRIGHT in its own units, so centered at
+-- (-19.2, -62.8). Kept at that center, at full size (user's request, 2026-10-17), in a child frame
+-- one level up: above the level circle and its text. The FFA icon (28 x 44) keeps scale 0.8.
 local PVP_SCALE = 0.8
 local pvpHolder = CreateFrame("Frame", nil, overlayHolder)
 pvpHolder:SetAllPoints(frame)
 pvpHolder:SetFrameLevel(overlayHolder:GetFrameLevel() + 1)
 
 local pvpIcon = pvpHolder:CreateTexture(nil, "BORDER")
-pvpIcon:SetPoint("BOTTOM", frame, "TOPRIGHT", -19.2, -53)
+pvpIcon:SetPoint("CENTER", frame, "TOPRIGHT", -19.2, -62.8)
 pvpIcon:Hide()
 
 local PVP_ICONS = {
