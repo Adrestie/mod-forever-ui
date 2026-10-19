@@ -29,6 +29,9 @@ ForeverUI.AddTexts("deDE", {
 	CHARACTERFRAME_SHOW_DETAILS = "Details anzeigen",
 	CHARACTERFRAME_TITLES = "Titel",
 
+	-- Chat.lua
+	CHAT_NOT_IN_LFG_NOTICE = "|Hchannel:%d|h[%s]|h Ihr müsst im Dungeonbrowser angemeldet sein, um diesen Channel zu nutzen.",
+
 	-- CustomizeUI.lua
 	CUSTOMIZEUI_GRID_ORIGIN = "Rasterursprung",
 	CUSTOMIZEUI_GRID_SPACING = "Rasterabstand",

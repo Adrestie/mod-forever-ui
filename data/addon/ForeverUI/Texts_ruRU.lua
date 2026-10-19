@@ -29,6 +29,9 @@ ForeverUI.AddTexts("ruRU", {
 	CHARACTERFRAME_SHOW_DETAILS = "Показать подробности",
 	CHARACTERFRAME_TITLES = "Звания",
 
+	-- Chat.lua
+	CHAT_NOT_IN_LFG_NOTICE = "|Hchannel:%d|h[%s]|h Чтобы пользоваться этим каналом, нужно встать в очередь поиска подземелий.",
+
 	-- CustomizeUI.lua
 	CUSTOMIZEUI_GRID_ORIGIN = "Начало сетки",
 	CUSTOMIZEUI_GRID_SPACING = "Шаг сетки",

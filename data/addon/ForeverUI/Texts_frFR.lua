@@ -29,6 +29,9 @@ ForeverUI.AddTexts("frFR", {
 	CHARACTERFRAME_SHOW_DETAILS = "Afficher les détails",
 	CHARACTERFRAME_TITLES = "Titres",
 
+	-- Chat.lua
+	CHAT_NOT_IN_LFG_NOTICE = "|Hchannel:%d|h[%s]|h Vous devez être inscrit dans l'outil Recherche de donjons pour utiliser ce canal.",
+
 	-- CustomizeUI.lua
 	CUSTOMIZEUI_GRID_ORIGIN = "Origine de la grille",
 	CUSTOMIZEUI_GRID_SPACING = "Espacement de la grille",

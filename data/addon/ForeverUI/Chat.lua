@@ -12,6 +12,25 @@ ForeverUI.Chat = C
 local SEP = string.char(92)
 local L = ForeverUI.L
 
+-- The server sends the channel notice NOT_IN_LFG (joining LookingForGroup without being queued
+-- in the Dungeon Finder) and no 3.3.5 locale has its CHAT_NOT_IN_LFG_NOTICE: ChatFrame.lua then
+-- errors on format(nil). A message filter (run before that line) takes the notice and writes it
+-- in the main window, in the form of CHAT_THROTTLED_NOTICE (channel number, channel name).
+if ChatFrame_AddMessageEventFilter and _G["CHAT_NOT_IN_LFG_NOTICE"] == nil then
+	ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL_NOTICE", function(self, _, notice, _, _, name, _, _, _, number)
+		if notice ~= "NOT_IN_LFG" then
+			return false
+		end
+		if self == DEFAULT_CHAT_FRAME then
+			local types = ChatTypeInfo or {}
+			local info = types["CHANNEL" .. tostring(number)] or types["CHANNEL"]
+			self:AddMessage(string.format(L.CHAT_NOT_IN_LFG_NOTICE, number or 0, name or ""),
+				info and info.r, info and info.g, info and info.b)
+		end
+		return true
+	end)
+end
+
 -- Camelot layout values (FloatingChatFrame, FCF_SetButtonSide, MinimalScrollBar,
 -- ScrollToBottomButton, ChatTabArtTemplate, FCFDock_*)
 local G = {

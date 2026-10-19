@@ -29,6 +29,9 @@ ForeverUI.AddTexts("enUS", {
 	CHARACTERFRAME_SHOW_DETAILS = "Show details",
 	CHARACTERFRAME_TITLES = "Titles",
 
+	-- Chat.lua
+	CHAT_NOT_IN_LFG_NOTICE = "|Hchannel:%d|h[%s]|h You must be queued in the Dungeon Finder to use this channel.",
+
 	-- CustomizeUI.lua
 	CUSTOMIZEUI_GRID_ORIGIN = "Grid Origin",
 	CUSTOMIZEUI_GRID_SPACING = "Grid Spacing",

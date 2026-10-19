@@ -29,6 +29,9 @@ ForeverUI.AddTexts("esES", {
 	CHARACTERFRAME_SHOW_DETAILS = "Mostrar detalles",
 	CHARACTERFRAME_TITLES = "Títulos",
 
+	-- Chat.lua
+	CHAT_NOT_IN_LFG_NOTICE = "|Hchannel:%d|h[%s]|h Debes estar en la cola del buscador de mazmorras para usar este canal.",
+
 	-- CustomizeUI.lua
 	CUSTOMIZEUI_GRID_ORIGIN = "Origen de la cuadrícula",
 	CUSTOMIZEUI_GRID_SPACING = "Espaciado de la cuadrícula",
