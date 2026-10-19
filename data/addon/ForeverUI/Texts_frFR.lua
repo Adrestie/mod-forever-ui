@@ -140,7 +140,7 @@ ForeverUI.AddTexts("frFR", {
 
 	-- Layout.lua
 	LAYOUT_EDIT_MODE_COMBAT = "le mode édition n'est pas disponible en combat.",
-	LAYOUT_HELP = "commandes : /fui (mode édition), /fui reset [élément], /fui list, /fui debug, /fui bar, /fui bottom, /fui statusbars, /fui bags, /fui character, /fui close, /fui tabs, /fui tabicons, /fui model, /fui sets, /fui rep [faction], /fui skills, /fui currency, /fui pet, /fui pvp [0..1], /fui arena, /fui bg, /fui social, /fui finder, /fui chat, /fui chatlines, /fui titles, /fui minimap [scale k], /fui map, /fui mouse, /fui questlog, /fui tracking, /fui spellbook, /fui micro",
+	LAYOUT_HELP = "commandes : /fui (mode édition), /fui reset [élément], /fui list, /fui debug, /fui bar, /fui bottom, /fui statusbars, /fui bags, /fui character, /fui close, /fui tabs, /fui model, /fui sets, /fui rep [faction], /fui skills, /fui currency, /fui pet, /fui pvp [0..1], /fui arena, /fui bg, /fui social, /fui finder, /fui chat, /fui chatlines, /fui titles, /fui minimap [scale k], /fui map, /fui mouse, /fui questlog, /fui tracking, /fui spellbook, /fui micro",
 	LAYOUT_LIST_HEADER = "éléments enregistrés :",
 	LAYOUT_LIST_MOVED = " - déplacé",
 	LAYOUT_NO_CHAT_LINES = "aucun relevé des lignes de la discussion disponible.",
@@ -388,8 +388,6 @@ ForeverUI.AddTexts("frFR", {
 	STATUSBARS_EDIT_LABEL_REPUTATION = "Barre de réputation",
 
 	-- TabMacros.lua
-	TABMACROS_DEBUG_COUNT = "icônes de macros : %d, copies d'icônes d'onglets (<Module>_...) : %d",
-	TABMACROS_DEBUG_TAB = "onglet %s | icône %s | dans la liste : %s (%s) | macro : %s (%s)",
 	TABMACROS_FULL = "Plus de place pour une macro : supprimez-en une pour poser cet onglet sur une barre.",
 
 	-- TabardFrame.lua
