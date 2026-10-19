@@ -1,7 +1,8 @@
 -- Tracked quests on the minimap: 3.3.5 shows none (quest POIs reached the minimap in 4.0).
 -- For each tracked quest with a POI on the player's map: its POI (the tracker's number or ?)
 -- on the minimap while in range, else an arrow on the minimap's edge pointing at it; and its
--- area (the world map's blue quest blob). Hovering an area or a POI shows the quest's progress,
+-- area (the world map's blue quest blob). Hovering an area, a POI or an arrow shows the quest's
+-- progress,
 -- as the world map does (WorldMapQuestPOI_SetTooltip).
 -- Positions: the client gives map fractions (GetPlayerMapPosition, QuestPOIGetIconInfo, both on
 -- the map the world map shows, the player's when it is closed); MapSizes.lua turns them into
@@ -33,7 +34,7 @@ local POI_INSET = 6              -- a POI closer than this to the edge becomes a
 local ARROW_SIZE = 18
 local ARROW_RADIUS_INSET = 7
 local ARROW_TEXTURE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW"
-local HOVER_RADIUS = 7           -- a POI under the cursor, in minimap units
+local HOVER_RADIUS = 7           -- a POI or an arrow under the cursor, in minimap units
 local PARENT = "ForeverUIMinimapQuests"
 
 local holder, probe, arrows = nil, nil, {}
@@ -324,8 +325,9 @@ local function update(elapsed)
 			shownArrows = shownArrows + 1
 			local a = arrow(shownArrows)
 			local r = radius - ARROW_RADIUS_INSET
+			m.ax, m.ay = sx / d * r, sy / d * r
 			a:ClearAllPoints()
-			a:SetPoint("CENTER", holder, "CENTER", sx / d * r, sy / d * r)
+			a:SetPoint("CENTER", holder, "CENTER", m.ax, m.ay)
 			-- the image points up: turned to the POI's direction
 			rotateTexture(a, atan2(sy, sx) - math.pi / 2)
 			a:Show()
@@ -390,9 +392,11 @@ local function hover()
 	local scale = Minimap:GetEffectiveScale()
 	local cx, cy = Minimap:GetCenter()
 	local ux, uy = x / scale - cx, y / scale - cy
-	-- a POI under the cursor
+	-- a POI or an arrow under the cursor
 	for _, m in ipairs(markers) do
-		if m.inRange and (m.sx - ux) ^ 2 + (m.sy - uy) ^ 2 <= HOVER_RADIUS ^ 2 then
+		local x, y = m.sx, m.sy
+		if not m.inRange then x, y = m.ax, m.ay end
+		if x and (x - ux) ^ 2 + (y - uy) ^ 2 <= HOVER_RADIUS ^ 2 then
 			questTooltip(m)
 			return
 		end
