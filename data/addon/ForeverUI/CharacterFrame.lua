@@ -1710,20 +1710,15 @@ if hooksecurefunc and type(_G["CharacterFrame_TabBoundsCheck"]) == "function" th
 	hooksecurefunc("CharacterFrame_TabBoundsCheck", keepTabWidth)
 end
 
--- Side tabs on the action bars. 3.3.5 bars hold spells, items, macros, equipment sets and
--- companions only: a dragged tab becomes an account macro whose body opens its screen, made once
--- and found again by its body. On a bar the macro shows the tab's icon (ActionButton_Update hook
--- below). Making a macro needs a free slot and is refused in combat; picking up an existing one
--- is not.
+-- Side tabs on the action bars (TabMacros.lua): a dragged tab becomes a macro whose body opens
+-- its screen; on a bar it shows the tab's icon.
 local TAB_MACRO_BODY = "/run ForeverUI.ToggleCharacterTab(%s)"
 local TAB_MACRO_NAMES = {
 	[1] = "CHARACTER", [2] = "PET", [3] = "REPUTATION", [4] = "SKILLS", [5] = "CURRENCY",
 	pvp = "PVP", stats = "STATISTICS", mounts = "MOUNTS",
 }
-local MACRO_NAME_BYTES = 16
 
--- Macro icon, seen on the cursor and in the macro window: the nearest icon of the client's
--- macro list (Interface\Icons), the question mark (index 1) when none is there
+-- Macro icon, seen on the cursor and in the macro window: the nearest game icon
 local TAB_MACRO_ICONS = {
 	[1] = "INV_Chest_Cloth_17", [3] = "Achievement_Reputation_01", [4] = "Trade_Engineering",
 	[5] = "INV_Misc_Coin_01", stats = "INV_Misc_Note_01", mounts = "Ability_Mount_RidingHorse",
@@ -1733,18 +1728,6 @@ local TAB_MACRO_ICONS = {
 local function tabMacroBody(key)
 	return string.format(TAB_MACRO_BODY,
 		type(key) == "number" and tostring(key) or ('"' .. key .. '"'))
-end
-
--- The tab a macro body opens, or nil
-local function tabMacroKey(body)
-	local key = body and body:match('ForeverUI%.ToggleCharacterTab%("?(%w+)"?%)')
-	if not key then
-		return nil
-	end
-	key = tonumber(key) or key
-	if TAB_MACRO_NAMES[key] then
-		return key
-	end
 end
 
 -- The tab's icon, also before the sheet was ever opened (its tabs do not exist yet)
@@ -1765,94 +1748,35 @@ local function tabIcon(key)
 	return TAB_ICONS[key]
 end
 
--- Cuts a name to the macro limit without splitting a UTF-8 character
-local function macroName(key)
-	local name = _G[TAB_MACRO_NAMES[key]] or TAB_MACRO_NAMES[key]
-	if #name <= MACRO_NAME_BYTES then
-		return name
-	end
-	local cut = MACRO_NAME_BYTES
-	while cut > 0 and name:byte(cut + 1) and name:byte(cut + 1) >= 0x80
-		and name:byte(cut + 1) < 0xC0 do
-		cut = cut - 1
-	end
-	return name:sub(1, cut)
-end
-
-local function findTabMacro(key)
-	if not GetMacroInfo then
-		return nil
-	end
-	local body = tabMacroBody(key)
-	local last = (MAX_ACCOUNT_MACROS or 36) + (MAX_CHARACTER_MACROS or 18)
-	for index = 1, last do
-		local _, _, macroBody = GetMacroInfo(index)
-		if macroBody and macroBody:gsub("%s+$", "") == body then
-			return index
-		end
-	end
-end
-
-local function macroIconIndex(key)
+local function tabMacroIcon(key)
 	local wanted = TAB_MACRO_ICONS[key]
 	if key == 2 then
-		wanted = PET_TAB[select(2, UnitClass("player")) or ""] or PET_TAB.HUNTER
+		return PET_TAB[select(2, UnitClass("player")) or ""] or PET_TAB.HUNTER
 	elseif type(wanted) == "table" then
-		wanted = wanted[(UnitFactionGroup and UnitFactionGroup("player")) or "Alliance"]
+		return wanted[(UnitFactionGroup and UnitFactionGroup("player")) or "Alliance"]
 			or wanted.Alliance
 	end
-	if not wanted or not GetNumMacroIcons or not GetMacroIconInfo then
-		return 1
-	end
-	wanted = "\\" .. wanted:lower()
-	for index = 1, GetNumMacroIcons() do
-		local texture = GetMacroIconInfo(index)
-		if texture and texture:lower():sub(-#wanted) == wanted then
-			return index
-		end
-	end
-	return 1
+	return wanted
 end
 
--- Puts the tab's macro on the cursor, making it first if needed
-local function pickupTab(key)
-	if not PickupMacro or not TAB_MACRO_NAMES[key] then
-		return
-	end
-	local index = findTabMacro(key)
-	if not index then
-		if InCombatLockdown() then
-			UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1, 0.1, 0.1, 1)
-			return
-		end
-		local account, character = GetNumMacros()
-		local perCharacter
-		if (account or 0) >= (MAX_ACCOUNT_MACROS or 36) then
-			if (character or 0) >= (MAX_CHARACTER_MACROS or 18) then
-				UIErrorsFrame:AddMessage(L.CHARACTERFRAME_TAB_MACROS_FULL, 1, 0.1, 0.1, 1)
-				return
-			end
-			perCharacter = 1
-		end
-		-- On the bars the tab's own icon replaces the macro's
-		index = CreateMacro(macroName(key), macroIconIndex(key), tabMacroBody(key),
-			perCharacter, perCharacter)
-		if not index then
-			return
-		end
-	end
-	PickupMacro(index)
+local function tabMacroInfo(key)
+	return {
+		name = function() return _G[TAB_MACRO_NAMES[key]] or TAB_MACRO_NAMES[key] end,
+		icon = function() return tabIcon(key) end,
+		macroIcon = function() return tabMacroIcon(key) end,
+	}
+end
+
+-- The bars show the tabs' icons from login, before the sheet is opened
+for key in pairs(TAB_MACRO_NAMES) do
+	ForeverUI.TabMacros.Register(tabMacroBody(key), tabMacroInfo(key))
 end
 
 local function enableTabDrag(tab, key)
 	if tab.foreverDrag then
 		return
 	end
-	tab:RegisterForDrag("LeftButton")
-	tab:SetScript("OnDragStart", function()
-		GameTooltip:Hide()
-		pickupTab(key)
-	end)
+	ForeverUI.TabMacros.EnableDrag(tab, tabMacroBody(key), tabMacroInfo(key))
 	tab.foreverDrag = true
 end
 
@@ -1890,31 +1814,6 @@ function ForeverUI.ToggleCharacterTab(key)
 	end
 	openOwnScreen(group)
 end
-
--- A tab macro on a bar shows the tab's icon, not the macro's question mark
-local function showTabIcon(button)
-	local action = button and button.action
-	if not action or not GetActionInfo then
-		return
-	end
-	local kind, id = GetActionInfo(action)
-	if kind ~= "macro" or not GetMacroInfo then
-		return
-	end
-	local _, _, body = GetMacroInfo(id)
-	local key = tabMacroKey(body)
-	local icon = key and _G[(button:GetName() or "") .. "Icon"]
-	local texture = key and tabIcon(key)
-	if icon and texture then
-		icon:SetTexture(texture)
-	end
-end
-
--- Called from ActionBar.lua's ActionButton_Update hook (one hook for every button)
-ForeverUI.ShowCharacterTabIcon = showTabIcon
-
-ForeverUI.CharacterTabMacro = { body = tabMacroBody, key = tabMacroKey, icon = tabIcon,
-	pickup = pickupTab }
 
 -- Creates one of our side tabs, skinned like the client's.
 -- key: tabs table key; name: frame name; group: ForeverUI.Panes group it opens

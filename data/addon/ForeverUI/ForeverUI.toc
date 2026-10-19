@@ -40,6 +40,7 @@ RaidFrame.lua
 CastBar.lua
 ActionBar.lua
 MultiBars.lua
+TabMacros.lua
 StanceBar.lua
 PetBar.lua
 TotemBar.lua

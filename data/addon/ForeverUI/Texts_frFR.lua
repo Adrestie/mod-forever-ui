@@ -77,7 +77,6 @@ ForeverUI.AddTexts("frFR", {
 	CHARACTERFRAME_MODEL_USAGE = "modèle : echelle <n> | position <x> <y> <z> | position defaut",
 	CHARACTERFRAME_PANES_MISSING = "Panes.lua n'est pas chargé. Un fichier ajouté à l'addon n'arrive qu'au prochain démarrage du jeu : fermez et rouvrez le client. La feuille de personnage reste inactive d'ici là.",
 	CHARACTERFRAME_SHOW_DETAILS = "Afficher les détails",
-	CHARACTERFRAME_TAB_MACROS_FULL = "Plus de place pour une macro : supprimez-en une pour poser cet onglet sur une barre.",
 	CHARACTERFRAME_TITLES = "Titres",
 
 	-- Chat.lua
@@ -387,6 +386,9 @@ ForeverUI.AddTexts("frFR", {
 	STATUSBARS_DEBUG = "barres d'état : rangée %.1f -> %.1f, haut %s | largeur %.0f | xp visible=%s à y=%s | réputation visible=%s à y=%s",
 	STATUSBARS_EDIT_LABEL_EXPERIENCE = "Barre d'expérience",
 	STATUSBARS_EDIT_LABEL_REPUTATION = "Barre de réputation",
+
+	-- TabMacros.lua
+	TABMACROS_FULL = "Plus de place pour une macro : supprimez-en une pour poser cet onglet sur une barre.",
 
 	-- TabardFrame.lua
 	TABARDFRAME_POSITION_USAGE = "tabard : /fui tabard position <profondeur> <latéral> <hauteur>",
