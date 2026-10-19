@@ -328,6 +328,11 @@ local function showAreas(v, elapsed)
 		blob:SetPoint("TOPLEFT", strip.child, "TOPLEFT", 0, 0)
 		blob:SetWidth(mw)
 		blob:SetHeight(mh)
+		-- reading the rectangles makes the engine lay the moved frames out now, not at the frame's
+		-- end: the areas are drawn where the frame is this frame
+		strip.clip:GetLeft()
+		strip.child:GetLeft()
+		blob:GetLeft()
 		if blob.DrawQuestBlob then
 			-- no DrawNone in 3.3.5: each area is taken off, then drawn where the frame now is
 			for id in pairs(strip.drawn) do blob:DrawQuestBlob(id, false) end

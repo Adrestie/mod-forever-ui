@@ -324,6 +324,12 @@ function Z.drawAreas(again)
 	blob:SetPoint("TOPLEFT", areas.child, "TOPLEFT", 0, 0)
 	blob:SetWidth(mw)
 	blob:SetHeight(mh)
+	-- reading the rectangles makes the engine lay the moved frames out now, not at the frame's end:
+	-- the areas are drawn where the frame is this frame
+	WorldMapDetailFrame:GetLeft()
+	areas.clip:GetLeft()
+	areas.child:GetLeft()
+	blob:GetLeft()
 	if blob.DrawQuestBlob then
 		-- no DrawNone in 3.3.5: each area is taken off, then drawn where the frame now is
 		for id in pairs(areas.mirrored) do blob:DrawQuestBlob(id, false) end
@@ -555,6 +561,9 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
 				WorldMapButton:EnableMouse(false)
 			end
 			if Z.dragging then
+				if areas.again and areas.again > 0 then
+					areas.again = areas.again - 1
+				end
 				local de = pixelsPerUnit()
 				Z.cx = pressPoint.cx - (x - pressPoint.x) / (CARD_W * de)
 				Z.cy = pressPoint.cy + (y - pressPoint.y) / (CARD_H * de)
