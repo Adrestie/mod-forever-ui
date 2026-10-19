@@ -29,7 +29,7 @@ local GRID = 32                  -- cells across the minimap's diameter
 local FILL = { 0.25, 0.55, 1, 0.3 }       -- an area's inside
 local EDGE = { 0.45, 0.7, 1, 0.65 }       -- its edge
 local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
-local PROBE_ALPHA = 0.01
+local PROBE_ALPHA = 1            -- out of 255
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
 local ARROW_SIZE = 18
@@ -128,12 +128,14 @@ local function build()
 	local ok, frame = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
 	if ok and frame then
 		-- drawn, but too faint to see: the engine lays its areas out at the frame's size and may
-		-- skip a frame it does not draw (placed on the map's rectangle in update)
+		-- skip what it does not draw (placed on the map's rectangle in update). The frame's alpha
+		-- does not reach the areas: their own alphas (0 to 255) do.
 		probe = frame
-		probe:SetAlpha(PROBE_ALPHA)
 		if probe.SetFillTexture then
 			probe:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 			probe:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
+			probe:SetFillAlpha(PROBE_ALPHA)
+			probe:SetBorderAlpha(PROBE_ALPHA)
 		end
 	end
 
