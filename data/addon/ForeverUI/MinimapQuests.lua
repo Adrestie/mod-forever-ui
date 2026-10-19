@@ -285,6 +285,7 @@ end
 -- The strips, drawn again when the view moves: each ScrollFrame opened over the map's rectangle,
 -- its area drawn there, then shrunk back to its strip with the area left in place
 local areaWait = 0
+local drawnWidth, sizeFrames = 0, 0
 local function place(strip, x, y, w, h)
 	strip.clip:ClearAllPoints()
 	strip.clip:SetPoint("TOPLEFT", holder, "CENTER", x, y)
@@ -302,9 +303,17 @@ local function showAreas(v, elapsed)
 		return
 	end
 	local k = string.format("%s:%.4f:%.4f:%.3f", tostring(drawnKey), v.px, v.py, v.k)
-	if k == areaKey or areaWait > 0 then return end
-	areaKey, areaWait = k, AREA_WAIT
 	local mw, mh = v.w * v.k, v.h * v.k
+	-- A new size (the zoom changed) reaches the engine on the next frame: the areas are drawn again
+	-- on the two frames after it, whatever the wait
+	if math.abs(mw - drawnWidth) > 0.01 then
+		drawnWidth, sizeFrames = mw, 2
+	elseif sizeFrames > 0 and k == areaKey then
+		sizeFrames = sizeFrames - 1
+		areaKey = nil
+	end
+	if k == areaKey or (areaWait > 0 and sizeFrames == 0) then return end
+	areaKey, areaWait = k, AREA_WAIT
 	local left, top = -v.px * mw, v.py * mh      -- the map's corner, from the minimap's center
 	for _, strip in ipairs(strips) do
 		local blob = strip.blob
