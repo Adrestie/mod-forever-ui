@@ -39,7 +39,7 @@ local ARROW_TEXTURE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW"
 local HOVER_RADIUS = 7           -- a POI or an arrow under the cursor, in minimap units
 local PARENT = "ForeverUIMinimapQuests"
 
-local holder, probe, arrows = nil, nil, {}
+local holder, over, probe, arrows = nil, nil, nil, {}
 local strips = {}                -- { clip, child, blob, half, top, height }
 -- POI buttons shown on the minimap: hidden here, not by QuestPOI_HideAllButtons, which errors on
 -- a number never created (a POI out of range leaves its number unshown)
@@ -122,7 +122,7 @@ local function build()
 	if holder or not minimapReady() then return holder end
 	holder = CreateFrame("Frame", PARENT, Minimap)
 	holder:SetAllPoints(Minimap)
-	holder:SetFrameLevel(Minimap:GetFrameLevel() + 2)
+	holder:SetFrameLevel(Minimap:GetFrameLevel() + 1)
 
 	-- The probe: an invisible QuestPOIFrame (made from Lua; without it, no areas: the POIs and
 	-- arrows stay)
@@ -169,13 +169,27 @@ local function build()
 		strips[i] = { clip = clip, child = child, blob = blob, half = half, top = top, height = height,
 			drawn = {} }
 	end
+	-- Areas and POIs above the terrain, under the ring: the ring (MinimapBackdrop, Minimap.lua) and
+	-- the buttons it carries go above the strips (holder + 1 to + 3); the edge arrows above the ring
+	local backdrop = _G["MinimapBackdrop"]
+	local ringLevel = holder:GetFrameLevel() + 4
+	if backdrop and backdrop:GetFrameLevel() < ringLevel then
+		backdrop:SetFrameLevel(ringLevel)
+		for _, c in ipairs({ backdrop:GetChildren() }) do
+			if c:GetFrameLevel() <= ringLevel then c:SetFrameLevel(ringLevel + 1) end
+		end
+	end
+	over = CreateFrame("Frame", nil, Minimap)
+	over:SetAllPoints(Minimap)
+	over:SetFrameLevel(math.max(ringLevel, backdrop and backdrop:GetFrameLevel() or 0) + 2)
+	Q.arrowFrame = over
 	return holder
 end
 
 local function arrow(i)
 	local a = arrows[i]
 	if not a then
-		a = holder:CreateTexture(nil, "OVERLAY")
+		a = over:CreateTexture(nil, "OVERLAY")
 		a:SetTexture(ARROW_TEXTURE)
 		a:SetWidth(ARROW_SIZE)
 		a:SetHeight(ARROW_SIZE)
