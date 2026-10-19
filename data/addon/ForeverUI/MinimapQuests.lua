@@ -6,13 +6,13 @@
 -- Positions: the client gives map fractions (GetPlayerMapPosition, QuestPOIGetIconInfo, both on
 -- the map the world map shows, the player's when it is closed); MapSizes.lua turns them into
 -- yards, and the minimap's zoom into yards per minimap unit.
--- Areas: a QuestPOIFrame draws the blobs of the shown map into its texture, over the map's whole
--- rectangle, and nothing clips to a circle in 3.3.5. The round minimap is cut into horizontal
--- strips, each with its own QuestPOIFrame whose texture shows only the strip's part of the map
--- (its place, size and tex coords), as the world map's tiles are cropped: an area shows as the
--- player comes near it, cut by the minimap's edge. A ScrollFrame does not clip that texture (the
--- whole area was squeezed into the visible part, along the edge). A QuestPOIFrame does not
--- rotate: with "Rotate Minimap" on, the areas hide and only POIs and arrows show.
+-- Areas: a QuestPOIFrame draws the blobs of the shown map over its whole rectangle, and in game
+-- neither a ScrollFrame (the area was squeezed into the visible part) nor its texture's
+-- coordinates (the area drew past the minimap) crop it. So it is not shown: an invisible one holds
+-- the tracked quests' blobs and answers, point by point, whether a point of the map is in one
+-- (UpdateMouseOverTooltip, the world map's hover test). A grid of cells over the round minimap
+-- shows those inside, the cells along an area's edge brighter: the areas show only inside the
+-- circle, as the player comes near them, and turn with the minimap.
 
 local Q = {}
 ForeverUI.MinimapQuests = Q
@@ -24,7 +24,10 @@ local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 }
 
-local STRIPS = 16
+local GRID = 32                  -- cells across the minimap's diameter
+local FILL = { 0.25, 0.55, 1, 0.3 }       -- an area's inside
+local EDGE = { 0.45, 0.7, 1, 0.65 }       -- its edge
+local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
 local ARROW_SIZE = 18
@@ -33,7 +36,8 @@ local ARROW_TEXTURE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW"
 local HOVER_RADIUS = 7           -- a POI under the cursor, in minimap units
 local PARENT = "ForeverUIMinimapQuests"
 
-local holder, blobs, arrows = nil, {}, {}
+local holder, probe, arrows = nil, nil, {}
+local cells = {}                 -- { texture, x, y, row, col }, x and y from the minimap's center
 -- POI buttons shown on the minimap: hidden here, not by QuestPOI_HideAllButtons, which errors on
 -- a number never created (a POI out of range leaves its number unshown)
 local shownPOIs, keptPOIs = {}, {}
@@ -117,30 +121,36 @@ local function build()
 	holder:SetAllPoints(Minimap)
 	holder:SetFrameLevel(Minimap:GetFrameLevel() + 2)
 
-	-- The strips: rows of the circle, each as wide as its chord nearest the center
+	-- The probe: an invisible QuestPOIFrame (made from Lua; without it, no areas: the POIs and
+	-- arrows stay)
+	local ok, frame = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
+	if ok and frame then
+		probe = frame
+		probe:SetWidth(1)
+		probe:SetHeight(1)
+		probe:SetPoint("CENTER", holder, "CENTER", 0, 0)
+		probe:SetAlpha(0)
+		if probe.SetFillTexture then
+			probe:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
+			probe:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
+		end
+	end
+
+	-- The cells: a grid over the minimap, only those inside its circle
 	local radius = Minimap:GetWidth() / 2
-	local h = Minimap:GetWidth() / STRIPS
-	for i = 1, STRIPS do
-		local top = radius - (i - 1) * h
-		local bottom = top - h
-		local near = math.min(math.abs(top), math.abs(bottom))
-		if top > 0 and bottom < 0 then near = 0 end
-		local half = math.sqrt(math.max(0, radius * radius - near * near))
-		-- a QuestPOIFrame made from Lua; without it, no areas (the POIs and arrows stay)
-		local ok, blob = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
-		if not ok or not blob then
-			break
+	local side = Minimap:GetWidth() / GRID
+	for row = 1, GRID do
+		for col = 1, GRID do
+			local x, y = -radius + (col - 0.5) * side, radius - (row - 0.5) * side
+			if x * x + y * y <= (radius - side / 2) ^ 2 then
+				local cell = holder:CreateTexture(nil, "BORDER")
+				cell:SetWidth(side)
+				cell:SetHeight(side)
+				cell:SetPoint("CENTER", holder, "CENTER", x, y)
+				cell:Hide()
+				cells[#cells + 1] = { texture = cell, x = x, y = y, row = row, col = col }
+			end
 		end
-		local texture = blob:CreateTexture(nil, "ARTWORK")
-		if blob.SetFillTexture then
-			-- WorldMapBlobFrame_OnLoad
-			blob:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
-			blob:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
-			blob:SetFillAlpha(128)
-			blob:SetBorderAlpha(192)
-			blob:SetBorderScalar(1.0)
-		end
-		blobs[i] = { blob = blob, texture = texture, half = half, top = top, height = h }
 	end
 	return holder
 end
@@ -204,31 +214,80 @@ local function collect(readAgain)
 	end
 end
 
--- The areas, drawn again when the quests or the map change
+-- The probe's blobs, drawn again when the quests or the map change
+local areaKey
 local function drawBlobs(key)
-	if key == drawnKey then return end
+	if key == drawnKey or not probe then return end
 	drawnKey = key
-	for _, s in ipairs(blobs) do
-		local blob = s.blob
-		if blob.DrawNone then blob:DrawNone() end
-		for _, m in ipairs(markers) do
-			if not m.complete and blob.DrawQuestBlob then
-				blob:DrawQuestBlob(m.questId, true)
-			end
+	areaKey = nil
+	if probe.DrawNone then probe:DrawNone() end
+	for _, m in ipairs(markers) do
+		if not m.complete and probe.DrawQuestBlob then
+			probe:DrawQuestBlob(m.questId, true)
 		end
 	end
+end
+
+-- A point of the minimap (units from its center, y up) on the shown map (fractions), the
+-- minimap's turn undone
+local function toMap(ux, uy, v)
+	if v.rotate then
+		ux, uy = ux * v.c - uy * v.s, ux * v.s + uy * v.c
+	end
+	return v.px + ux / (v.w * v.k), v.py - uy / (v.h * v.k)
+end
+
+-- The quest whose area holds a point of the map, or nil
+local function areaAt(fx, fy)
+	if not (probe and probe.UpdateMouseOverTooltip) or fx < 0 or fx > 1 or fy < 0 or fy > 1 then
+		return nil
+	end
+	local index, objectives = probe:UpdateMouseOverTooltip(fx, fy)
+	return objectives and index or nil
+end
+
+-- The grid: each cell inside an area shows, those along its edge brighter
+local inside = {}
+local areaWait = 0
+local function showAreas(v, elapsed)
+	areaWait = areaWait - (elapsed or AREA_WAIT)
+	local key = string.format("%s:%.4f:%.4f:%.2f:%.3f", tostring(drawnKey), v.px, v.py, v.rotate and v.facing or 0, v.k)
+	if key == areaKey or areaWait > 0 then return end
+	areaKey, areaWait = key, AREA_WAIT
+	wipe(inside)
+	local any = false
+	for i, cell in ipairs(cells) do
+		local hit = areaAt(toMap(cell.x, cell.y, v))
+		inside[cell.row * 1000 + cell.col] = hit
+		any = any or hit ~= nil
+	end
+	for _, cell in ipairs(cells) do
+		local r, c = cell.row, cell.col
+		if inside[r * 1000 + c] then
+			local edge = not (inside[(r - 1) * 1000 + c] and inside[(r + 1) * 1000 + c]
+				and inside[r * 1000 + c - 1] and inside[r * 1000 + c + 1])
+			local color = edge and EDGE or FILL
+			cell.texture:SetTexture(color[1], color[2], color[3], color[4])
+			cell.texture:Show()
+		else
+			cell.texture:Hide()
+		end
+	end
+	Q.areaCells = any
 end
 
 local function hideAll()
 	if not holder then return end
 	holder:Hide()
 	for _, a in ipairs(arrows) do a:Hide() end
+	for _, cell in ipairs(cells) do cell.texture:Hide() end
+	areaKey = nil
 	hidePOIs()
 end
 
 -- ---------------------------------------------------------------- each frame
 
-local function update()
+local function update(elapsed)
 	if not build() then return end
 	local px, py = GetPlayerMapPosition("player")
 	local w, h = mapSize()
@@ -275,32 +334,8 @@ local function update()
 	for i = shownArrows + 1, #arrows do arrows[i]:Hide() end
 	hidePOIs(keptPOIs)
 
-	-- Areas: each strip's QuestPOIFrame is the map's rectangle at the minimap's scale, its corner
-	-- placed from the player; its texture shows the part of the map under the strip
-	local show = not rotate
-	local mw, mh = w * k, h * k
-	local left, top = -px * mw, py * mh           -- the map's corner, from the minimap's center
-	for _, strip in ipairs(blobs) do
-		local blob, texture = strip.blob, strip.texture
-		-- the strip and the map, intersected (minimap units, y up)
-		local x0, x1 = math.max(-strip.half, left), math.min(strip.half, left + mw)
-		local y0, y1 = math.min(strip.top, top), math.max(strip.top - strip.height, top - mh)
-		if show and x1 - x0 > 0.01 and y0 - y1 > 0.01 then
-			blob:SetWidth(mw)
-			blob:SetHeight(mh)
-			blob:ClearAllPoints()
-			blob:SetPoint("TOPLEFT", holder, "CENTER", left, top)
-			texture:ClearAllPoints()
-			texture:SetPoint("TOPLEFT", holder, "CENTER", x0, y0)
-			texture:SetWidth(x1 - x0)
-			texture:SetHeight(y0 - y1)
-			texture:SetTexCoord((x0 - left) / mw, (x1 - left) / mw, (top - y0) / mh, (top - y1) / mh)
-			blob:Show()
-		else
-			blob:Hide()
-		end
-	end
-	Q.view = { px = px, py = py, w = w, h = h, k = k }
+	Q.view = { px = px, py = py, w = w, h = h, k = k, rotate = rotate, facing = facing, c = c, s = s }
+	showAreas(Q.view, elapsed)
 end
 
 -- ---------------------------------------------------------------- tooltip
@@ -362,17 +397,14 @@ local function hover()
 			return
 		end
 	end
-	-- an area: the blob frame answers for a point of the map (fractions of its rectangle)
-	local v, blob = Q.view, blobs[1] and blobs[1].blob
+	-- an area: the probe answers for the point of the map under the cursor
 	local radius = Minimap:GetWidth() / 2
-	if not rotating() and blob and blob.UpdateMouseOverTooltip and ux * ux + uy * uy <= radius * radius then
-		local fx = v.px + ux / (v.w * v.k)
-		local fy = v.py - uy / (v.h * v.k)
-		local index, objectives = blob:UpdateMouseOverTooltip(fx, fy)
-		if objectives then
+	if ux * ux + uy * uy <= radius * radius then
+		local index = areaAt(toMap(ux, uy, Q.view))
+		if index then
 			for _, m in ipairs(markers) do
 				if m.questIndex == index then
-					questTooltip(m, blob)
+					questTooltip(m, probe)
 					return
 				end
 			end
@@ -395,6 +427,8 @@ local function refresh(readAgain)
 	update()
 end
 Q.refresh = refresh
+-- the grid read again on the next update, whatever moved
+Q.redrawAreas = function() areaKey = nil end
 Q.update = update
 
 local watcher = CreateFrame("Frame")
@@ -435,7 +469,7 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
 		end
 	end
 	if #markers > 0 then
-		update()
+		update(elapsed)
 		hover()
 	end
 end)
