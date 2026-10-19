@@ -18,7 +18,9 @@ local HEIGHT = 13   -- camelot image height (1020 x 13)
 -- STATUS_BAR_NUM_SEGMENTS = 20 segments, so 19 StatusBarDividerTemplate frames (3 x 10,
 -- ui-hud-experiencebar-divider, OVERLAY) at LEFT (width / 20 * i, 0), above the fill.
 -- Rested tick (ExhaustionTick, UI-HUD-ExperienceBar-Frame-Pip, 10 x 14): centered on the right
--- end of the rested fill, shown while rested experience remains.
+-- end of the rested fill, shown while rested experience remains. The rested fill
+-- (ExhaustionLevelFillBar) is UI-HUD-ExperienceBar-Fill-Prediction; while rested, the earned
+-- fill is UI-HUD-ExperienceBar-Fill-Rested (blue) instead of -Fill-Experience (purple).
 local SEGMENTS = 20
 local DIVIDER_W, DIVIDER_H = 3, 10
 local L = ForeverUI.L
@@ -161,7 +163,7 @@ local function updateExperience()
 	local rested = (GetXPExhaustion and GetXPExhaustion()) or 0
 	local fraction = earned / maximum
 
-	populate(experience.rested, "ui-hud-experiencebar-fill-rested-camelot",
+	populate(experience.rested, "ui-hud-experiencebar-fill-prediction-camelot",
 		(earned + rested) / maximum, width)
 	-- rested tick at the end of the rested part
 	if rested > 0 then
@@ -172,8 +174,10 @@ local function updateExperience()
 	else
 		experience.tick:Hide()
 	end
-	populate(experience.fill, "ui-hud-experiencebar-fill-experience-camelot",
-		fraction, width)
+	-- rested (GetRestState 1): the earned part turns blue (ExpBarOverrides UpdateStatusBarTextures)
+	local isRested = GetRestState and GetRestState() == 1
+	populate(experience.fill, isRested and "ui-hud-experiencebar-fill-rested-camelot"
+		or "ui-hud-experiencebar-fill-experience-camelot", fraction, width)
 
 	experience.text:SetText(string.format("%d / %d  (%d%%)", earned, maximum,
 		math.floor(fraction * 100)))
@@ -225,6 +229,7 @@ listener:RegisterEvent("PLAYER_ENTERING_WORLD")
 listener:RegisterEvent("PLAYER_XP_UPDATE")
 listener:RegisterEvent("PLAYER_LEVEL_UP")
 listener:RegisterEvent("UPDATE_EXHAUSTION")
+listener:RegisterEvent("PLAYER_UPDATE_RESTING")
 listener:RegisterEvent("UPDATE_FACTION")
 listener:SetScript("OnEvent", function(_self, event)
 	if event == "PLAYER_ENTERING_WORLD" then
