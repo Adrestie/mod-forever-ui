@@ -49,6 +49,8 @@ BottomBar.lua
 StatusBars.lua
 Vehicle.lua
 Minimap.lua
+MapSizes.lua
+MinimapQuests.lua
 WorldMapInstances.lua
 WorldMap.lua
 WorldMapZoom.lua
