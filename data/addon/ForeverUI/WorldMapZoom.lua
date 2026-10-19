@@ -1,7 +1,12 @@
--- World map zoom: the mouse wheel scales the map toward the cursor (x 1.25 per step, 1 to 4)
+-- World map zoom: the mouse wheel enlarges the map toward the cursor (x 1.25 per step, 1 to 4)
 -- and a left-button drag pans the zoomed map; a click without drag keeps its meaning.
 -- Camelot zooms through map art layers (mapcanvas_scrollcontainermixin.lua), which 3.3.5
 -- lacks. The zoom returns to 1 when the map changes, changes mode or closes.
+-- The map is ENLARGED, not scaled: WorldMapDetailFrame and WorldMapButton get their width and
+-- height x zoom at their own scale. The client places every marker at its map fraction x
+-- their width, so the markers move with the map and keep their size, as in camelot. The art
+-- (tiles, explored areas) has fixed sizes in the client: it is laid out and cropped here.
+-- Units: "map units" are those of the whole map (1002 x 668); the frames' are map units x zoom.
 
 local W = ForeverUI.WorldMap
 local Z = { z = 1, cx = 0.5, cy = 0.5, active = false, STEP = 1.25, MAX = 4, THRESHOLD = 4 }
@@ -18,11 +23,15 @@ local function ready()
 	return W.built and W.canvas and WorldMapDetailFrame and WorldMapButton and WORLDMAP_SETTINGS
 end
 
--- The view: the canvas rectangle in WorldMapDetailFrame units (WorldMapButton has the same
--- scale and corner), origin at the map's top left
+-- Screen pixels per map unit
+local function pixelsPerUnit()
+	return WorldMapDetailFrame:GetEffectiveScale() * Z.z
+end
+
+-- The view: the canvas rectangle in map units, origin at the map's top left
 local function viewSize()
 	local c, d = W.canvas, WorldMapDetailFrame
-	local k = c:GetEffectiveScale() / d:GetEffectiveScale()
+	local k = c:GetEffectiveScale() / d:GetEffectiveScale() / Z.z
 	return c:GetWidth() * k, c:GetHeight() * k
 end
 
@@ -41,35 +50,84 @@ local function clampView()
 	if halfY >= 0.5 then Z.cy = 0.5 else Z.cy = math.max(halfY, math.min(1 - halfY, Z.cy)) end
 end
 
--- ---------------------------------------------------------------- Tiles
+-- ------------------------------------------------------------------ Art
 
 -- 3.3.5 clips nothing outside a ScrollFrame and client frames are never reparented, so each
--- tile is cropped to the view: its visible part, at its place, with matching tex coords
+-- piece of art is cropped to the view: its visible part, at its place x zoom, with matching
+-- tex coords. x, y, w, h: the piece in map units; u0, u1, v0, v1: its tex coords.
+local function cropRegion(t, x, y, w, h, u0, u1, v0, v1, x0, y0, x1, y1)
+	local d, z = WorldMapDetailFrame, Z.z
+	local ix0, iy0 = math.max(x, x0), math.max(y, y0)
+	local ix1 = math.min(x + w, CARD_W, x1)
+	local iy1 = math.min(y + h, CARD_H, y1)
+	t:ClearAllPoints()
+	if ix1 - ix0 < 0.01 or iy1 - iy0 < 0.01 then
+		t:SetPoint("TOPLEFT", d, "TOPLEFT", x * z, -y * z)
+		t:SetWidth(1)
+		t:SetHeight(1)
+		t:SetAlpha(0)
+	else
+		local du, dv = (u1 - u0) / w, (v1 - v0) / h
+		t:SetPoint("TOPLEFT", d, "TOPLEFT", ix0 * z, -iy0 * z)
+		t:SetWidth((ix1 - ix0) * z)
+		t:SetHeight((iy1 - iy0) * z)
+		t:SetTexCoord(u0 + (ix0 - x) * du, u0 + (ix1 - x) * du, v0 + (iy0 - y) * dv, v0 + (iy1 - y) * dv)
+		t:SetAlpha(1)
+	end
+end
+
+-- Explored areas (WorldMapOverlay<n>, laid out by WorldMapFrame_Update in map units from the
+-- map's top left): each piece's place, size and tex coords, read after the client sets them
+local function overlay(i)
+	return _G["WorldMapOverlay" .. i]
+end
+
+local function recordOverlays()
+	for i = 1, NUM_WORLDMAP_OVERLAYS or 0 do
+		local o = overlay(i)
+		if o and o:IsShown() then
+			local _, _, _, x, y = o:GetPoint(1)
+			local ulx, uly, llx, lly, urx = o:GetTexCoord()
+			o.foreverZoomArt = { x or 0, -(y or 0), o:GetWidth(), o:GetHeight(),
+				ulx or 0, urx or 1, uly or 0, lly or 1 }
+		elseif o then
+			o.foreverZoomArt = nil
+		end
+	end
+end
+
+local function restoreOverlays()
+	for i = 1, NUM_WORLDMAP_OVERLAYS or 0 do
+		local o = overlay(i)
+		local a = o and o.foreverZoomArt
+		if a then
+			o:ClearAllPoints()
+			o:SetPoint("TOPLEFT", WorldMapDetailFrame, "TOPLEFT", a[1], -a[2])
+			o:SetWidth(a[3])
+			o:SetHeight(a[4])
+			o:SetTexCoord(a[5], a[6], a[7], a[8])
+			o:SetAlpha(1)
+			o.foreverZoomArt = nil
+		end
+	end
+end
+
 local function cropTexture()
-	local d = WorldMapDetailFrame
 	local x0, y0, x1, y1 = view()
 	for rowLine = 1, ROWS do
 		for column = 1, COLUMNS do
 			local t = tile((rowLine - 1) * COLUMNS + column)
 			if t then
-				local tx, ty = (column - 1) * TILE, (rowLine - 1) * TILE
-				local ix0, iy0 = math.max(tx, x0), math.max(ty, y0)
-				local ix1 = math.min(tx + TILE, CARD_W, x1)
-				local iy1 = math.min(ty + TILE, CARD_H, y1)
-				t:ClearAllPoints()
-				if ix1 - ix0 < 0.01 or iy1 - iy0 < 0.01 then
-					t:SetPoint("TOPLEFT", d, "TOPLEFT", tx, -ty)
-					t:SetWidth(1)
-					t:SetHeight(1)
-					t:SetAlpha(0)
-				else
-					t:SetPoint("TOPLEFT", d, "TOPLEFT", ix0, -iy0)
-					t:SetWidth(ix1 - ix0)
-					t:SetHeight(iy1 - iy0)
-					t:SetTexCoord((ix0 - tx) / TILE, (ix1 - tx) / TILE, (iy0 - ty) / TILE, (iy1 - ty) / TILE)
-					t:SetAlpha(1)
-				end
+				cropRegion(t, (column - 1) * TILE, (rowLine - 1) * TILE, TILE, TILE, 0, 1, 0, 1,
+					x0, y0, x1, y1)
 			end
+		end
+	end
+	for i = 1, NUM_WORLDMAP_OVERLAYS or 0 do
+		local o = overlay(i)
+		local a = o and o.foreverZoomArt
+		if a and o:IsShown() then
+			cropRegion(o, a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], x0, y0, x1, y1)
 		end
 	end
 end
@@ -148,6 +206,37 @@ local function restoreChildren()
 	end
 end
 
+-- Markers placed once (landmarks, quest POIs...) keep the place the client gave them at the
+-- previous zoom: their offsets from the map's top left go x new / old. Markers the client
+-- places on each frame (units) already follow the width. foreverZoomSet remembers the
+-- offsets written here, to tell them from offsets the client wrote since.
+local function replaceMarkers(old, new)
+	if old == new then return end
+	local d, b, p = WorldMapDetailFrame, WorldMapButton, WorldMapPOIFrame
+	for _, parent in ipairs({ b, p, d }) do
+		if parent then
+			for _, f in ipairs({ parent:GetChildren() }) do
+				if f ~= b and f ~= p and f ~= WorldMapBlobFrame and f ~= WorldMapFrameAreaFrame
+					and f:GetNumPoints() == 1 then
+					local point, rel, relPoint, x, y = f:GetPoint(1)
+					if (rel == d or rel == b or rel == p) and relPoint == "TOPLEFT" and x and y then
+						local s = f.foreverZoomSet
+						local bx, by
+						if s and math.abs(s[1] - x) < 1e-3 and math.abs(s[2] - y) < 1e-3 then
+							bx, by = s[3], s[4]
+						else
+							bx, by = x / old, y / old
+						end
+						f:ClearAllPoints()
+						f:SetPoint(point, rel, relPoint, bx * new, by * new)
+						f.foreverZoomSet = { bx * new, by * new, bx, by }
+					end
+				end
+			end
+		end
+	end
+end
+
 -- ------------------------------------------------------------- Apply
 
 -- Current map key: a map change resets the zoom to 1
@@ -156,22 +245,18 @@ function Z.mapKey()
 		tostring(GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel())
 end
 
--- Scales of the zoomed frames: { frame, zoomed scale, normal scale }. Markers, party and
--- quest numbers are placed in WorldMapButton / WorldMapPOIFrame units, so they follow.
-local function frameScales()
-	local base = WORLDMAP_SETTINGS.size
-	return {
-		{ WorldMapDetailFrame, base * Z.z, base },
-		{ WorldMapButton, base * Z.z, base },
-		{ WorldMapBlobFrame, base * Z.z, base },
-		{ WorldMapPOIFrame, Z.z, 1 },
-		{ WorldMapFrameAreaFrame, (Z.areaScale or 1) / Z.z, Z.areaScale or 1 },
-	}
+-- The enlarged frames: WorldMapDetailFrame and WorldMapButton (siblings, same scale and corner)
+local function enlarge()
+	for f, s in pairs(Z.sizes) do
+		f:SetWidth(s[1] * Z.z)
+		f:SetHeight(s[2] * Z.z)
+	end
 end
 
 -- The quest blob (WorldMapBlobFrame) is drawn by the engine in one piece and would overflow,
 -- so it hides while zoomed; WorldMapButton's hit rect is limited to the view.
-function Z.apply()
+-- old: the zoom before this change (markers placed once follow it)
+function Z.apply(old)
 	local d = WorldMapDetailFrame
 	if not Z.active then
 		Z.active = true
@@ -179,15 +264,20 @@ function Z.apply()
 		for i = 1, d:GetNumPoints() do
 			Z.points[i] = { d:GetPoint(i) }
 		end
-		Z.areaScale = WorldMapFrameAreaFrame and WorldMapFrameAreaFrame:GetScale() or 1
+		Z.sizes = {
+			[d] = { d:GetWidth(), d:GetHeight() },
+			[WorldMapButton] = { WorldMapButton:GetWidth(), WorldMapButton:GetHeight() },
+		}
 		Z.key = Z.mapKey()
+		recordOverlays()
+		old = 1
 	end
-	for _, e in ipairs(frameScales()) do
-		if e[1] then e[1]:SetScale(e[2]) end
-	end
+	old = old or Z.z
+	local z = Z.z
+	enlarge()
 	clampView()
 	d:ClearAllPoints()
-	d:SetPoint("CENTER", W.canvas, "CENTER", (0.5 - Z.cx) * CARD_W, (Z.cy - 0.5) * CARD_H)
+	d:SetPoint("CENTER", W.canvas, "CENTER", (0.5 - Z.cx) * CARD_W * z, (Z.cy - 0.5) * CARD_H * z)
 	if WorldMapBlobFrame then
 		WorldMapBlobFrame:SetAlpha(0)
 		if WorldMapBlobFrame_CalculateHitTranslations then WorldMapBlobFrame_CalculateHitTranslations() end
@@ -198,28 +288,24 @@ function Z.apply()
 		a:SetPoint("TOP", W.canvas, "TOP", 0, -10)
 	end
 	local x0, y0, x1, y1 = view()
-	WorldMapButton:SetHitRectInsets(math.max(0, x0), math.max(0, CARD_W - x1),
-		math.max(0, y0), math.max(0, CARD_H - y1))
+	WorldMapButton:SetHitRectInsets(math.max(0, x0) * z, math.max(0, CARD_W - x1) * z,
+		math.max(0, y0) * z, math.max(0, CARD_H - y1) * z)
 	cropTexture()
+	replaceMarkers(old, z)
 	sortBy()
 end
 
 -- Back to the whole map. After a mode change, the client and WorldMap.lua have just set
--- their own scales and anchors: only frames still carrying our scale are restored.
+-- their own anchors: the map's is kept then.
 function Z.reset(isModeChange)
 	if not Z.active then
 		Z.z = 1
 		return
 	end
-	local zoomed = frameScales()
+	local old = Z.z
 	Z.z = 1
-	local restore = frameScales()
-	for i, e in ipairs(zoomed) do
-		if e[1] and math.abs(e[1]:GetScale() - e[2]) < 1e-6 then
-			e[1]:SetScale(restore[i][3])
-		end
-	end
 	Z.active = false
+	enlarge()
 	local d = WorldMapDetailFrame
 	if not isModeChange and Z.points then
 		d:ClearAllPoints()
@@ -240,6 +326,8 @@ function Z.reset(isModeChange)
 	WorldMapButton:EnableMouse(true)
 	Z.pressPoint, Z.dragging = nil, false
 	rechainTiles()
+	restoreOverlays()
+	replaceMarkers(old, 1)
 	restoreChildren()
 	Z.cx, Z.cy = 0.5, 0.5
 end
@@ -254,7 +342,7 @@ local function pointUnderCursor()
 	if not cx then return nil end
 	local ce = c:GetEffectiveScale()
 	local dx, dy = x - cx * ce, y - cy * ce
-	local de = WorldMapDetailFrame:GetEffectiveScale()
+	local de = pixelsPerUnit()
 	return Z.cx + dx / (CARD_W * de), Z.cy - dy / (CARD_H * de), dx, dy, de
 end
 
@@ -278,7 +366,7 @@ function Z.wheel(direction)
 		Z.cx = fx - dx / (CARD_W * de2)
 		Z.cy = fy + dy / (CARD_H * de2)
 	end
-	Z.apply()
+	Z.apply(old)
 end
 
 -- --------------------------------------------------------------- Watcher
@@ -315,7 +403,7 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
 				WorldMapButton:EnableMouse(false)
 			end
 			if Z.dragging then
-				local de = WorldMapDetailFrame:GetEffectiveScale()
+				local de = pixelsPerUnit()
 				Z.cx = pressPoint.cx - (x - pressPoint.x) / (CARD_W * de)
 				Z.cy = pressPoint.cy + (y - pressPoint.y) / (CARD_H * de)
 				Z.apply()
@@ -347,8 +435,8 @@ if WorldMapButton then
 			Z.dragging = false
 		end
 	end)
-	-- Player arrow: WorldMapButton_OnUpdate places it at the WotLK scale (position x
-	-- WORLDMAP_SETTINGS.size); place it again x zoom, or hide it out of the view
+	-- Player arrow: WorldMapButton_OnUpdate places it (position x the map's width x
+	-- WORLDMAP_SETTINGS.size); place it again, or hide it out of the view
 	WorldMapButton:HookScript("OnUpdate", function()
 		if not Z.active then return end
 		local x, y = GetPlayerMapPosition("player")
@@ -368,10 +456,14 @@ if WorldMapFrame then
 	WorldMapFrame:HookScript("OnHide", function() Z.reset(false) end)
 end
 
--- WorldMapFrame_Update reloads the tiles (WORLD_MAP_UPDATE): crop them again while zoomed
+-- WorldMapFrame_Update reloads the tiles and lays out the explored areas again
+-- (WORLD_MAP_UPDATE): crop them again while zoomed
 if WorldMapFrame_Update then
 	hooksecurefunc("WorldMapFrame_Update", function()
-		if Z.active then cropTexture() end
+		if Z.active then
+			recordOverlays()
+			cropTexture()
+		end
 	end)
 end
 
