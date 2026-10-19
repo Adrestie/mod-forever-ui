@@ -93,14 +93,10 @@ local function readIndoors()
 	reading = false
 end
 
--- Minimap units per yard. The diameters above are those of the client's 140 x 140 minimap shown
--- at its size; the engine sizes the terrain from the minimap's size on screen, so ForeverUI's
--- (140 units at scale 198 / 140, Minimap.lua) shows that many yards over fewer of its own
--- units: seen in game, POIs drew too close to the player by 140 / 198.
+-- Minimap units per yard: the diameters are those of the minimap's 140 units, whatever its scale
 local function unitsPerYard()
 	local diameter = (indoors and INDOOR or OUTDOOR)[Minimap:GetZoom() or 0] or OUTDOOR[0]
-	local onScreen = Minimap:GetEffectiveScale() / UIParent:GetEffectiveScale()
-	return Minimap:GetWidth() * onScreen / diameter
+	return Minimap:GetWidth() / diameter
 end
 
 local function rotating()
