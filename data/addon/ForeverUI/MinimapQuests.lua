@@ -32,6 +32,7 @@ local AREA_WAIT = 0.05           -- the strips are drawn again at most twenty ti
 local PROBE_ALPHA = 1            -- out of 255
 local PROBE_W, PROBE_H = 1002, 668        -- the world map's size (WorldMapBlobFrame)
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
+local POI_LEVEL = 4              -- above the strips (ScrollFrame, its child, the area frame)
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
 local ARROW_SIZE = 18
 local ARROW_RADIUS_INSET = 7
@@ -169,10 +170,10 @@ local function build()
 		strips[i] = { clip = clip, child = child, blob = blob, half = half, top = top, height = height,
 			drawn = {} }
 	end
-	-- Areas and POIs above the terrain, under the ring: the ring (MinimapBackdrop, Minimap.lua) and
-	-- the buttons it carries go above the strips (holder + 1 to + 3); the edge arrows above the ring
+	-- Above the terrain: the strips (holder + 1 to + 3), the POIs over them (+ 4), then the ring
+	-- (MinimapBackdrop, Minimap.lua) and the buttons it carries, then the edge arrows
 	local backdrop = _G["MinimapBackdrop"]
-	local ringLevel = holder:GetFrameLevel() + 4
+	local ringLevel = holder:GetFrameLevel() + POI_LEVEL + 2
 	if backdrop and backdrop:GetFrameLevel() < ringLevel then
 		backdrop:SetFrameLevel(ringLevel)
 		for _, c in ipairs({ backdrop:GetChildren() }) do
@@ -380,6 +381,7 @@ local function update(elapsed)
 			local b = QuestPOI_DisplayButton(PARENT, m.type, m.index, m.questId)
 			b:SetScale(POI_SCALE)
 			b:EnableMouse(false)
+			b:SetFrameLevel(holder:GetFrameLevel() + POI_LEVEL)
 			b:ClearAllPoints()
 			b:SetPoint("CENTER", holder, "CENTER", sx / POI_SCALE, sy / POI_SCALE)
 			shownPOIs[b], keptPOIs[b] = true, true
