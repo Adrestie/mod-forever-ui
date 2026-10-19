@@ -161,9 +161,16 @@ end
 
 -- The tracked quests on the shown map, with the tracker's numbers: the objective tracker
 -- (ObjectiveTracker.lua) numbers its POIs as WatchFrame does, in WatchFrameLines
-local function collect()
+local function collect(readAgain)
 	wipe(markers)
 	if not (QuestPOIGetIconInfo and GetQuestIndexForWatch) then return end
+	-- the POIs as they are now: an objective done moves its quest's POI, a quest done turns it
+	-- into its turn-in (WatchFrame_GetCurrentMapQuests does the same before reading them)
+	-- Not on QUEST_POI_UPDATE or WORLD_MAP_UPDATE: reading them again may fire those.
+	if readAgain then
+		if QuestMapUpdateAllQuests then QuestMapUpdateAllQuests() end
+		if QuestPOIUpdateIcons then QuestPOIUpdateIcons() end
+	end
 	for i = 1, (GetNumQuestWatches and GetNumQuestWatches()) or 0 do
 		local index = GetQuestIndexForWatch(i)
 		if index then
@@ -379,8 +386,8 @@ end
 
 -- ---------------------------------------------------------------- events
 
-local function refresh()
-	collect()
+local function refresh(readAgain)
+	collect(readAgain)
 	local key = {}
 	for _, m in ipairs(markers) do key[#key + 1] = m.questId .. (m.complete and "c" or "") end
 	drawBlobs((GetCurrentMapAreaID and GetCurrentMapAreaID() or 0) .. ":" ..
@@ -406,7 +413,7 @@ watcher:SetScript("OnEvent", function(_, event)
 		and SetMapToCurrentZone then
 		SetMapToCurrentZone()
 	end
-	refresh()
+	refresh(event == "QUEST_LOG_UPDATE")
 end)
 
 -- Quest watches change without an event of their own
@@ -416,7 +423,17 @@ if hooksecurefunc then
 	end
 end
 
-watcher:SetScript("OnUpdate", function()
+-- Once a second the quests are read again: the client does not always say when a POI moves
+local RECHECK = 1
+local wait = RECHECK
+watcher:SetScript("OnUpdate", function(_, elapsed)
+	wait = wait - elapsed
+	if wait <= 0 then
+		wait = RECHECK
+		if minimapReady() and (#markers > 0 or (GetNumQuestWatches and GetNumQuestWatches() > 0)) then
+			refresh(true)
+		end
+	end
 	if #markers > 0 then
 		update()
 		hover()
