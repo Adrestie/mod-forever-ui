@@ -262,22 +262,3 @@ ForeverUI.StatusBarsLayout = function()
 	updateExperience()
 	updateReputation()
 end
-
-ForeverUI.StatusBarsDebug = function()
-	local rowLine = ForeverUI.BottomRow or {}
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"|cff66ccffForeverUI|r " .. L.STATUSBARS_DEBUG,
-		rowLine.left or 0, rowLine.right or 0, tostring(rowLine.top),
-		experience:GetWidth(),
-		tostring(experience:IsShown()), tostring(select(5, experience:GetPoint(1))),
-		tostring(reputation:IsShown()), tostring(select(5, reputation:GetPoint(1)))))
-	-- what decides the reputation's place: level, the client's max level, XP to earn, default
-	-- place, saved place
-	local system = ForeverUI.Layout.systems["reputationbar"]
-	local saved = ForeverUIDB and ForeverUIDB.positions and ForeverUIDB.positions["reputationbar"]
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"|cff66ccffForeverUI|r " .. L.STATUSBARS_DEBUG_STATE,
-		tostring(UnitLevel("player")), tostring(MAX_PLAYER_LEVEL), tostring(UnitXPMax("player")),
-		tostring(system and system.defaults and system.defaults.y), tostring(saved and saved.y),
-		tostring(reputation.IsUserPlaced and reputation:IsUserPlaced())))
-end

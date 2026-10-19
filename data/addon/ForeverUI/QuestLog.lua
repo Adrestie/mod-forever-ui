@@ -2215,19 +2215,3 @@ listener:SetScript("OnEvent", function(_, event)
 end)
 
 build()
-
-ForeverUI.QuestLogDebug = function()
-	local v = J.pane
-	local prefix = "|cff66ccffForeverUI|r "
-	if not v then
-		DEFAULT_CHAT_FRAME:AddMessage(prefix .. L.QUESTLOG_DEBUG_NOT_BUILT)
-		return
-	end
-	local headers, quests = 0, 0
-	for _, f in ipairs(v.headers) do if f:IsShown() then headers = headers + 1 end end
-	for _, f in ipairs(v.quests) do if f:IsShown() then quests = quests + 1 end end
-	DEFAULT_CHAT_FRAME:AddMessage(prefix .. string.format(
-		L.QUESTLOG_DEBUG_STATE,
-		v:IsShown() and L.QUESTLOG_DEBUG_OPEN or L.QUESTLOG_DEBUG_CLOSED, v:GetWidth(), v:GetHeight(), headers, quests,
-		tostring(R.text), tostring(settings().objectives)))
-end

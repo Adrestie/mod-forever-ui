@@ -606,25 +606,6 @@ end
 
 ForeverUI.SkillsTab = { Build = build, BuildRight = buildDetail, Rows = rows }
 
--- Debug output: /fui skills.
-function ForeverUI.SkillsDebug()
-	local say = function(text)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text)
-	end
-
-	local total = (GetNumSkillLines and GetNumSkillLines()) or 0
-	say(string.format(L.SKILLSTAB_DEBUG_SUMMARY,
-		total, offset, visibleCount, tostring(selectedItem)))
-	for rank = 1, total do
-		local d = readSkill(rank)
-		if d then
-			DEFAULT_CHAT_FRAME:AddMessage(string.format(
-				L.SKILLSTAB_DEBUG_ROW,
-				rank, d.name, tostring(d.header), tostring(d.collapsed), d.text))
-		end
-	end
-end
-
 -- The client rebuilds its list in SkillFrame_UpdateSkills: run after it.
 if hooksecurefunc and type(_G["SkillFrame_UpdateSkills"]) == "function" then
 	hooksecurefunc("SkillFrame_UpdateSkills", layoutList)

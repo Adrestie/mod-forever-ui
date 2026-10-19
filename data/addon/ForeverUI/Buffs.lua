@@ -602,18 +602,3 @@ end)
 B.watcher = watcher
 
 B.update()
-
--- /fui buffs: prints the state of both bars.
-function ForeverUI.BuffsDebug()
-	local say = function(t) DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. t) end
-	local f = B.buffs
-	local shownItems = 0
-	for _, b in ipairs(f.buttons) do if b:IsShown() then shownItems = shownItems + 1 end end
-	say(string.format(L.BUFFS_DEBUG_BUFFS,
-		B.unit(), #f.auras, f.hideableCount or 0, shownItems, f.collapse:IsShown() and L.BUFFS_DEBUG_VISIBLE or L.BUFFS_DEBUG_HIDDEN, tostring(B.expanded),
-		f.consolidated:IsShown() and L.BUFFS_DEBUG_VISIBLE or L.BUFFS_DEBUG_HIDDEN, f.consolidated.count or 0, tostring(durations())))
-	local d = B.debuffs
-	local types = {}
-	for _, info in ipairs(d.auras) do table.insert(types, tostring(info.debuffType or NONE)) end
-	say(string.format(L.BUFFS_DEBUG_DEBUFFS, #d.auras, table.concat(types, ", ")))
-end

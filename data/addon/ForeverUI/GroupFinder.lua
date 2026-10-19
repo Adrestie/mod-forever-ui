@@ -1656,28 +1656,3 @@ if F.frame then
 		return z
 	end)
 end
-
--- Debug report: /fui finder
-function ForeverUI.GroupFinderDebug()
-	local say = function(t) DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. t) end
-	if not F.frame then
-		say(L.GROUPFINDER_DEBUG_NOT_BUILT)
-		return
-	end
-	say(string.format(L.GROUPFINDER_DEBUG_STATE,
-		tostring(F.view), tostring(LFDQueueFrame.type), tostring(GetLFGMode()),
-		LFDDungeonList and #LFDDungeonList or 0, F.frame:IsShown() and L.GROUPFINDER_DEBUG_SHOWN or L.GROUPFINDER_DEBUG_HIDDEN,
-		F.frame:GetFrameLevel(), tostring(LFDQueueFrame:GetAlpha()), LFDQueueFrame:GetFrameLevel()))
-	-- raid browser: the current search and what was recorded for each raid (R.hidden)
-	local R = ForeverUI.GroupFinderRaid
-	if R and R.hidden then
-		local r = R.search
-		say(string.format(L.GROUPFINDER_DEBUG_RAID,
-			r and r.name or L.GROUPFINDER_DEBUG_NONE, tostring(SearchLFGGetJoinedID and SearchLFGGetJoinedID())))
-		for _, id in ipairs(r and r.ids or {}) do
-			local info = LFGGetDungeonInfoByID and LFGGetDungeonInfoByID(id)
-			say(string.format(L.GROUPFINDER_DEBUG_RAID_ENTRY, info and info[1] or "?", id,
-				R.hidden[id] and #R.hidden[id] or L.GROUPFINDER_DEBUG_NOTHING))
-		end
-	end
-end

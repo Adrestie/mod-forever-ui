@@ -381,18 +381,6 @@ ForeverUI.PlayerFrameSetArt = function(normalAtlas)
 	end
 end
 
--- /fui debug: prints what the client really returns, to tune the glow on observed values.
-ForeverUI.PlayerFrameDebug = function()
-	local status = UnitThreatSituation and UnitThreatSituation("player")
-	local target = UnitExists("target") and UnitName("target") or L.PLAYERFRAME_DEBUG_NO_TARGET
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"|cff66ccffForeverUI|r " .. L.PLAYERFRAME_DEBUG,
-		tostring(frame.inCombat), tostring(frame.onHateList), tostring(status), target,
-		tostring(UnitExists("target") and UnitCanAttack("player", "target") or false),
-		tostring(UnitIsUnit("targettarget", "player")),
-		tostring(threatGlow:IsShown()), threatGlow:GetAlpha()))
-end
-
 frame:SetScript("OnEnter", function(self)
 	self.hovered = true
 	updateTexts()

@@ -480,25 +480,6 @@ end)
 skinAll()
 layoutButtons()
 
-ForeverUI.ActionBarDebug = function()
-	local button = _G["ActionButton1"]
-	if not button then
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r : " .. L.ACTIONBAR_BUTTON1_MISSING)
-		return
-	end
-
-	local point, relativeTo, _, x, y = button:GetPoint(1)
-	local normal = button:GetNormalTexture()
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"|cff66ccffForeverUI|r " .. L.ACTIONBAR_DEBUG,
-		button:GetWidth(), button:GetHeight(),
-		tostring(button:GetParent() and button:GetParent():GetName() or "?"),
-		tostring(point), tostring(relativeTo and relativeTo:GetName() or "?"), x or 0, y or 0,
-		tostring(button:IsShown()),
-		tostring(button.foreverFrame and button.foreverFrame:GetTexture() or NONE),
-		normal and normal:GetAlpha() or -1))
-end
-
 ForeverUI.ActionBarHolder = holder
 ForeverUI.ActionBarBorder = border
 ForeverUI.ActionBarEndCaps = { left = leftCap, right = rightCap, inset = END_CAP_INSET, drop = END_CAP_DROP,

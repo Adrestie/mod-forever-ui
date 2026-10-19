@@ -1776,20 +1776,3 @@ if S.book then
 		S.mark()
 	end)
 end
-
--- Print the book's size, mode and state to the chat.
-ForeverUI.SpellBookDebug = function()
-	local prefix = "|cff66ccffForeverUI|r "
-	if not S.book then
-		DEFAULT_CHAT_FRAME:AddMessage(prefix .. L.SPELLBOOK_DEBUG_NOT_BUILT)
-		return
-	end
-	local cats = categories()
-	local e = S.state
-	local names = {}
-	for _, c in ipairs(cats) do table.insert(names, c.name .. " (" .. c.count .. ")") end
-	DEFAULT_CHAT_FRAME:AddMessage(prefix .. string.format(
-		L.SPELLBOOK_DEBUG_STATE,
-		S.book:GetWidth(), S.book:GetHeight(), settings().reduced and L.SPELLBOOK_DEBUG_ONE_PAGE or L.SPELLBOOK_DEBUG_TWO_PAGES,
-		e.category, #cats, e.page, e.pages or 1, table.concat(names, ", ")))
-end

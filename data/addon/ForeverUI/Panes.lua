@@ -211,23 +211,3 @@ function Panes.Refresh()
 	end
 end
 
--- Debug report: what each host shows and owns.
-function Panes.Report()
-	local rows = {}
-	for _, name in ipairs(hostOrder) do
-		local host = hosts[name]
-		local pages = {}
-		for _, id in ipairs(host.order) do
-			local content = host.contents[id]
-			if content.group == host.group then
-				pages[#pages + 1] = string.format(L.PANES_REPORT_PAGE, id,
-					#content.frames, content.built and "" or L.PANES_REPORT_NEVER_BUILT)
-			end
-		end
-		rows[#rows + 1] = string.format(
-			L.PANES_REPORT_LINE,
-			name, tostring(host.group), tostring(host.current),
-			tostring(host.displayed), table.concat(pages, ", "))
-	end
-	return rows
-end

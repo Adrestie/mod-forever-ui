@@ -900,51 +900,6 @@ listRecheck:SetScript("OnUpdate", function(self)
     ForeverUI.EquipmentSetsLayout()
 end)
 
--- /fui sets: prints the client's sets, the saved order and the displayed cards, to show where
--- they disagree.
-function ForeverUI.EquipmentSetsDebug()
-	local say = function(text)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text)
-	end
-
-	local total = (GetNumEquipmentSets and GetNumEquipmentSets()) or 0
-	local names = {}
-	for index = 1, total do
-		local name, icon = GetEquipmentSetInfo(index)
-		names[#names + 1] = string.format("%d=%s(%s)", index, tostring(name), tostring(icon))
-	end
-	say(string.format(L.EQUIPMENTMANAGER_DEBUG_SETS, total,
-		table.concat(names, ", ")))
-
-	say(L.EQUIPMENTMANAGER_DEBUG_KEPT_ORDER .. table.concat(savedOrder(), ", "))
-
-	local ranks = {}
-	for position, index in ipairs(orderedSets()) do
-		ranks[#ranks + 1] = string.format("%d<-%d", position, index)
-	end
-	say(L.EQUIPMENTMANAGER_DEBUG_PLACED_ORDER .. table.concat(ranks, ", "))
-	say(string.format(L.EQUIPMENTMANAGER_DEBUG_SCROLL,
-		offset, visibleCards(), (panel and panel:IsShown()) and L.EQUIPMENTMANAGER_DEBUG_OPEN or L.EQUIPMENTMANAGER_DEBUG_CLOSED))
-	say(string.format(L.EQUIPMENTMANAGER_DEBUG_WORN,
-		tostring(characterSets().equipped), tostring(editSession and editSession.old)))
-
-	local dialog = _G["GearManagerDialog"]
-	if not dialog or not dialog.buttons then
-		say(L.EQUIPMENTMANAGER_DEBUG_NO_DIALOG)
-		return
-	end
-	for index, button in ipairs(dialog.buttons) do
-		if button.name and button.name ~= "" or button:IsShown() then
-			local anchor = button:GetPoint(1)
-			DEFAULT_CHAT_FRAME:AddMessage(string.format(
-				L.EQUIPMENTMANAGER_DEBUG_CARD,
-				index, tostring(button.name), tostring(button:IsShown()),
-				tostring(anchor),
-				tostring(button.foreverCheck and button.foreverCheck:IsShown())))
-		end
-	end
-end
-
 function ForeverUI.EquipmentSetsRefresh()
     -- Forget the known state so the next poll lays out the list, whenever the client is done.
     ForeverUI.EquipmentSetsForget()

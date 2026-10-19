@@ -304,25 +304,3 @@ listener:SetScript("OnEvent", function(_self, event, unit)
 	end
 	update()
 end)
-
--- Debug report: /fui titles.
-function ForeverUI.TitlesDebug()
-	local say = function(t)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. t)
-	end
-	local list = readTitles()
-	say(string.format(L.TITLES_DEBUG_SUMMARY, #list - 1, tostring(wornTitle()),
-		offset, panel and fitCount() or 0))
-	local names = {}
-	for index = 1, math.min(#list, 8) do
-		names[#names + 1] = string.format("%s(%d)", list[index].name,
-			list[index].id)
-	end
-	say("   " .. table.concat(names, ", "))
-	for _, name in ipairs(CLIENT_MENU) do
-		local frame = _G[name]
-		say(string.format("   %s : %s", name,
-			frame and (frame:IsShown() and L.TITLES_DEBUG_VISIBLE or L.TITLES_DEBUG_HIDDEN)
-			or L.TITLES_DEBUG_ABSENT))
-	end
-end

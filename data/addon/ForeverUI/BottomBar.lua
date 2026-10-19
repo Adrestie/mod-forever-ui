@@ -952,50 +952,6 @@ watcher:SetScript("OnEvent", function()
 	layoutAll()
 end)
 
--- /fui micro: prints each button's anchor, then for five seconds what the cursor hits.
--- Outside a vehicle (where they are anchored to VehicleMenuBar, scaled), an anchor other than
--- ForeverUIMicroMenu, or an offset that is not a multiple of the pitch, means something moved
--- the buttons (in 3.3.5 only VehicleMenuBar_MoveMicroButtons does, but another addon could).
--- GetMouseFocus shows which frame really gets the click.
-function ForeverUI.MicroDebug()
-	local say = function(text)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text)
-	end
-
-	say(string.format(L.BOTTOMBAR_MICRO_DEBUG,
-		#microButtons, micro:GetWidth() or 0, micro:GetHeight() or 0, MICRO_PITCH))
-
-	for index, entry in ipairs(microButtons) do
-		local button = entry.button
-		local point, target, _, x, y = button:GetPoint(1)
-		DEFAULT_CHAT_FRAME:AddMessage(string.format(
-			"   " .. L.BOTTOMBAR_MICRO_BUTTON,
-			index, button:GetName() or "?", tostring(point),
-			tostring(target and target.GetName and target:GetName()),
-			tostring(x), tostring(y), button:GetWidth() or 0, button:GetHeight() or 0,
-			(index - 1) * MICRO_PITCH,
-			tostring(button:IsShown()), tostring(button:IsEnabled()),
-			button:GetFrameLevel() or 0, button:GetNumPoints() or 0))
-	end
-
-	-- For five seconds, report what the cursor really hits.
-	local watcher = CreateFrame("Frame")
-	local rest, last = 5, nil
-	watcher:SetScript("OnUpdate", function(self, elapsed)
-		rest = rest - (elapsed or 0)
-		local sub = GetMouseFocus and GetMouseFocus()
-		local name = sub and sub.GetName and sub:GetName() or L.BOTTOMBAR_NOTHING
-		if name ~= last then
-			last = name
-            DEFAULT_CHAT_FRAME:AddMessage("   " .. L.BOTTOMBAR_UNDER_CURSOR .. name)
-		end
-		if rest <= 0 then
-			self:SetScript("OnUpdate", nil)
-		end
-	end)
-	say(L.BOTTOMBAR_HOVER_PROMPT)
-end
-
 -- Pure containers do not take the mouse. MainMenuBar is enableMouse=true and covers the
 -- whole bottom of the screen, so it swallows clicks meant for the buttons. Its children
 -- (action buttons, micro buttons) keep their mouse.
@@ -1009,13 +965,3 @@ end
 ForeverUI.MicroButtons = microButtons
 ForeverUI.BagsCells = cells
 ForeverUI.BagsDividers = separators
-
-ForeverUI.BottomBarDebug = function()
-	local point, _, relativePoint, x, y = bags:GetPoint(1)
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"|cff66ccffForeverUI|r " .. L.BOTTOMBAR_DEBUG,
-		micro:GetWidth(), micro:GetHeight(), #microButtons,
-		bags:GetWidth(), bags:GetHeight(),
-		tostring(point), tostring(relativePoint), x or 0, y or 0,
-		tostring(KeyRingButton and KeyRingButton:IsShown())))
-end

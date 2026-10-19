@@ -516,31 +516,3 @@ listener:SetScript("OnEvent", function(_, event, unit)
     updatePreview()
     updateDetail()
 end)
-
--- Debug report: /fui pet.
-function ForeverUI.PetDebug()
-    local say = function(text)
-        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text)
-    end
-
-    say(string.format(L.PETTAB_DEBUG_PET,
-        tostring(HasPetUI and HasPetUI()),
-        tostring(UnitExists and UnitExists("pet")),
-        tostring(UnitLevel and UnitLevel("pet")),
-        tostring(UnitName and UnitName("pet")),
-        tostring(UnitCreatureFamily and UnitCreatureFamily("pet"))))
-
-    for _, data in ipairs(readGeneral()) do
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("   %-18s %s",
-            data.name, tostring(data.value)))
-    end
-    for _, data in ipairs(readResistances()) do
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("   %-18s %s",
-            data.name, tostring(data.value)))
-    end
-
-    local model = _G["PetModelFrame"]
-    say(string.format(L.PETTAB_DEBUG_PREVIEW,
-        tostring(model and model:IsShown()),
-        tostring(detail and detail:IsShown())))
-end

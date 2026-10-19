@@ -874,30 +874,3 @@ listener:SetScript("OnEvent", function(self, event, arg1)
 		end
 	end
 end)
-
--- /fui arena: what the client returns for the three team slots.
-function ForeverUI.PvPArenaDebug()
-	local say = function(t)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. t)
-	end
-	say(string.format(L.PVPARENA_DEBUG_SEASON,
-		tostring(GetCurrentArenaSeason and GetCurrentArenaSeason()),
-		tostring(GetPreviousArenaSeason and GetPreviousArenaSeason()),
-		tostring(GetArenaCurrency and GetArenaCurrency())))
-	for i = 1, MAX_TEAMS do
-		local e = readTeam(i)
-		if e.name then
-			say(string.format(L.PVPARENA_DEBUG_TEAM,
-				i, e.name, e.size or 0, e.size or 0, tostring(e.side),
-				tostring(e.wins), tostring(e.played), tostring(e.playerPlayed),
-				tostring(e.seasonWins), tostring(e.seasonPlayed),
-				tostring(e.edge), tostring(e.emblem)))
-		else
-			say(string.format(L.PVPARENA_DEBUG_NO_TEAM, i))
-		end
-	end
-	if window then
-		say(string.format(L.PVPARENA_DEBUG_DETAIL,
-			tostring(window:IsShown()), tostring(window.team), tostring(window.season)))
-	end
-end

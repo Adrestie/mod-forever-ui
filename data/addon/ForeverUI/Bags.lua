@@ -6,7 +6,6 @@
 -- Bag window settings, from ContainerFrameMixin (mainline/containerframe.lua).
 -- Height = rows x slot + (rows - 1) x cellGap + GetPaddingHeight() + CalculateExtraHeight(),
 -- so the window follows its contents; the width is the constant CONTAINER_WIDTH.
--- /fui bags prints computed and actual sizes; /fui bags <key> <value> tries a value.
 local R = {
 	-- Grid
 	slot = 37,       -- ContainerFrameItemButtonTemplate
@@ -998,11 +997,6 @@ local function layoutGrid(frame)
 		ForeverUI.UpdatePanelCorners(frame)
 	end
 
-	-- Read the height back at once, for /fui bags: a wrong read-back means the frame's anchors
-	-- set its height; a right one that later differs means something resizes it after us.
-	frame.foreverRequested = m.height
-	frame.foreverReadBack = frame:GetHeight()
-
 	-- UpdateCurrencyFrames(): the currency strip takes the bottom, the purse sits on it and the
 	-- grid hangs on the purse. Without watched currencies the purse takes the bottom.
 	if m.isBackpack and purse then
@@ -1329,115 +1323,7 @@ function ForeverUI.BagsApply()
 		layoutGrid(frame)
 	end
 	layoutTools()
-	-- R.scale (/fui bags scale) reaches the frames through the stacking
+	-- R.scale reaches the frames through the stacking
 	layoutBags()
 	Search.All()
-end
-
--- /fui bags: for each open bag, the computed size and the frame's actual size. A mismatch
--- means something resizes the frame after us.
-ForeverUI.BagsDebug = function()
-	local openCount = 0
-	for _, frame in ipairs(frames) do
-		if frame:IsShown() and (frame.size or 0) > 0 then
-			openCount = openCount + 1
-			local name = frame:GetName()
-			local m = measure(frame)
-			local actualW, actualH = frame:GetWidth(), frame:GetHeight()
-			local sizeMatch = (math.abs(actualH - m.height) < 0.5)
-				and (math.abs(actualW - m.width) < 0.5)
-
-			DEFAULT_CHAT_FRAME:AddMessage(string.format(
-				"|cff66ccffForeverUI|r " .. L.BAGS_DEBUG_FRAME,
-				name, frame:GetID(), frame.size or 0, m.rowLines))
-			DEFAULT_CHAT_FRAME:AddMessage(string.format(
-				"   " .. L.BAGS_DEBUG_SIZE,
-				m.width, m.height, m.grid, m.overhead, m.extra, actualW, actualH,
-				sizeMatch and ("|cff44ff44" .. L.BAGS_DEBUG_MATCH .. "|r") or ("|cffff4444" .. L.BAGS_DEBUG_MISMATCH .. "|r")))
-
-			if not sizeMatch then
-				-- The read-back tells which of the two cases it is.
-				DEFAULT_CHAT_FRAME:AddMessage(string.format(
-					"   " .. L.BAGS_DEBUG_WITNESS,
-					tostring(frame.foreverRequested), tostring(frame.foreverReadBack),
-					tostring(frame.foreverUndoCount or 0),
-					(frame.foreverReadBack and frame.foreverRequested
-						and math.abs(frame.foreverReadBack - frame.foreverRequested) < 0.5)
-						and ("|cffff4444" .. L.BAGS_DEBUG_RESIZED_AFTER .. "|r")
-						or ("|cffff4444" .. L.BAGS_DEBUG_ANCHORS_FORCE .. "|r")))
-
-				local rows = string.format("   " .. L.BAGS_DEBUG_ANCHORS, frame:GetNumPoints())
-				for index = 1, frame:GetNumPoints() do
-					local point, target, targetPoint, x, y = frame:GetPoint(index)
-					rows = rows .. string.format(L.BAGS_DEBUG_ANCHOR,
-						tostring(point), tostring(targetPoint),
-						target and (target.GetName and target:GetName() or "?") or L.BAGS_DEBUG_SCREEN,
-						x or 0, y or 0)
-				end
-				DEFAULT_CHAT_FRAME:AddMessage(rows)
-			end
-		end
-	end
-
-	if openCount == 0 then
-		DEFAULT_CHAT_FRAME:AddMessage(
-			"|cff66ccffForeverUI|r " .. L.BAGS_DEBUG_NO_BAG_OPEN)
-	end
-
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"   " .. L.BAGS_DEBUG_SKINNED,
-		#frames, R.slot, tostring(field:IsShown())))
-
-	-- Watched currencies: what the client gives and what is shown. The client strip must be hidden.
-	local tracked = readTokens()
-	local names = {}
-	for _, token in ipairs(tracked) do
-		names[#names + 1] = string.format("%s=%s", token.name, tostring(token.count))
-	end
-	local segment = _G["ForeverUIBagTokens"]
-	local old = _G["BackpackTokenFrame"]
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"   " .. L.BAGS_DEBUG_TOKENS, #tracked, MAX_WATCHED_TOKENS or 3,
-		(#names > 0) and table.concat(names, ", ") or L.BAGS_DEBUG_NONE))
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"   " .. L.BAGS_DEBUG_SEGMENT,
-		tostring(segment and segment:IsShown()),
-		tostring(old and old:IsShown())))
-
-	-- All settings, sorted by name, so the list stays complete when settings change.
-	local keys = {}
-	for key in pairs(R) do
-		table.insert(keys, key)
-	end
-	table.sort(keys)
-	local row = ""
-	for _, key in ipairs(keys) do
-		row = row .. string.format("%s=%s  ", key, tostring(R[key]))
-		if string.len(row) > 80 then
-			DEFAULT_CHAT_FRAME:AddMessage("   " .. row)
-			row = ""
-		end
-	end
-	if row ~= "" then
-		DEFAULT_CHAT_FRAME:AddMessage("   " .. row)
-	end
-end
-
--- Changes a setting in game, to try it before fixing it in R.
--- key: name in R; value: new number
-function ForeverUI.BagsSet(key, value)
-	if R[key] == nil then
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. L.BAGS_UNKNOWN_SETTING .. tostring(key))
-		return false
-	end
-	local count = tonumber(value)
-	if not count then
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. L.BAGS_NUMBER_EXPECTED)
-		return false
-	end
-	R[key] = count
-	ForeverUI.BagsApply()
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(
-		"|cff66ccffForeverUI|r " .. L.BAGS_SET, key, tostring(count)))
-	return true
 end

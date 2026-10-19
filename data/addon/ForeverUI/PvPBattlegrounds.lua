@@ -437,31 +437,3 @@ listener:SetScript("OnEvent", function(self, event)
 		B.update()
 	end
 end)
-
--- Debug: /fui bg. Prints what the client returns for the list and the queues.
-function ForeverUI.PvPBattlegroundsDebug()
-	local say = function(t)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. t)
-	end
-	for i = 1, GetNumBattlegroundTypes() do
-		local name, canEnter, holiday, random, id = GetBattlegroundInfo(i)
-		say(string.format(L.PVPBATTLEGROUNDS_DEBUG_ROW, i,
-			tostring(name), tostring(canEnter), tostring(holiday), tostring(random),
-			tostring(id), (i == selected) and L.PVPBATTLEGROUNDS_DEBUG_SELECTED or ""))
-	end
-	local mapName, _, maxGroupSize = GetBattlefieldInfo()
-	say(string.format(L.PVPBATTLEGROUNDS_DEBUG_INFO, tostring(mapName), tostring(maxGroupSize)))
-	say(string.format(L.PVPBATTLEGROUNDS_DEBUG_BONUSES,
-		table.concat({ tostring((select(2, GetRandomBGHonorCurrencyBonuses()))),
-			tostring((select(3, GetRandomBGHonorCurrencyBonuses()))),
-			tostring((select(4, GetRandomBGHonorCurrencyBonuses()))),
-			tostring((select(5, GetRandomBGHonorCurrencyBonuses()))) }, "/"),
-		table.concat({ tostring((select(2, GetHolidayBGHonorCurrencyBonuses()))),
-			tostring((select(3, GetHolidayBGHonorCurrencyBonuses()))),
-			tostring((select(4, GetHolidayBGHonorCurrencyBonuses()))),
-			tostring((select(5, GetHolidayBGHonorCurrencyBonuses()))) }, "/")))
-	for i = 1, (MAX_BATTLEFIELD_QUEUES or 3) do
-		local status, queueName = GetBattlefieldStatus(i)
-		say(string.format(L.PVPBATTLEGROUNDS_DEBUG_QUEUE, i, tostring(status), tostring(queueName)))
-	end
-end

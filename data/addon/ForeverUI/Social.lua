@@ -1147,21 +1147,3 @@ if S.frame then
 		if S.frame:IsVisible() and (FriendsFrame.selectedTab or 1) == 1 then S.update() end
 	end)
 end
-
--- Debug: /fui social
-function ForeverUI.SocialDebug()
-	local say = function(t) DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. t) end
-	if not S.frame then
-		say(L.SOCIAL_DEBUG_NOT_BUILT)
-		return
-	end
-	local total, online = GetNumFriends()
-	say(string.format(L.SOCIAL_DEBUG_STATE,
-		tostring(FriendsFrame.selectedTab), tostring(S.subTab()),
-		tostring(S.frame:IsShown()), tostring(FriendsFrame:IsMouseEnabled())))
-	say(string.format(L.SOCIAL_DEBUG_FRIENDS,
-		tostring(total), tostring(online), tostring(GetSelectedFriend()), tostring(GetNumIgnores()),
-		tostring(GetSelectedIgnore())))
-	say(string.format(L.SOCIAL_DEBUG_LIST,
-		#(S.content or {}), S.visibleCount or 0, S.offset or 0))
-end

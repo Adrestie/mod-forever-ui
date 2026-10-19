@@ -1239,20 +1239,3 @@ end
 T.build = build
 
 build()
-
-ForeverUI.ObjectiveTrackerDebug = function()
-	local prefix = "|cff66ccffForeverUI|r "
-	if not T.header then
-		DEFAULT_CHAT_FRAME:AddMessage(prefix .. L.OBJECTIVETRACKER_DEBUG_NOT_BUILT)
-		return
-	end
-	local n = 0
-	for _ in pairs(T.quests.blocks) do n = n + 1 end
-	local a = 0
-	for _ in pairs(T.achievements.blocks) do a = a + 1 end
-	DEFAULT_CHAT_FRAME:AddMessage(prefix .. string.format(
-		L.OBJECTIVETRACKER_DEBUG_STATE,
-		WatchFrame:GetWidth(), WatchFrame:GetHeight(), tostring(WatchFrame.collapsed), tostring(T.header:IsShown()),
-		n, tostring(T.quests:IsShown()), a, tostring(T.achievements:IsShown()), #WATCHFRAME_OBJECTIVEHANDLERS,
-		tostring(WATCHFRAME_SORT_TYPE), tostring(WATCHFRAME_FILTER_TYPE)))
-end

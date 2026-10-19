@@ -742,32 +742,3 @@ if hooksecurefunc and type(_G["TokenFrame_Update"]) == "function" then
 		layoutList()
 	end)
 end
-
--- /fui currency: prints what the client returns for each visible row and our state.
-function ForeverUI.TokensDebug()
-	local say = function(text)
-		DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text)
-	end
-
-	local total = (GetCurrencyListSize and GetCurrencyListSize()) or 0
-	say(string.format(L.TOKENSTAB_DEBUG_SUMMARY, total, offset, visibleCount,
-		tostring(selectedItem)))
-
-	for rank = 1, math.min(total, 12) do
-		local currency = readCurrency(rank)
-		if currency then
-			DEFAULT_CHAT_FRAME:AddMessage(string.format(
-				L.TOKENSTAB_DEBUG_ROW,
-				rank, currency.name,
-				currency.header and (currency.expanded and "[-]" or "[+]") or "   ",
-				tostring(currency.count), tostring(currency.special),
-				tostring(currency.isTracked), tostring(currency.unused)))
-		end
-	end
-
-	local token = _G["TokenFrame"]
-	say(string.format(L.TOKENSTAB_DEBUG_CLIENT,
-		tostring(token and token.selectedToken),
-		tostring(token and token.selectedID),
-		tostring(token and token:IsShown())))
-end
