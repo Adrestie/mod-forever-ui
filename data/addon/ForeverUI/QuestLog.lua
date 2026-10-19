@@ -2158,6 +2158,21 @@ if hooksecurefunc and WorldMapFrame_UpdateQuests then
 	end)
 end
 
+-- A quest selected on the map (its marker, WorldMapFrame_SelectQuestFrame): the log selects it
+-- too (the client does so only outside the small window) and the list marks it, as its own
+-- selection does.
+if hooksecurefunc and WorldMapFrame_SelectQuestFrame then
+	hooksecurefunc("WorldMapFrame_SelectQuestFrame", function(questFrame)
+		local index = questFrame and questFrame.questLogIndex
+		if index and index > 0 and GetQuestLogSelection() ~= index then
+			SelectQuestLogEntry(index)
+		end
+		if J.isOpen() then
+			J.update()
+		end
+	end)
+end
+
 if WorldMapFrame and WorldMapFrame.HookScript then
 	WorldMapFrame:HookScript("OnHide", function()
 		-- A flag cleared on the next frame (not GetTime: see above)

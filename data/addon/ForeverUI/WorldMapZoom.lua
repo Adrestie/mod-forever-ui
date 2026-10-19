@@ -270,11 +270,18 @@ function Z.mapKey()
 		tostring(GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel())
 end
 
--- The enlarged frames: WorldMapDetailFrame and WorldMapButton (siblings, same scale and corner)
+-- The enlarged frames: WorldMapDetailFrame and WorldMapButton (siblings, same scale and corner).
+-- WorldMapFrame_DisplayQuestPOI keeps quest POIs inside bounds read from the map's width
+-- (WorldMapFrame_SetPOIMaxBounds, on opening and mode change): without new bounds, each time
+-- the client places them again (a selection, a quest update) the zoomed POIs past the
+-- unzoomed map's edge were pushed back onto it.
 local function enlarge()
 	for f, s in pairs(Z.sizes) do
 		f:SetWidth(s[1] * Z.z)
 		f:SetHeight(s[2] * Z.z)
+	end
+	if WorldMapFrame_SetPOIMaxBounds then
+		WorldMapFrame_SetPOIMaxBounds()
 	end
 end
 
