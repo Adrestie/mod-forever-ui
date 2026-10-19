@@ -1829,6 +1829,14 @@ local function fillQuest(v, b, info, count)
 	-- one is 32 x 32, so it is centered at the same place.
 	local r = count.pois and info.questID and count.pois[info.questID]
 	if r and QuestPOI_DisplayButton then
+		-- The client counts the buttons it creates per type (parent.poiTable) and
+		-- QuestPOI_HideAllButtons hides 1 to that count: numbers follow the map, and a quest of a
+		-- collapsed header leaves a gap, so the lower numbers are created first (hidden).
+		for n = 1, r[2] - 1 do
+			if not _G["poi" .. POI_PARENT .. r[1] .. "_" .. n] then
+				QuestPOI_DisplayButton(POI_PARENT, r[1], n, 0):Hide()
+			end
+		end
 		local poi = QuestPOI_DisplayButton(POI_PARENT, r[1], r[2], info.questID)
 		poi:ClearAllPoints()
 		poi:SetPoint("CENTER", b, "TOPLEFT", 6 + 10, -4 - 10)
