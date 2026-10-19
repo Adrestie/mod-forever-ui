@@ -9,8 +9,11 @@
 --     icon      texture shown on the bars (same)
 --     macroIcon an Interface\Icons file name, for the cursor and the macro window when the
 --               client's macro icon list lacks icon; the question mark when it lacks both (same)
--- The macro icon list is SpellIcon.dbc: a tab icon is there when its addon or module adds a row
--- for it (installer.json, ForeverUI's tranche 94 for the character sheet's tabs).
+-- The macro icon list is SpellIcon.dbc, and a macro keeps only its icon's FILE NAME, read again
+-- from Interface\Icons (elsewhere: the question mark). A tab's icon is there when its addon or
+-- module installs a copy in Interface\Icons, named <Module>_<file name>, with a SpellIcon row
+-- (installer.json; ForeverUI's tranche 94 for the character sheet's tabs). The copy is found
+-- from the tab's icon: same file name, or ending in _<file name>.
 --   ForeverUI.TabMacros.Pickup(body, info): registers, then puts the macro on the cursor.
 --   ForeverUI.TabMacros.EnableDrag(button, body, info): a left drag of the button does Pickup.
 --     body may be a function(button) returning body, info, for a button reused by several tabs.
@@ -67,24 +70,40 @@ local function normalized(path)
 	return (path:lower():gsub("/", "\\"))
 end
 
--- Index of an icon in the client's macro list, nil when absent. wanted: a full path, or a
--- file name of any folder
+local function fileName(path)
+	return path:match("([^\\]+)$") or path
+end
+
+-- Index of an icon in the client's macro list, nil when absent. wanted: a full path (found in
+-- Interface\Icons by its file name, or a <Module>_ copy of it), or a bare file name
 local function findIcon(wanted)
 	if type(wanted) ~= "string" or wanted == "" or not GetNumMacroIcons or not GetMacroIconInfo then
 		return nil
 	end
 	wanted = normalized(wanted)
-	local full = wanted:find("\\", 1, true) ~= nil
-	local suffix = "\\" .. wanted
+	local base = fileName(wanted)
+	local copy = "_" .. base
+	local best, rank
 	for index = 1, GetNumMacroIcons() do
 		local texture = GetMacroIconInfo(index)
 		if texture then
 			texture = normalized(texture)
-			if texture == wanted or (not full and texture:sub(-#suffix) == suffix) then
-				return index
+			local name = fileName(texture)
+			local r
+			if texture == wanted then
+				r = 1
+			elseif name == base then
+				r = 2
+			elseif name:sub(-#copy) == copy then
+				r = 3
+			end
+			if r and (not rank or r < rank) then
+				best, rank = index, r
+				if r == 1 then break end
 			end
 		end
 	end
+	return best
 end
 
 -- The tab's own icon, else the nearest one, else 1 (the question mark)

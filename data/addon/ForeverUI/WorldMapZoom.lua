@@ -247,6 +247,13 @@ local function placeMarkers(clientZoom)
 							f:SetPoint(point, rel, relPoint, nx, ny)
 						end
 						f.foreverZoomSet = { nx, ny, bx, by }
+					elseif parent == p and rel and rel ~= d and rel ~= b and rel ~= p then
+						-- Placed on another marker (the selected completed quest: QuestPOI_SelectButton
+						-- shows a QUEST_POI_COMPLETE_SWAP button on the CENTER of the selected one):
+						-- the same scale, its place follows the marker it sits on
+						if math.abs((f:GetScale() or 1) - m) > 1e-6 then
+							f:SetScale(m)
+						end
 					end
 				end
 			end
@@ -488,6 +495,13 @@ if WorldMapFrame_Update then
 			recordOverlays()
 			cropTexture()
 		end
+		if ready() then placeMarkers(Z.z) end
+	end)
+end
+
+-- A quest POI selected: its swap button appears
+if QuestPOI_SelectButton then
+	hooksecurefunc("QuestPOI_SelectButton", function()
 		if ready() then placeMarkers(Z.z) end
 	end)
 end
