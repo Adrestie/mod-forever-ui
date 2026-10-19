@@ -12,8 +12,12 @@
 -- coordinates (the area drew past the minimap) crop it. So it is not shown: an invisible one holds
 -- the tracked quests' blobs and answers, point by point, whether a point of the map is in one
 -- (UpdateMouseOverTooltip, the world map's hover test). A grid of cells over the round minimap
--- shows those inside, the cells along an area's edge brighter: the areas show only inside the
--- circle, as the player comes near them, and turn with the minimap.
+-- shows those inside, in the world map's colours (WorldMapBlobFrame_OnLoad: UI-QuestBlob-Inside,
+-- a plain blue, at fill alpha 128; UI-QuestBlob-Outside, a lighter blue rim, at 192). Cells on an
+-- area's edge are read again in four, and the rim is drawn on those quarters: the edge follows
+-- the area twice as finely, and the minimap's own edge, where an area is only cut, has no rim.
+-- The areas show only inside the circle, as the player comes near them, and turn with the
+-- minimap.
 
 local Q = {}
 ForeverUI.MinimapQuests = Q
@@ -25,9 +29,9 @@ local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 }
 
-local GRID = 32                  -- cells across the minimap's diameter
-local FILL = { 0.25, 0.55, 1, 0.3 }       -- an area's inside
-local EDGE = { 0.45, 0.7, 1, 0.65 }       -- its edge
+local GRID = 28                  -- cells across the minimap's diameter (each in four on an edge)
+local FILL = { 56 / 255, 108 / 255, 248 / 255, 128 / 255 }    -- UI-QuestBlob-Inside, fill alpha
+local RIM = { 101 / 255, 185 / 255, 248 / 255, 192 / 255 }    -- UI-QuestBlob-Outside, border alpha
 local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
 local PROBE_ALPHA = 1            -- out of 255
 local AREA_IDLE = 0.5            -- and twice a second without moving
@@ -41,6 +45,8 @@ local PARENT = "ForeverUIMinimapQuests"
 
 local holder, probe, arrows = nil, nil, {}
 local cells = {}                 -- { texture, x, y, row, col }, x and y from the minimap's center
+local quarters = {}              -- textures of the quarter cells, made as needed
+local cellSide
 -- POI buttons shown on the minimap: hidden here, not by QuestPOI_HideAllButtons, which errors on
 -- a number never created (a POI out of range leaves its number unshown)
 local shownPOIs, keptPOIs = {}, {}
@@ -143,6 +149,7 @@ local function build()
 	-- The cells: a grid over the minimap, only those inside its circle
 	local radius = Minimap:GetWidth() / 2
 	local side = Minimap:GetWidth() / GRID
+	cellSide = side
 	for row = 1, GRID do
 		for col = 1, GRID do
 			local x, y = -radius + (col - 0.5) * side, radius - (row - 0.5) * side
@@ -250,36 +257,109 @@ local function areaAt(fx, fy)
 	return index
 end
 
--- The grid: each cell inside an area shows, those along its edge brighter
-local inside = {}
+-- The grid. Each cell is read at its center; a cell whose four neighbours do not all agree is on
+-- an edge and is read again in four quarters (half rows and columns, "fine" coordinates). A cell
+-- or quarter inside an area shows in the fill colour; a quarter inside with a quarter outside next
+-- to it shows the rim. Past the minimap's circle counts as inside: no rim where an area is cut.
+local inside, fine = {}, {}
 local areaWait, areaIdle = 0, 0
+local function key(row, col) return row * 1000 + col end
+
+local function quarter(i)
+	local q = quarters[i]
+	if not q then
+		q = holder:CreateTexture(nil, "BORDER")
+		q:SetWidth(cellSide / 2)
+		q:SetHeight(cellSide / 2)
+		quarters[i] = q
+	end
+	return q
+end
+
+local function paint(texture, color)
+	texture:SetTexture(color[1], color[2], color[3], color[4])
+	texture:Show()
+end
+
 local function showAreas(v, elapsed)
 	-- Read again when the view moves (ten times a second at most) and twice a second anyway: the
 	-- engine lays areas out when it draws, so right after DrawQuestBlob the probe finds none yet
 	areaWait = areaWait - (elapsed or AREA_WAIT)
 	areaIdle = areaIdle - (elapsed or AREA_IDLE)
-	local key = string.format("%s:%.4f:%.4f:%.2f:%.3f", tostring(drawnKey), v.px, v.py, v.rotate and v.facing or 0, v.k)
-	if areaWait > 0 or (key == areaKey and areaIdle > 0) then return end
-	areaKey, areaWait, areaIdle = key, AREA_WAIT, AREA_IDLE
+	local k = string.format("%s:%.4f:%.4f:%.2f:%.3f", tostring(drawnKey), v.px, v.py, v.rotate and v.facing or 0, v.k)
+	if areaWait > 0 or (k == areaKey and areaIdle > 0) then return end
+	areaKey, areaWait, areaIdle = k, AREA_WAIT, AREA_IDLE
+
 	wipe(inside)
-	local any = false
-	for i, cell in ipairs(cells) do
-		local hit = areaAt(toMap(cell.x, cell.y, v))
-		inside[cell.row * 1000 + cell.col] = hit
-		any = any or hit ~= nil
+	wipe(fine)
+	local present = {}
+	for _, cell in ipairs(cells) do
+		present[key(cell.row, cell.col)] = true
+		inside[key(cell.row, cell.col)] = areaAt(toMap(cell.x, cell.y, v)) ~= nil
 	end
+	local function cellIn(r, c)
+		local id = key(r, c)
+		if not present[id] then return nil end
+		return inside[id]
+	end
+	-- a quarter: fine row and column, 1 to 2 x GRID
+	local function fineIn(fr, fc)
+		local r, c = math.ceil(fr / 2), math.ceil(fc / 2)
+		local id = key(r, c)
+		if not present[id] then return true end          -- past the circle: no rim
+		local f = fine[key(fr, fc)]
+		if f ~= nil then return f end
+		return inside[id]
+	end
+
+	local used = 0
+	local any = false
+	local half = cellSide / 2
 	for _, cell in ipairs(cells) do
 		local r, c = cell.row, cell.col
-		if inside[r * 1000 + c] then
-			local edge = not (inside[(r - 1) * 1000 + c] and inside[(r + 1) * 1000 + c]
-				and inside[r * 1000 + c - 1] and inside[r * 1000 + c + 1])
-			local color = edge and EDGE or FILL
-			cell.texture:SetTexture(color[1], color[2], color[3], color[4])
-			cell.texture:Show()
+		local here = inside[key(r, c)]
+		local edge = false
+		for _, n in ipairs({ { r - 1, c }, { r + 1, c }, { r, c - 1 }, { r, c + 1 } }) do
+			local there = cellIn(n[1], n[2])
+			if there ~= nil and there ~= here then edge = true end
+		end
+		cell.edge = edge
+		if edge then
+			cell.texture:Hide()
+			for dr = 0, 1 do
+				for dc = 0, 1 do
+					local qx, qy = cell.x + (dc - 0.5) * half, cell.y - (dr - 0.5) * half
+					fine[key(2 * r - 1 + dr, 2 * c - 1 + dc)] = areaAt(toMap(qx, qy, v)) ~= nil
+				end
+			end
+		elseif here then
+			any = true
+			paint(cell.texture, FILL)
 		else
 			cell.texture:Hide()
 		end
 	end
+	-- the quarters of the edge cells
+	for _, cell in ipairs(cells) do
+		if cell.edge then
+			local r, c = cell.row, cell.col
+			for dr = 0, 1 do
+				for dc = 0, 1 do
+					local fr, fc = 2 * r - 1 + dr, 2 * c - 1 + dc
+					if fine[key(fr, fc)] then
+						any = true
+						used = used + 1
+						local q = quarter(used)
+						q:ClearAllPoints()
+						q:SetPoint("CENTER", holder, "CENTER", cell.x + (dc - 0.5) * half, cell.y - (dr - 0.5) * half)
+						local rim = not (fineIn(fr - 1, fc) and fineIn(fr + 1, fc) and fineIn(fr, fc - 1) and fineIn(fr, fc + 1))
+						paint(q, rim and RIM or FILL)
+					end
+				end
+			end
+		end
+	end
+	for i = used + 1, #quarters do quarters[i]:Hide() end
 	Q.areaCells = any
 end
 
@@ -288,6 +368,7 @@ local function hideAll()
 	holder:Hide()
 	for _, a in ipairs(arrows) do a:Hide() end
 	for _, cell in ipairs(cells) do cell.texture:Hide() end
+	for _, q in ipairs(quarters) do q:Hide() end
 	areaKey = nil
 	hidePOIs()
 end
