@@ -30,6 +30,7 @@ local FILL = { 0.25, 0.55, 1, 0.3 }       -- an area's inside
 local EDGE = { 0.45, 0.7, 1, 0.65 }       -- its edge
 local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
 local PROBE_ALPHA = 1            -- out of 255
+local AREA_IDLE = 0.5            -- and twice a second without moving
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
 local ARROW_SIZE = 18
@@ -92,10 +93,14 @@ local function readIndoors()
 	reading = false
 end
 
--- Minimap units per yard
+-- Minimap units per yard. The diameters above are those of the client's 140 x 140 minimap shown
+-- at its size; the engine sizes the terrain from the minimap's size on screen, so ForeverUI's
+-- (140 units at scale 198 / 140, Minimap.lua) shows that many yards over fewer of its own
+-- units: seen in game, POIs drew too close to the player by 140 / 198.
 local function unitsPerYard()
 	local diameter = (indoors and INDOOR or OUTDOOR)[Minimap:GetZoom() or 0] or OUTDOOR[0]
-	return Minimap:GetWidth() / diameter
+	local onScreen = Minimap:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	return Minimap:GetWidth() * onScreen / diameter
 end
 
 local function rotating()
@@ -251,12 +256,15 @@ end
 
 -- The grid: each cell inside an area shows, those along its edge brighter
 local inside = {}
-local areaWait = 0
+local areaWait, areaIdle = 0, 0
 local function showAreas(v, elapsed)
+	-- Read again when the view moves (ten times a second at most) and twice a second anyway: the
+	-- engine lays areas out when it draws, so right after DrawQuestBlob the probe finds none yet
 	areaWait = areaWait - (elapsed or AREA_WAIT)
+	areaIdle = areaIdle - (elapsed or AREA_IDLE)
 	local key = string.format("%s:%.4f:%.4f:%.2f:%.3f", tostring(drawnKey), v.px, v.py, v.rotate and v.facing or 0, v.k)
-	if key == areaKey or areaWait > 0 then return end
-	areaKey, areaWait = key, AREA_WAIT
+	if areaWait > 0 or (key == areaKey and areaIdle > 0) then return end
+	areaKey, areaWait, areaIdle = key, AREA_WAIT, AREA_IDLE
 	wipe(inside)
 	local any = false
 	for i, cell in ipairs(cells) do
@@ -441,6 +449,7 @@ local function refresh(readAgain)
 	update()
 end
 Q.refresh = refresh
+
 -- the grid read again on the next update, whatever moved
 Q.redrawAreas = function() areaKey = nil end
 Q.update = update
