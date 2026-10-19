@@ -1,10 +1,10 @@
--- ForeverUI: the guild window, after camelot's Communities frame (Blizzard_Communities,
--- CommunitiesFrame 814 x 426) reduced to the guild: the guild list column on the left, side
--- tabs on the right edge for the views (Chat, Roster, Guild Info) and for the modules that add
--- one (ForeverUI.Guild.AddSideTab: mod-guild-level's talents take camelot's Guild Benefits
+-- ForeverUI: the Guild page of the Social window (client tab 3), after camelot's Communities
+-- frame (Blizzard_Communities, CommunitiesFrame 814 x 426) reduced to the guild: on this page
+-- the Social window takes that size; the guild list column on the left, side tabs on the right
+-- edge for the views (Chat, Roster, Guild Info) and for the modules that add one
+-- (ForeverUI.Guild.AddSideTab: mod-guild-level's talents take camelot's Guild Benefits
 -- place). The views are in GuildChat.lua, GuildRoster.lua and GuildInfo.lua and register with
--- G.registerView. Opened by the Guild micro button (SocialsMicroButton) and the Guild key
--- binding (TOGGLEGUILDTAB); the Social window has no Guild tab any more.
+-- G.registerView.
 
 local ForeverUI = ForeverUI or {}
 _G.ForeverUI = ForeverUI
@@ -32,8 +32,6 @@ local N = {
 	tab = { side = 32, x = 0, y = -36, gap = 20, border = 64, borderX = -3, borderY = 11, icon = 30 },
 	-- side popups (member detail, guild control) leave the tabs room
 	popupX = 38,
-	-- WindowStack: default place, top center, and the room fitToScreen keeps around it
-	place = { x = 0, y = -104 }, fitW = 40, fitH = 0,
 	portrait = { side = 60, x = -5, y = 8, emblemW = 56, emblemH = 64, emblemX = 25, emblemY = -23,
 		borderH = 59, borderY = 7 },
 }
@@ -89,7 +87,6 @@ G.shown = shown
 -- A view is built on its first display, in a frame over the whole window.
 G.views = {}
 G.viewOrder = {}
-G.annexes = {}
 
 function G.registerView(key, def)
 	def.key = key
@@ -131,9 +128,9 @@ end
 
 -- Refreshes the open view, the title, the tabard and the tabs.
 function G.update()
-	if not (G.frame and G.frame:IsShown()) then return end
+	if not (G.frame and G.frame:IsVisible()) then return end
 	local guild = GetGuildInfo("player")
-	G.frame.title:SetText(guild or "")
+	S.frame.title:SetText(guild or "")
 	G.entry.name:SetText(guild or "")
 	G.updateTabard()
 	G.updateTabs()
@@ -199,6 +196,10 @@ function G.layoutTabs()
 		if not b or b.def ~= def then
 			if b then b:Hide() end
 			b = def.tab or createSideTab(def)
+			if not def.tab then
+				S.annexes = S.annexes or {}
+				table.insert(S.annexes, b)
+			end
 			def.tab = b
 			G.tabs[n] = b
 		end
@@ -377,28 +378,32 @@ function G.updateTabard()
 	end
 end
 
-local function buildPortrait(f, skin)
+-- On the guild page the Social window's portrait gives way to the tabard, in a frame at its
+-- level (Social.lua: portrait frame at +19, under the metal at +20).
+local function buildPortrait(f)
 	local P = N.portrait
-	skin.portrait:Hide()
-	local host = skin.portraitFrame
+	local host = CreateFrame("Frame", nil, f)
+	host:SetAllPoints(S.frame)
+	host:SetFrameLevel(S.frame:GetFrameLevel() + 19)
 	local bg = piece(host, "BACKGROUND", GUILD_SHEET, TABARD.background)
 	bg:SetWidth(P.side) bg:SetHeight(P.side)
-	bg:SetPoint("TOPLEFT", f, "TOPLEFT", P.x, P.y)
+	bg:SetPoint("TOPLEFT", S.frame, "TOPLEFT", P.x, P.y)
 	local emblem = host:CreateTexture(nil, "BORDER")
 	emblem:SetTexture(EMBLEMS_LG)
 	emblem:SetWidth(P.emblemW) emblem:SetHeight(P.emblemH)
-	emblem:SetPoint("CENTER", f, "TOPLEFT", P.emblemX, P.emblemY)
+	emblem:SetPoint("CENTER", S.frame, "TOPLEFT", P.emblemX, P.emblemY)
 	local border = piece(host, "ARTWORK", GUILD_SHEET, TABARD.border)
 	border:SetWidth(P.side) border:SetHeight(P.borderH)
-	border:SetPoint("TOPLEFT", f, "TOPLEFT", P.x, P.borderY)
+	border:SetPoint("TOPLEFT", S.frame, "TOPLEFT", P.x, P.borderY)
 	G.portrait = { background = bg, emblem = emblem, border = border }
 end
 
--- ------------------------------------------------------------------ Window
+-- ------------------------------------------------------------------ Page
 
--- A side popup of the guild window (member detail, guild info editor, guild control).
+-- A side popup of the guild page (member detail, guild info editor, guild control), past the
+-- side tabs.
 function G.createPopup(name, width, height)
-	return S.createPopup(name, width, height, G.frame, G.annexes, N.popupX)
+	return S.createPopup(name, width, height, S.frame, nil, N.popupX)
 end
 
 -- A panel button with the window's font.
@@ -406,162 +411,77 @@ function G.button(parent, text, width)
 	return S.button(parent, text, width)
 end
 
--- The client GuildFrame (FriendsFrame.xml) stays shown while our window is: UnitPopup offers
--- Promote to Guildmaster and Leave Guild only then (UnitPopup_HideButtons), and the client
--- updates the roster and the guild control window only then (FriendsFrame_OnEvent). It is
--- moved into our window, off screen and transparent; the Social window hides it whenever it
--- changes tab (FriendsFrame_ShowSubFrame), so it comes back after.
-local function keepGuildFrame()
-	if not GuildFrame then return end
-	GuildFrame:SetParent(G.frame)
-	GuildFrame:ClearAllPoints()
-	GuildFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -5000, 5000)
-	GuildFrame:SetWidth(384)
-	GuildFrame:SetHeight(512)
-	GuildFrame:SetAlpha(0)
-	if GuildFrame.EnableMouse then GuildFrame:EnableMouse(false) end
-	if hooksecurefunc and FriendsFrame_ShowSubFrame then
-		hooksecurefunc("FriendsFrame_ShowSubFrame", function()
-			if G.frame:IsShown() and not GuildFrame:IsShown() then GuildFrame:Show() end
-		end)
+-- The Social window takes camelot's Communities size on the guild page and its own on the
+-- others. Its secure tabs protect it: in combat the size waits for the end.
+local sizer = CreateFrame("Frame")
+local wantedGuildSize
+local function resize(guild)
+	wantedGuildSize = guild
+	if InCombatLockdown() then
+		sizer:RegisterEvent("PLAYER_REGEN_ENABLED")
+		return
+	end
+	S.frame:SetWidth(guild and N.width or S.G.width)
+	S.frame:SetHeight(guild and N.height or S.G.height)
+end
+sizer:SetScript("OnEvent", function(self)
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	resize(wantedGuildSize)
+end)
+
+local function build(frame)
+	G.frame = frame
+	buildPortrait(frame)
+	buildColumn(frame)
+	G.layoutTabs()
+	-- The client GuildFrame stays shown, off screen and transparent: UnitPopup offers Promote
+	-- to Guildmaster and Leave Guild, and the client refreshes the roster, only while it is shown.
+	if GuildFrame then
+		S.keep("GuildFrame")
+		GuildFrame:ClearAllPoints()
+		GuildFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -5000, 5000)
+		GuildFrame:SetWidth(384)
+		GuildFrame:SetHeight(512)
+		GuildFrame:SetAlpha(0)
+		if GuildFrame.EnableMouse then GuildFrame:EnableMouse(false) end
 	end
 end
 
-local function build()
-	if G.frame then return G.frame end
-	local f = CreateFrame("Frame", "ForeverUIGuildFrame", UIParent)
-	f:SetWidth(N.width)
-	f:SetHeight(N.height)
-	f:SetPoint("TOP", UIParent, "TOP", N.place.x, N.place.y)
-	f:SetToplevel(true)
-	f:EnableMouse(true)
-	f:Hide()
-	G.frame = f
-	local skin = Tpl.PortraitWindow(f, { portraitSide = N.portrait.side, portraitX = N.portrait.x,
-		portraitY = N.portrait.y, title = "" })
-	f.title = skin.title
-	f.skin = skin
-	buildPortrait(f, skin)
-	local close = Tpl.CloseButton(CreateFrame("Button", "ForeverUIGuildFrameCloseButton", f), f)
-	close:SetFrameLevel(f:GetFrameLevel() + 22)
-	close:SetScript("OnClick", function() f:Hide() end)
-	buildColumn(f)
-	G.layoutTabs()
-	-- Esc closes it, like the client's panels
-	if UISpecialFrames then table.insert(UISpecialFrames, "ForeverUIGuildFrame") end
-	keepGuildFrame()
-	f:SetScript("OnShow", function()
-		PlaySound("igCharacterInfoOpen")
-		if GuildFrame and not GuildFrame:IsShown() then GuildFrame:Show() end
-		GuildRoster()
-		if not G.current then G.current = G.viewOrder[1] and G.viewOrder[1].key end
-		G.setView(G.current)
-		if UpdateMicroButtons then UpdateMicroButtons() end
-	end)
-	f:SetScript("OnHide", function()
-		PlaySound("igCharacterInfoClose")
+local function title()
+	return GetGuildInfo("player") or ""
+end
+
+S.registerPage(3, {
+	build = build,
+	title = title,
+	update = function() G.update() end,
+	showRegion = function(initial)
+		resize(true)
+		S.frame.portrait:Hide()
+		if initial then
+			GuildRoster()
+			if not G.current then G.current = G.viewOrder[1] and G.viewOrder[1].key end
+			G.setView(G.current)
+		end
+	end,
+	hide = function()
 		for _, def in ipairs(G.viewOrder) do
 			if def.frame and def.frame:IsShown() and def.hide then def.hide() end
 		end
-		if S.popup and S.popup:GetParent() == f then S.popup:Hide() end
-		-- Its OnHide closes the guild control window, whose OnHide sets FriendsFrame's
-		-- attributes: refused to our code in combat (see GuildRoster.lua).
-		if GuildFrame and not InCombatLockdown() then GuildFrame:Hide() end
-		if UpdateMicroButtons then UpdateMicroButtons() end
-	end)
-	ForeverUI.WindowStack.makeMovable(f, skin.banner, "guild")
-	ForeverUI.WindowStack.register("guild", f, function()
-		local z = { f }
-		for _, def in ipairs(G.viewOrder) do
-			if def.tab then z[#z + 1] = def.tab end
-		end
-		for _, a in ipairs(G.annexes) do z[#z + 1] = a end
-		return z
-	end)
-	ForeverUI.WindowStack.fitToScreen("guild", f, f, N.place.x, N.place.y, N.fitW, N.fitH)
-	return f
-end
-
-function G.toggle()
-	local f = build()
-	if f:IsShown() then
-		f:Hide()
-		return
-	end
-	if not IsInGuild() then
-		if UIErrorsFrame then
-			UIErrorsFrame:AddMessage(txt("ERR_GUILD_PLAYER_NOT_IN_GUILD"), 1.0, 0.1, 0.1, 1.0)
-		end
-		return
-	end
-	f:Show()
-end
-
--- Opens the window on view key.
-function G.open(key)
-	local f = build()
-	if not IsInGuild() then return end
-	if key then G.current = key end
-	if f:IsShown() then G.setView(G.current) else f:Show() end
-end
-
--- ------------------------------------------------------------------ Ways in
-
--- The Guild micro button (camelot GuildMicroButton): opens our window, pushed while it is open.
-local micro = _G.SocialsMicroButton
-if micro then
-	micro:SetScript("OnClick", function() G.toggle() end)
-	micro:SetScript("OnEnter", function(self)
-		GameTooltip_AddNewbieTip(self, MicroButtonTooltipText(txt("GUILD"), "TOGGLEGUILDTAB"), 1.0, 1.0, 1.0,
-			txt("NEWBIE_TOOLTIP_GUILDTAB"))
-	end)
-	if ForeverUI.SetMicroOwner then
-		ForeverUI.SetMicroOwner("SocialsMicroButton", function() return G.frame and G.frame:IsShown() end)
-	end
-end
-
--- The Guild key binding (TOGGLEGUILDTAB, ToggleFriendsFrame(3)) clicks a hidden button of ours
--- instead: an override binding, set out of combat, again when the bindings change.
-local toggleButton = CreateFrame("Button", "ForeverUIGuildToggleButton", UIParent)
-toggleButton:SetScript("OnClick", function() G.toggle() end)
-local bindingOwner = CreateFrame("Frame")
-local boundKeys = ""
-local function bindKeys()
-	if InCombatLockdown() then
-		bindingOwner:RegisterEvent("PLAYER_REGEN_ENABLED")
-		return
-	end
-	local keys = { GetBindingKey("TOGGLEGUILDTAB") }
-	local signature = table.concat(keys, " ")
-	if signature == boundKeys then return end
-	boundKeys = signature
-	ClearOverrideBindings(bindingOwner)
-	for _, key in ipairs(keys) do
-		SetOverrideBindingClick(bindingOwner, false, key, "ForeverUIGuildToggleButton")
-	end
-end
-bindingOwner:RegisterEvent("PLAYER_LOGIN")
-bindingOwner:RegisterEvent("UPDATE_BINDINGS")
-bindingOwner:SetScript("OnEvent", function(self, event)
-	if event == "PLAYER_REGEN_ENABLED" then self:UnregisterEvent("PLAYER_REGEN_ENABLED") end
-	bindKeys()
-end)
+		S.frame.portrait:Show()
+		resize(false)
+	end,
+})
 
 -- ------------------------------------------------------------------ Events
 
 local listener = CreateFrame("Frame")
-for _, ev in ipairs({ "PLAYER_GUILD_UPDATE", "GUILDTABARD_UPDATE", "GUILD_ROSTER_UPDATE" }) do
+for _, ev in ipairs({ "GUILDTABARD_UPDATE", "GUILD_ROSTER_UPDATE" }) do
 	listener:RegisterEvent(ev)
 end
-listener:SetScript("OnEvent", function(_, event)
-	if not (G.frame and G.frame:IsShown()) then return end
-	-- left the guild: nothing to show
-	if event == "PLAYER_GUILD_UPDATE" and not IsInGuild() then
-		G.frame:Hide()
-		return
-	end
-	G.update()
+listener:SetScript("OnEvent", function()
+	if G.frame and G.frame:IsVisible() then G.update() end
 end)
 
--- Built now: the views register from their files, loaded after this one.
-build()
+-- Built now, so that modules find the page (G.frame, G.column) as they load.
+S.prepare(3)
