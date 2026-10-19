@@ -206,15 +206,26 @@ local function restoreChildren()
 	end
 end
 
--- Markers placed once (landmarks, quest POIs...) keep the place the client gave them at the
--- previous zoom: their offsets from the map's top left go x new / old. Markers the client
--- places on each frame (units) already follow the width. foreverZoomSet remembers the
--- offsets written here, to tell them from offsets the client wrote since.
-local function replaceMarkers(old, new)
-	if old == new then return end
+-- Quest POIs (children of WorldMapPOIFrame, 32 x 32 at its scale) keep on screen the size
+-- they have in the small window: the full screen scales WorldMapFrame up to fit the map to the
+-- screen, which doubled them. Their scale is the small window's over the current one.
+local function markerScale(parent)
+	if parent ~= WorldMapPOIFrame or not W.reducedScale or not UIParent then return 1 end
+	local now = WorldMapPOIFrame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	if not now or now <= 0 then return 1 end
+	return W.reducedScale() / now
+end
+
+-- Markers anchored to the map's top left. Their offsets (from the client, in their parent's
+-- units) are kept as a base at zoom 1, then written x zoom / their scale: landmarks and quest
+-- POIs placed once follow the zoom, quest POIs keep their size. Markers the client places on
+-- each frame (units) already follow the map's width. foreverZoomSet remembers what was
+-- written here, to tell it from offsets the client wrote since, at zoom clientZoom.
+local function placeMarkers(clientZoom)
 	local d, b, p = WorldMapDetailFrame, WorldMapButton, WorldMapPOIFrame
 	for _, parent in ipairs({ b, p, d }) do
 		if parent then
+			local m = markerScale(parent)
 			for _, f in ipairs({ parent:GetChildren() }) do
 				if f ~= b and f ~= p and f ~= WorldMapBlobFrame and f ~= WorldMapFrameAreaFrame
 					and f:GetNumPoints() == 1 then
@@ -225,17 +236,24 @@ local function replaceMarkers(old, new)
 						if s and math.abs(s[1] - x) < 1e-3 and math.abs(s[2] - y) < 1e-3 then
 							bx, by = s[3], s[4]
 						else
-							bx, by = x / old, y / old
+							bx, by = x / clientZoom, y / clientZoom
 						end
-						f:ClearAllPoints()
-						f:SetPoint(point, rel, relPoint, bx * new, by * new)
-						f.foreverZoomSet = { bx * new, by * new, bx, by }
+						if parent == p and math.abs((f:GetScale() or 1) - m) > 1e-6 then
+							f:SetScale(m)
+						end
+						local nx, ny = bx * Z.z / m, by * Z.z / m
+						if math.abs(nx - x) > 1e-3 or math.abs(ny - y) > 1e-3 then
+							f:ClearAllPoints()
+							f:SetPoint(point, rel, relPoint, nx, ny)
+						end
+						f.foreverZoomSet = { nx, ny, bx, by }
 					end
 				end
 			end
 		end
 	end
 end
+Z.placeMarkers = placeMarkers
 
 -- ------------------------------------------------------------- Apply
 
@@ -291,7 +309,7 @@ function Z.apply(old)
 	WorldMapButton:SetHitRectInsets(math.max(0, x0) * z, math.max(0, CARD_W - x1) * z,
 		math.max(0, y0) * z, math.max(0, CARD_H - y1) * z)
 	cropTexture()
-	replaceMarkers(old, z)
+	placeMarkers(old)
 	sortBy()
 end
 
@@ -327,7 +345,7 @@ function Z.reset(isModeChange)
 	Z.pressPoint, Z.dragging = nil, false
 	rechainTiles()
 	restoreOverlays()
-	replaceMarkers(old, 1)
+	placeMarkers(old)
 	restoreChildren()
 	Z.cx, Z.cy = 0.5, 0.5
 end
@@ -376,6 +394,12 @@ local mapKey = Z.mapKey
 -- Child of the map frame, so it only runs while the map is open
 local watcher = CreateFrame("Frame", nil, WorldMapFrame)
 watcher:SetScript("OnUpdate", function(_, elapsed)
+	-- Markers the client placed since the last pass (ten passes a second)
+	Z.markWait = (Z.markWait or 0) - elapsed
+	if Z.markWait <= 0 and ready() and not Z.dragging then
+		Z.markWait = 0.1
+		placeMarkers(Z.z)
+	end
 	if not (Z.active and ready()) then
 		Z.key = ready() and mapKey() or nil
 		return
@@ -464,6 +488,14 @@ if WorldMapFrame_Update then
 			recordOverlays()
 			cropTexture()
 		end
+		if ready() then placeMarkers(Z.z) end
+	end)
+end
+
+-- The quest POIs, placed again on each quest update
+if WorldMapFrame_DisplayQuests then
+	hooksecurefunc("WorldMapFrame_DisplayQuests", function()
+		if ready() then placeMarkers(Z.z) end
 	end)
 end
 
@@ -471,6 +503,9 @@ end
 for _, name in ipairs({ "WorldMap_ToggleSizeDown", "WorldMap_ToggleSizeUp", "WorldMapFrame_SetMiniMode",
 	"WorldMapFrame_SetQuestMapView", "WorldMapFrame_SetFullMapView" }) do
 	if _G[name] then
-		hooksecurefunc(name, function() Z.reset(true) end)
+		hooksecurefunc(name, function()
+			Z.reset(true)
+			if ready() then placeMarkers(Z.z) end
+		end)
 	end
 end

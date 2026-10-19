@@ -154,6 +154,9 @@ end
 local function reducedScale()
 	return G.scale / (WORLDMAP_WINDOWED_SIZE or G.scale)
 end
+-- WorldMapFrame's scale in the small window, relative to UIParent (WorldMapZoom.lua: the quest
+-- POIs keep their small-window size)
+W.reducedScale = reducedScale
 W.inverse = 1
 
 -- ---------- Moving
