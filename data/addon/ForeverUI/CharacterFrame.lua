@@ -79,6 +79,7 @@ local TAB_ICONS = {
 	},
 	stats = "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Stats_c60",
 	mounts = "Interface\\ForeverUI\\TabIcons\\MountJournalPortrait",
+	pets = "Interface\\ForeverUI\\TabIcons\\PetJournalPortrait",
 }
 
 -- Pet tab icon by class (camelot has no pet tab); the hunter one otherwise, e.g. for a mage
@@ -92,8 +93,9 @@ TAB_ICONS[2] = "Interface\\ForeverUI\\TabIcons\\"
 	.. (PET_TAB[select(2, UnitClass("player")) or ""] or PET_TAB.HUNTER)
 
 -- Column order: camelot's (character, reputation, skills, PvP, currency, stats) with the 3.3.5
--- pet tab second and the mounts under it. A number is a client tab, a string one of ours.
-local TAB_ORDER = { 1, 2, "mounts", 3, 4, "pvp", 5, "stats" }
+-- pet tab second, the mounts and pets (companions) under it. A number is a client tab, a string
+-- one of ours.
+local TAB_ORDER = { 1, 2, "mounts", "pets", 3, 4, "pvp", 5, "stats" }
 
 -- Character tab icon: the class icon (camelot uses the player portrait), one baked file per
 -- class, named after UnitClass's token (WARRIOR, DEATHKNIGHT). MPQ lookups ignore case.
@@ -112,7 +114,11 @@ local TAB_SCREEN = {
 local PVP_SCREEN = "ForeverUIPvPPane"
 local STATS_SCREEN = "ForeverUIStatsPane"
 local MOUNTS_SCREEN = "ForeverUIMountsPane"
-local TAB_CREATED_SCREENS = { pvp = PVP_SCREEN, stats = STATS_SCREEN, mounts = MOUNTS_SCREEN }
+local PETS_SCREEN = "ForeverUIPetsPane"
+local TAB_CREATED_SCREENS = { pvp = PVP_SCREEN, stats = STATS_SCREEN, mounts = MOUNTS_SCREEN,
+	pets = PETS_SCREEN }
+-- Companion tabs: their GetCompanionInfo kind; each shows only with one companion of its kind
+local COMPANION_KIND = { mounts = "MOUNT", pets = "CRITTER" }
 -- Right pane tab icon: 28 px, the opening of UI-Character-Info-StatTab (metal at 3..6 and
 -- 35..38 of 42). A portrait fills its texture and would overflow the rounded frame.
 local PANE_TAB_ICON = 28
@@ -1360,6 +1366,20 @@ local function declareContents()
 		end,
 	})
 
+	-- Pets (companions): the same, for the CRITTER companions
+	Panes.Register({
+		host = "left", group = PETS_SCREEN, id = "pets",
+		build = function(host)
+			return ForeverUI.PetsTab.Build(host)
+		end,
+	})
+	Panes.Register({
+		host = "right", group = PETS_SCREEN, id = PETS_SCREEN .. ".droit",
+		build = function(host)
+			return ForeverUI.PetsTab.BuildRight(host)
+		end,
+	})
+
 	-- The PvP tab shows its rank details on the right; statistics leave the right pane empty
 	Panes.Register({
 		host = "right", group = PVP_SCREEN, id = PVP_SCREEN .. ".droit",
@@ -1715,13 +1735,14 @@ end
 local TAB_MACRO_BODY = "/run ForeverUI.ToggleCharacterTab(%s)"
 local TAB_MACRO_NAMES = {
 	[1] = "CHARACTER", [2] = "PET", [3] = "REPUTATION", [4] = "SKILLS", [5] = "CURRENCY",
-	pvp = "PVP", stats = "STATISTICS", mounts = "MOUNTS",
+	pvp = "PVP", stats = "STATISTICS", mounts = "MOUNTS", pets = "COMPANIONS",
 }
 
 -- Macro icon, seen on the cursor and in the macro window: the nearest game icon
 local TAB_MACRO_ICONS = {
 	[1] = "INV_Chest_Cloth_17", [3] = "Achievement_Reputation_01", [4] = "Trade_Engineering",
 	[5] = "INV_Misc_Coin_01", stats = "INV_Misc_Note_01", mounts = "Ability_Mount_RidingHorse",
+	pets = "INV_Box_PetCarrier_01",
 	pvp = { Alliance = "INV_BannerPVP_02", Horde = "INV_BannerPVP_01" },
 }
 
@@ -1802,7 +1823,7 @@ function ForeverUI.ToggleCharacterTab(key)
 	end
 
 	local group = TAB_CREATED_SCREENS[key]
-	if not group or (key == "mounts" and GetNumCompanions("MOUNT") == 0) then
+	if not group or (COMPANION_KIND[key] and GetNumCompanions(COMPANION_KIND[key]) == 0) then
 		return
 	end
 	if frame:IsShown() and ForeverUI.Panes.CurrentGroup() == group then
@@ -1870,24 +1891,25 @@ local function createSideTab(key, name, icon, tooltip, group)
 	return tab
 end
 
--- The mounts tab shows only with mounts, as the pet tab only with a pet. Losing the last one
--- while its screen is open brings back the character page.
+-- The mounts and pets tabs show only with a companion of their kind, as the pet tab only with
+-- a pet. Losing the last one while its screen is open brings back the character page.
 local function updateMountsTab()
-	local tab = tabs.mounts
-	if not tab then
-		return
-	end
-	if GetNumCompanions("MOUNT") > 0 then
-		tab:Show()
-	else
-		tab:Hide()
-		if ForeverUI.Panes.CurrentGroup() == MOUNTS_SCREEN and CharacterFrame:IsShown() then
-			ToggleCharacter("PaperDollFrame")
+	for key, kind in pairs(COMPANION_KIND) do
+		local tab = tabs[key]
+		if tab then
+			if GetNumCompanions(kind) > 0 then
+				tab:Show()
+			else
+				tab:Hide()
+				if ForeverUI.Panes.CurrentGroup() == TAB_CREATED_SCREENS[key] and CharacterFrame:IsShown() then
+					ToggleCharacter("PaperDollFrame")
+				end
+			end
 		end
 	end
 end
 
--- Creates our PvP, statistics and mounts side tabs, sets their level and the faction icon
+-- Creates our PvP, statistics, mounts and pets side tabs, sets their level and the faction icon
 local function placeCreatedTabs()
 	if not tabBar then
 		return
@@ -1901,11 +1923,13 @@ local function placeCreatedTabs()
 		TAB_ICONS.stats, STATISTICS, STATS_SCREEN)
 	createSideTab("mounts", "ForeverUICharacterTabMounts",
 		TAB_ICONS.mounts, MOUNTS, MOUNTS_SCREEN)
+	createSideTab("pets", "ForeverUICharacterTabPets",
+		TAB_ICONS.pets, COMPANIONS, PETS_SCREEN)
 	updateMountsTab()
 
 	-- Same level rule as the client tabs: below the metal
 	local tabsLevel = tabBar:GetFrameLevel()
-	for _, key in ipairs({ "pvp", "stats", "mounts" }) do
+	for _, key in ipairs({ "pvp", "stats", "mounts", "pets" }) do
 		if tabs[key] then
 			tabs[key]:SetFrameLevel(tabsLevel + 1)
 		end
