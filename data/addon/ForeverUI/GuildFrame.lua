@@ -24,8 +24,9 @@ local txt = S.txt
 -- Layout values from camelot communitiesframe.xml, communitieslist.xml and rightsidetab.xml.
 local N = {
 	width = 814, height = 426,
-	-- CommunitiesList: TOPLEFT (-1, -23), BOTTOMRIGHT at the frame's BOTTOMLEFT (170, 29)
-	list = { x1 = -1, y1 = -23, x2 = 170, y2 = 29 },
+	-- CommunitiesList: TOPLEFT (-1, -23), BOTTOMRIGHT at the frame's BOTTOMLEFT (170, 29);
+	-- 20 wider here, taken from the gap before the views
+	list = { x1 = -1, y1 = -23, x2 = 190, y2 = 29 },
 	-- CommunitiesListEntryTemplate, 178 x 68 (here as wide as the column)
 	entry = { h = 68, y = -4 },
 	-- RightSideTabTemplate: 32 x 32, the first at the frame's TOPRIGHT (0, -36), 20 apart

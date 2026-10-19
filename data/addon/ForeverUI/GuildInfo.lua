@@ -18,10 +18,11 @@ G.Info = I
 local SEP = string.char(92)
 local txt = S.txt
 
--- camelot GuildDetailsFrame: TOPLEFT at the guild column's TOPRIGHT (24, -40), BOTTOMRIGHT
+-- camelot GuildDetailsFrame: TOPLEFT at the guild column's TOPRIGHT (24, -40; 4 here, the column
+-- being 20 wider), BOTTOMRIGHT
 -- (-12, 30); Info 270 wide on the left, News 316 wide at TOPRIGHT (-4, 0)
 local P = {
-	x1 = 24, y1 = -40, x2 = -12, y2 = 30,
+	x1 = 4, y1 = -40, x2 = -12, y2 = 30,
 	infoW = 270, newsW = 316, newsX = -4,
 	-- headers: GuildFrame sheet, 280 x 22 (300 for the news), text at 10
 	headerH = 22, headerTextX = 10, editX = -8,

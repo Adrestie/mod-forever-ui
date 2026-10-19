@@ -20,7 +20,7 @@ local txt = S.txt
 local P = {
 	-- the inset around headers and list: from the guild column's right (camelot MemberList
 	-- expanded: CommunitiesList TOPRIGHT + 26, -60) to the frame's right, above the buttons
-	insetX1 = 192, insetY1 = -58, insetX2 = -6, insetY2 = 28,
+	insetX1 = 194, insetY1 = -58, insetX2 = -6, insetY2 = 28,
 	headerX = 4, headerY = -4, gap = -2,
 	rowH = 20, textH = 12,
 	-- GUILD_COLUMN_INFO: Level 40, Class 45, Name 100, Zone 100, Rank 85, Note to the edge
@@ -39,7 +39,7 @@ local P = {
 	busy = "Interface" .. SEP .. "FriendsFrame" .. SEP .. "StatusIcon-DnD",
 	nameW = 95, zoneW = 90, rankW = 80,
 	-- Show offline (ShowOfflineButton) and the totals, above the inset
-	offlineX = 196, offlineY = -30, totalsRight = -12, totalsY = -36,
+	offlineX = 198, offlineY = -30, totalsRight = -12, totalsY = -36,
 	buttonBottom = 5, buttonRight = -5, controlW = 130, addW = 130,
 	gray = 0.5, grayText = 0.65,
 }

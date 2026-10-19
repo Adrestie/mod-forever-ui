@@ -26,11 +26,12 @@ local P = {
 	members = { x1 = -165, y1 = -63, x2 = -26, y2 = 28 },
 	-- MemberCount: BOTTOMLEFT at the list's TOPLEFT (0, 17)
 	countY = 17,
-	-- Chat: TOPLEFT at the guild column's TOPRIGHT (31, -44), BOTTOMRIGHT at the member list's
-	-- BOTTOMLEFT (-32, 28)
-	chat = { x1 = 31, y1 = -44, x2 = -32, y2 = 28 },
-	-- ChatEditBox: under the chat, (-4, -4) to (3, -4), 32 high (the box itself 20)
-	edit = { x1 = -4, x2 = 3, y = -4, h = 20 },
+	-- Chat: TOPLEFT at the guild column's TOPRIGHT (31, -44, here 12: the column is 20 wider),
+	-- BOTTOMRIGHT at the member list's BOTTOMLEFT (-32, 28)
+	chat = { x1 = 12, y1 = -44, x2 = -32, y2 = 28 },
+	-- ChatEditBox: under the chat's inset (-8 to +26 around the chat), its border on the
+	-- inset's edges (skinInput draws 5 left of the box), 20 high
+	edit = { x1 = -3, x2 = 26, y = -10, h = 20 },
 	-- StreamDropdown: TOPLEFT (195, -31)
 	stream = { x = 195, y = -31, w = 160 },
 	rowH = 20, nameW = 115,
@@ -159,8 +160,8 @@ end
 local function buildEdit(frame, chat)
 	local b = CreateFrame("EditBox", "ForeverUIGuildChatEditBox", frame)
 	b:SetHeight(P.edit.h)
-	b:SetPoint("TOPLEFT", chat, "BOTTOMLEFT", P.edit.x1 + 6, P.edit.y - 6)
-	b:SetPoint("TOPRIGHT", chat, "BOTTOMRIGHT", P.edit.x2 + 22, P.edit.y - 6)
+	b:SetPoint("TOPLEFT", chat, "BOTTOMLEFT", P.edit.x1, P.edit.y)
+	b:SetPoint("TOPRIGHT", chat, "BOTTOMRIGHT", P.edit.x2, P.edit.y)
 	b:SetAutoFocus(false)
 	b:SetFontObject(ChatFontNormal)
 	b:SetTextInsets(6, 6, 0, 0)
