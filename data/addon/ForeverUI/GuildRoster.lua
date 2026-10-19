@@ -40,7 +40,7 @@ local P = {
 	busy = "Interface" .. SEP .. "FriendsFrame" .. SEP .. "StatusIcon-DnD",
 	nameW = 95, zoneW = 90, rankW = 80,
 	-- the member detail's rank menu
-	rankMenuW = 150, rankMenuH = 22,
+	rankMenuW = 136, rankMenuH = 20,
 	-- Show offline (ShowOfflineButton) and the totals, above the inset
 	offlineX = 198, offlineY = -30, totalsRight = -12, totalsY = -36,
 	buttonBottom = 5, buttonRight = -5, controlW = 130, addW = 130,
