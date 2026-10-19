@@ -300,6 +300,8 @@ local function createDetail()
 		end
 	end)
 	Tpl.MenuStyle1(dd, P.rankMenuW, P.rankMenuH)
+	-- the chosen rank in the detail's font (MenuStyle1 writes GameFontHighlight)
+	_G[dd:GetName() .. "Text"]:SetFontObject(GameFontHighlightSmall)
 	D.rankMenu = dd
 	D.noteLabel, D.note, D.noteText = detailNote(a, "NOTE_COLON", "SET_GUILDPLAYERNOTE")
 	D.noteLabel:SetPoint("TOPLEFT", a, "TOPLEFT", 18, -108)
