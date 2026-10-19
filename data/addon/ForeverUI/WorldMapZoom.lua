@@ -12,6 +12,7 @@ local W = ForeverUI.WorldMap
 local Z = { z = 1, cx = 0.5, cy = 0.5, active = false, STEP = 1.25, MAX = 4, THRESHOLD = 4 }
 W.zoom = Z
 
+local wipe = table.wipe or wipe or function(t) for k in pairs(t) do t[k] = nil end return t end
 local CARD_W, CARD_H = 1002, 668
 local TILE, COLUMNS, ROWS = 256, 4, 3
 
@@ -262,6 +263,109 @@ local function placeMarkers(clientZoom)
 end
 Z.placeMarkers = placeMarkers
 
+-- ----------------------------------------------------------------- Areas
+
+-- The quest areas while zoomed. The client's WorldMapBlobFrame lays its areas out once, where and
+-- how large it is when DrawQuestBlob runs; its frame alpha does not reach them (their own fill
+-- and border alphas do) and nothing crops it (seen in game on the minimap, MinimapQuests.lua).
+-- While zoomed it is turned invisible (fill and border alpha 0) and a mirror draws the same
+-- quests (DrawQuestBlob hooked) at the zoomed size, in a ScrollFrame over the view: drawn while
+-- the ScrollFrame is opened over the whole enlarged map, then left as it shrinks back to the view.
+-- WorldMapBlobFrame_OnLoad: fill alpha 128, border alpha 192.
+local BLOB_FILL, BLOB_BORDER = 128, 192
+local areas = { drawn = {} }
+
+if WorldMapBlobFrame and hooksecurefunc and WorldMapBlobFrame.DrawQuestBlob then
+	hooksecurefunc(WorldMapBlobFrame, "DrawQuestBlob", function(_, questId, show)
+		if not questId then return end
+		areas.drawn[questId] = show and true or nil
+		if Z.active and Z.drawAreas then Z.drawAreas() end
+	end)
+end
+
+local function areaFrames()
+	if areas.clip or not (WorldMapDetailFrame and CreateFrame) then return areas.clip end
+	local ok, blob = pcall(CreateFrame, "QuestPOIFrame", nil, WorldMapDetailFrame)
+	if not ok or not blob then return nil end
+	local clip = CreateFrame("ScrollFrame", nil, WorldMapDetailFrame)
+	local child = CreateFrame("Frame", nil, clip)
+	clip:SetScrollChild(child)
+	blob:SetParent(child)
+	if blob.SetFillTexture then
+		blob:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
+		blob:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
+		blob:SetFillAlpha(BLOB_FILL)
+		blob:SetBorderAlpha(BLOB_BORDER)
+		blob:SetBorderScalar(1.0)
+	end
+	-- where the client's areas draw: above the map, under its POIs
+	if WorldMapBlobFrame then clip:SetFrameLevel(WorldMapBlobFrame:GetFrameLevel()) end
+	areas.clip, areas.child, areas.blob, areas.mirrored = clip, child, blob, {}
+	return clip
+end
+
+local function placeClip(x, y, w, h)
+	areas.clip:ClearAllPoints()
+	areas.clip:SetPoint("TOPLEFT", WorldMapDetailFrame, "TOPLEFT", x, -y)
+	areas.clip:SetWidth(w)
+	areas.clip:SetHeight(h)
+	areas.child:SetWidth(w)
+	areas.child:SetHeight(h)
+end
+
+-- Draws the mirror at the current zoom and view
+function Z.drawAreas()
+	if not (Z.active and areaFrames()) then return end
+	local z, blob = Z.z, areas.blob
+	local mw, mh = CARD_W * z, CARD_H * z
+	areas.clip:Show()
+	placeClip(0, 0, mw, mh)
+	blob:ClearAllPoints()
+	blob:SetPoint("TOPLEFT", areas.child, "TOPLEFT", 0, 0)
+	blob:SetWidth(mw)
+	blob:SetHeight(mh)
+	if blob.DrawQuestBlob then
+		-- no DrawNone in 3.3.5: each area is taken off, then drawn where the frame now is
+		for id in pairs(areas.mirrored) do blob:DrawQuestBlob(id, false) end
+		wipe(areas.mirrored)
+		for id in pairs(areas.drawn) do
+			blob:DrawQuestBlob(id, true)
+			areas.mirrored[id] = true
+		end
+	end
+	-- back to the view, the map's part in the canvas (map units x zoom)
+	local x0, y0, x1, y1 = view()
+	x0, y0 = math.max(0, x0), math.max(0, y0)
+	x1, y1 = math.min(CARD_W, x1), math.min(CARD_H, y1)
+	placeClip(x0 * z, y0 * z, (x1 - x0) * z, (y1 - y0) * z)
+	blob:ClearAllPoints()
+	blob:SetPoint("TOPLEFT", areas.child, "TOPLEFT", -x0 * z, y0 * z)
+	-- a new size reaches the engine on the next frame: drawn again on the two after
+	if math.abs(mw - (areas.width or 0)) > 0.01 then
+		areas.width, areas.again = mw, 2
+	end
+end
+
+local function hideAreas()
+	if areas.clip then areas.clip:Hide() end
+	areas.width = nil
+end
+
+-- The client's hover test (WorldMapBlobFrame_OnUpdate) reads fractions of WorldMapBlobFrame's
+-- rectangle: while zoomed, fractions of the enlarged map instead
+if hooksecurefunc and WorldMapBlobFrame_CalculateHitTranslations then
+	hooksecurefunc("WorldMapBlobFrame_CalculateHitTranslations", function()
+		if not (Z.active and WorldMapBlobFrame and WorldMapDetailFrame) then return end
+		local d = WorldMapDetailFrame
+		local left, top, width, height = d:GetLeft(), d:GetTop(), d:GetWidth(), d:GetHeight()
+		if not (left and top and width and width > 0) then return end
+		local scale = d:GetEffectiveScale()
+		local b = WorldMapBlobFrame
+		b.xRatio, b.xOffset = width * scale, left / width
+		b.yRatio, b.yOffset = height * scale, top / height
+	end)
+end
+
 -- ------------------------------------------------------------- Apply
 
 -- Current map key: a map change resets the zoom to 1
@@ -285,8 +389,8 @@ local function enlarge()
 	end
 end
 
--- The quest blob (WorldMapBlobFrame) is drawn by the engine in one piece and would overflow,
--- so it hides while zoomed; WorldMapButton's hit rect is limited to the view.
+-- The quest areas: WorldMapBlobFrame turns invisible while zoomed and a mirror draws them zoomed
+-- (see Areas); WorldMapButton's hit rect is limited to the view.
 -- old: the zoom before this change (markers placed once follow it)
 function Z.apply(old)
 	local d = WorldMapDetailFrame
@@ -311,7 +415,10 @@ function Z.apply(old)
 	d:ClearAllPoints()
 	d:SetPoint("CENTER", W.canvas, "CENTER", (0.5 - Z.cx) * CARD_W * z, (Z.cy - 0.5) * CARD_H * z)
 	if WorldMapBlobFrame then
-		WorldMapBlobFrame:SetAlpha(0)
+		if WorldMapBlobFrame.SetFillAlpha then
+			WorldMapBlobFrame:SetFillAlpha(0)
+			WorldMapBlobFrame:SetBorderAlpha(0)
+		end
 		if WorldMapBlobFrame_CalculateHitTranslations then WorldMapBlobFrame_CalculateHitTranslations() end
 	end
 	local a = WorldMapFrameAreaFrame
@@ -325,6 +432,7 @@ function Z.apply(old)
 	cropTexture()
 	placeMarkers(old)
 	sortBy()
+	Z.drawAreas()
 end
 
 -- Back to the whole map. After a mode change, the client and WorldMap.lua have just set
@@ -346,9 +454,13 @@ function Z.reset(isModeChange)
 		end
 	end
 	if WorldMapBlobFrame then
-		WorldMapBlobFrame:SetAlpha(1)
+		if WorldMapBlobFrame.SetFillAlpha then
+			WorldMapBlobFrame:SetFillAlpha(BLOB_FILL)
+			WorldMapBlobFrame:SetBorderAlpha(BLOB_BORDER)
+		end
 		if WorldMapBlobFrame_CalculateHitTranslations then WorldMapBlobFrame_CalculateHitTranslations() end
 	end
+	hideAreas()
 	local a = WorldMapFrameAreaFrame
 	if a then
 		a:ClearAllPoints()
@@ -448,6 +560,11 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
 				return
 			end
 		end
+	end
+	-- A new zoom reaches the engine on the next frame: the areas are drawn again on the two after
+	if areas.again and areas.again > 0 then
+		areas.again = areas.again - 1
+		Z.drawAreas()
 	end
 	-- Markers move with their units: ten passes a second are enough (Z.apply sorts at once).
 	-- Each pass reads every child of the map buttons (about sixty) and builds three tables.
