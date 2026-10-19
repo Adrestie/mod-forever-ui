@@ -6,11 +6,13 @@
 -- Positions: the client gives map fractions (GetPlayerMapPosition, QuestPOIGetIconInfo, both on
 -- the map the world map shows, the player's when it is closed); MapSizes.lua turns them into
 -- yards, and the minimap's zoom into yards per minimap unit.
--- Areas: a QuestPOIFrame draws the blobs of the shown map over its whole rectangle and nothing
--- clips to a circle in 3.3.5, so the round minimap is cut into horizontal strips, each a
--- ScrollFrame (they clip to their rectangle) holding its own QuestPOIFrame: the strips together
--- follow the circle. A QuestPOIFrame does not rotate: with "Rotate Minimap" on, the areas hide
--- and only POIs and arrows show.
+-- Areas: a QuestPOIFrame draws the blobs of the shown map into its texture, over the map's whole
+-- rectangle, and nothing clips to a circle in 3.3.5. The round minimap is cut into horizontal
+-- strips, each with its own QuestPOIFrame whose texture shows only the strip's part of the map
+-- (its place, size and tex coords), as the world map's tiles are cropped: an area shows as the
+-- player comes near it, cut by the minimap's edge. A ScrollFrame does not clip that texture (the
+-- whole area was squeezed into the visible part, along the edge). A QuestPOIFrame does not
+-- rotate: with "Rotate Minimap" on, the areas hide and only POIs and arrows show.
 
 local Q = {}
 ForeverUI.MinimapQuests = Q
@@ -124,22 +126,12 @@ local function build()
 		local near = math.min(math.abs(top), math.abs(bottom))
 		if top > 0 and bottom < 0 then near = 0 end
 		local half = math.sqrt(math.max(0, radius * radius - near * near))
-		local clip = CreateFrame("ScrollFrame", nil, holder)
-		clip:SetWidth(half * 2)
-		clip:SetHeight(h)
-		clip:SetPoint("TOPLEFT", holder, "CENTER", -half, top)
-		local child = CreateFrame("Frame", nil, clip)
-		child:SetWidth(half * 2)
-		child:SetHeight(h)
-		clip:SetScrollChild(child)
 		-- a QuestPOIFrame made from Lua; without it, no areas (the POIs and arrows stay)
-		local ok, blob = pcall(CreateFrame, "QuestPOIFrame", nil, child)
+		local ok, blob = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
 		if not ok or not blob then
-			clip:Hide()
 			break
 		end
 		local texture = blob:CreateTexture(nil, "ARTWORK")
-		texture:SetAllPoints(blob)
 		if blob.SetFillTexture then
 			-- WorldMapBlobFrame_OnLoad
 			blob:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
@@ -148,8 +140,7 @@ local function build()
 			blob:SetBorderAlpha(192)
 			blob:SetBorderScalar(1.0)
 		end
-		blob.half, blob.top = half, top
-		blobs[i] = { clip = clip, child = child, blob = blob }
+		blobs[i] = { blob = blob, texture = texture, half = half, top = top, height = h }
 	end
 	return holder
 end
@@ -277,19 +268,29 @@ local function update()
 	for i = shownArrows + 1, #arrows do arrows[i]:Hide() end
 	hidePOIs(keptPOIs)
 
-	-- Areas: the map's rectangle at the minimap's scale, its corner placed from the player
+	-- Areas: each strip's QuestPOIFrame is the map's rectangle at the minimap's scale, its corner
+	-- placed from the player; its texture shows the part of the map under the strip
 	local show = not rotate
+	local mw, mh = w * k, h * k
+	local left, top = -px * mw, py * mh           -- the map's corner, from the minimap's center
 	for _, strip in ipairs(blobs) do
-		if show then
-			local blob = strip.blob
-			blob:SetWidth(w * k)
-			blob:SetHeight(h * k)
+		local blob, texture = strip.blob, strip.texture
+		-- the strip and the map, intersected (minimap units, y up)
+		local x0, x1 = math.max(-strip.half, left), math.min(strip.half, left + mw)
+		local y0, y1 = math.min(strip.top, top), math.max(strip.top - strip.height, top - mh)
+		if show and x1 - x0 > 0.01 and y0 - y1 > 0.01 then
+			blob:SetWidth(mw)
+			blob:SetHeight(mh)
 			blob:ClearAllPoints()
-			blob:SetPoint("TOPLEFT", strip.child, "TOPLEFT",
-				blob.half - px * w * k, py * h * k - blob.top)
-			strip.clip:Show()
+			blob:SetPoint("TOPLEFT", holder, "CENTER", left, top)
+			texture:ClearAllPoints()
+			texture:SetPoint("TOPLEFT", holder, "CENTER", x0, y0)
+			texture:SetWidth(x1 - x0)
+			texture:SetHeight(y0 - y1)
+			texture:SetTexCoord((x0 - left) / mw, (x1 - left) / mw, (top - y0) / mh, (top - y1) / mh)
+			blob:Show()
 		else
-			strip.clip:Hide()
+			blob:Hide()
 		end
 	end
 	Q.view = { px = px, py = py, w = w, h = h, k = k }
