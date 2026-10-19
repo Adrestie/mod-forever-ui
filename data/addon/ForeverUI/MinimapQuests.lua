@@ -7,17 +7,15 @@
 -- Positions: the client gives map fractions (GetPlayerMapPosition, QuestPOIGetIconInfo, both on
 -- the map the world map shows, the player's when it is closed); MapSizes.lua turns them into
 -- yards, and the minimap's zoom into yards per minimap unit.
--- Areas: a QuestPOIFrame draws the blobs of the shown map over its whole rectangle, and in game
--- neither a ScrollFrame (the area was squeezed into the visible part) nor its texture's
--- coordinates (the area drew past the minimap) crop it. So it is not shown: an invisible one holds
--- the tracked quests' blobs and answers, point by point, whether a point of the map is in one
--- (UpdateMouseOverTooltip, the world map's hover test). A grid of cells over the round minimap
--- shows those inside, in the world map's colours (WorldMapBlobFrame_OnLoad: UI-QuestBlob-Inside,
--- a plain blue, at fill alpha 128; UI-QuestBlob-Outside, a lighter blue rim, at 192). Cells on an
--- area's edge are read again in four, and the rim is drawn on those quarters: the edge follows
--- the area twice as finely, and the minimap's own edge, where an area is only cut, has no rim.
--- The areas show only inside the circle, as the player comes near them, and turn with the
--- minimap.
+-- Areas: the game's own drawing, the world map's (a QuestPOIFrame, WorldMapBlobFrame_OnLoad's
+-- textures and alphas). Seen in game: it lays an area out once, where and how large the frame is
+-- when DrawQuestBlob runs, and in a ScrollFrame it squeezes the whole area into the visible part;
+-- but drawn while its ScrollFrame is opened over the whole map, then left as the ScrollFrame
+-- shrinks back, it is cut cleanly. Nothing clips to a circle in 3.3.5: the minimap is cut into
+-- horizontal strips, each a ScrollFrame as wide as the circle at its height with its own
+-- QuestPOIFrame, drawn again that way whenever the view moves. An invisible QuestPOIFrame that
+-- never moves answers the hover test (UpdateMouseOverTooltip, the world map's). A QuestPOIFrame
+-- does not rotate: with "Rotate Minimap" on, the areas hide (POIs and arrows turn).
 
 local Q = {}
 ForeverUI.MinimapQuests = Q
@@ -29,13 +27,10 @@ local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 }
 
-local GRID = 28                  -- cells across the minimap's diameter (each in four on an edge)
-local FILL = { 56 / 255, 108 / 255, 248 / 255, 128 / 255 }    -- UI-QuestBlob-Inside, fill alpha
-local RIM = { 101 / 255, 185 / 255, 248 / 255, 192 / 255 }    -- UI-QuestBlob-Outside, border alpha
-local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
+local STRIPS = 24                -- strips across the minimap's diameter
+local AREA_WAIT = 0.05           -- the strips are drawn again at most twenty times a second
 local PROBE_ALPHA = 1            -- out of 255
 local PROBE_W, PROBE_H = 1002, 668        -- the world map's size (WorldMapBlobFrame)
-local AREA_IDLE = 0.5            -- and twice a second without moving
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
 local ARROW_SIZE = 18
@@ -45,9 +40,7 @@ local HOVER_RADIUS = 7           -- a POI or an arrow under the cursor, in minim
 local PARENT = "ForeverUIMinimapQuests"
 
 local holder, probe, arrows = nil, nil, {}
-local cells = {}                 -- { texture, x, y, row, col }, x and y from the minimap's center
-local quarters = {}              -- textures of the quarter cells, made as needed
-local cellSide
+local strips = {}                -- { clip, child, blob, half, top, height }
 -- POI buttons shown on the minimap: hidden here, not by QuestPOI_HideAllButtons, which errors on
 -- a number never created (a POI out of range leaves its number unshown)
 local shownPOIs, keptPOIs = {}, {}
@@ -153,22 +146,28 @@ local function build()
 		end
 	end
 
-	-- The cells: a grid over the minimap, only those inside its circle
+	-- The strips: rows of the circle, each as wide as the circle at its middle
 	local radius = Minimap:GetWidth() / 2
-	local side = Minimap:GetWidth() / GRID
-	cellSide = side
-	for row = 1, GRID do
-		for col = 1, GRID do
-			local x, y = -radius + (col - 0.5) * side, radius - (row - 0.5) * side
-			if x * x + y * y <= (radius - side / 2) ^ 2 then
-				local cell = holder:CreateTexture(nil, "BORDER")
-				cell:SetWidth(side)
-				cell:SetHeight(side)
-				cell:SetPoint("CENTER", holder, "CENTER", x, y)
-				cell:Hide()
-				cells[#cells + 1] = { texture = cell, x = x, y = y, row = row, col = col }
-			end
+	local height = Minimap:GetWidth() / STRIPS
+	for i = 1, STRIPS do
+		local top = radius - (i - 1) * height
+		local middle = top - height / 2
+		local half = math.sqrt(math.max(0, radius * radius - middle * middle))
+		local okStrip, blob = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
+		if not okStrip or not blob then break end
+		local clip = CreateFrame("ScrollFrame", nil, holder)
+		local child = CreateFrame("Frame", nil, clip)
+		clip:SetScrollChild(child)
+		blob:SetParent(child)
+		if blob.SetFillTexture then
+			blob:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
+			blob:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
+			blob:SetFillAlpha(128)
+			blob:SetBorderAlpha(192)
+			blob:SetBorderScalar(1.0)
 		end
+		strips[i] = { clip = clip, child = child, blob = blob, half = half, top = top, height = height,
+			drawn = {} }
 	end
 	return holder
 end
@@ -234,14 +233,19 @@ end
 
 -- The probe's blobs, drawn again when the quests or the map change
 local areaKey
+local probeDrawn = {}
 local function drawBlobs(key)
 	if key == drawnKey or not probe then return end
 	drawnKey = key
 	areaKey = nil
-	if probe.DrawNone then probe:DrawNone() end
+	if not probe.DrawQuestBlob then return end
+	-- no DrawNone in 3.3.5: the areas drawn before are taken off one by one
+	for id in pairs(probeDrawn) do probe:DrawQuestBlob(id, false) end
+	wipe(probeDrawn)
 	for _, m in ipairs(markers) do
-		if not m.complete and probe.DrawQuestBlob then
+		if not m.complete then
 			probe:DrawQuestBlob(m.questId, true)
+			probeDrawn[m.questId] = true
 		end
 	end
 end
@@ -264,118 +268,59 @@ local function areaAt(fx, fy)
 	return index
 end
 
--- The grid. Each cell is read at its center; a cell whose four neighbours do not all agree is on
--- an edge and is read again in four quarters (half rows and columns, "fine" coordinates). A cell
--- or quarter inside an area shows in the fill colour; a quarter inside with a quarter outside next
--- to it shows the rim. Past the minimap's circle counts as inside: no rim where an area is cut.
-local inside, fine = {}, {}
-local areaWait, areaIdle = 0, 0
-local function key(row, col) return row * 1000 + col end
-
-local function quarter(i)
-	local q = quarters[i]
-	if not q then
-		q = holder:CreateTexture(nil, "BORDER")
-		q:SetWidth(cellSide / 2)
-		q:SetHeight(cellSide / 2)
-		quarters[i] = q
-	end
-	return q
-end
-
-local function paint(texture, color)
-	texture:SetTexture(color[1], color[2], color[3], color[4])
-	texture:Show()
+-- The strips, drawn again when the view moves: each ScrollFrame opened over the map's rectangle,
+-- its area drawn there, then shrunk back to its strip with the area left in place
+local areaWait = 0
+local function place(strip, x, y, w, h)
+	strip.clip:ClearAllPoints()
+	strip.clip:SetPoint("TOPLEFT", holder, "CENTER", x, y)
+	strip.clip:SetWidth(w)
+	strip.clip:SetHeight(h)
+	strip.child:SetWidth(w)
+	strip.child:SetHeight(h)
 end
 
 local function showAreas(v, elapsed)
-	-- Read again when the view moves (ten times a second at most) and twice a second anyway: the
-	-- engine lays areas out when it draws, so right after DrawQuestBlob the probe finds none yet
 	areaWait = areaWait - (elapsed or AREA_WAIT)
-	areaIdle = areaIdle - (elapsed or AREA_IDLE)
-	local k = string.format("%s:%.4f:%.4f:%.2f:%.3f", tostring(drawnKey), v.px, v.py, v.rotate and v.facing or 0, v.k)
-	if areaWait > 0 or (k == areaKey and areaIdle > 0) then return end
-	areaKey, areaWait, areaIdle = k, AREA_WAIT, AREA_IDLE
-
-	wipe(inside)
-	wipe(fine)
-	local present = {}
-	for _, cell in ipairs(cells) do
-		present[key(cell.row, cell.col)] = true
-		inside[key(cell.row, cell.col)] = areaAt(toMap(cell.x, cell.y, v)) ~= nil
+	if v.rotate then
+		for _, strip in ipairs(strips) do strip.clip:Hide() end
+		areaKey = nil
+		return
 	end
-	local function cellIn(r, c)
-		local id = key(r, c)
-		if not present[id] then return nil end
-		return inside[id]
-	end
-	-- a quarter: fine row and column, 1 to 2 x GRID
-	local function fineIn(fr, fc)
-		local r, c = math.ceil(fr / 2), math.ceil(fc / 2)
-		local id = key(r, c)
-		if not present[id] then return true end          -- past the circle: no rim
-		local f = fine[key(fr, fc)]
-		if f ~= nil then return f end
-		return inside[id]
-	end
-
-	local used = 0
-	local any = false
-	local half = cellSide / 2
-	for _, cell in ipairs(cells) do
-		local r, c = cell.row, cell.col
-		local here = inside[key(r, c)]
-		local edge = false
-		for _, n in ipairs({ { r - 1, c }, { r + 1, c }, { r, c - 1 }, { r, c + 1 } }) do
-			local there = cellIn(n[1], n[2])
-			if there ~= nil and there ~= here then edge = true end
-		end
-		cell.edge = edge
-		if edge then
-			cell.texture:Hide()
-			for dr = 0, 1 do
-				for dc = 0, 1 do
-					local qx, qy = cell.x + (dc - 0.5) * half, cell.y - (dr - 0.5) * half
-					fine[key(2 * r - 1 + dr, 2 * c - 1 + dc)] = areaAt(toMap(qx, qy, v)) ~= nil
-				end
-			end
-		elseif here then
-			any = true
-			paint(cell.texture, FILL)
-		else
-			cell.texture:Hide()
-		end
-	end
-	-- the quarters of the edge cells
-	for _, cell in ipairs(cells) do
-		if cell.edge then
-			local r, c = cell.row, cell.col
-			for dr = 0, 1 do
-				for dc = 0, 1 do
-					local fr, fc = 2 * r - 1 + dr, 2 * c - 1 + dc
-					if fine[key(fr, fc)] then
-						any = true
-						used = used + 1
-						local q = quarter(used)
-						q:ClearAllPoints()
-						q:SetPoint("CENTER", holder, "CENTER", cell.x + (dc - 0.5) * half, cell.y - (dr - 0.5) * half)
-						local rim = not (fineIn(fr - 1, fc) and fineIn(fr + 1, fc) and fineIn(fr, fc - 1) and fineIn(fr, fc + 1))
-						paint(q, rim and RIM or FILL)
-					end
+	local k = string.format("%s:%.4f:%.4f:%.3f", tostring(drawnKey), v.px, v.py, v.k)
+	if k == areaKey or areaWait > 0 then return end
+	areaKey, areaWait = k, AREA_WAIT
+	local mw, mh = v.w * v.k, v.h * v.k
+	local left, top = -v.px * mw, v.py * mh      -- the map's corner, from the minimap's center
+	for _, strip in ipairs(strips) do
+		local blob = strip.blob
+		strip.clip:Show()
+		place(strip, left, top, mw, mh)
+		blob:ClearAllPoints()
+		blob:SetPoint("TOPLEFT", strip.child, "TOPLEFT", 0, 0)
+		blob:SetWidth(mw)
+		blob:SetHeight(mh)
+		if blob.DrawQuestBlob then
+			-- no DrawNone in 3.3.5: each area is taken off, then drawn where the frame now is
+			for id in pairs(strip.drawn) do blob:DrawQuestBlob(id, false) end
+			wipe(strip.drawn)
+			for _, m in ipairs(markers) do
+				if not m.complete then
+					blob:DrawQuestBlob(m.questId, true)
+					strip.drawn[m.questId] = true
 				end
 			end
 		end
+		place(strip, -strip.half, strip.top, strip.half * 2, strip.height)
+		blob:ClearAllPoints()
+		blob:SetPoint("TOPLEFT", strip.child, "TOPLEFT", left + strip.half, top - strip.top)
 	end
-	for i = used + 1, #quarters do quarters[i]:Hide() end
-	Q.areaCells = any
 end
 
 local function hideAll()
 	if not holder then return end
 	holder:Hide()
 	for _, a in ipairs(arrows) do a:Hide() end
-	for _, cell in ipairs(cells) do cell.texture:Hide() end
-	for _, q in ipairs(quarters) do q:Hide() end
 	areaKey = nil
 	hidePOIs()
 end
@@ -526,8 +471,8 @@ local function refresh(readAgain)
 end
 Q.refresh = refresh
 
--- the grid read again on the next update, whatever moved
-Q.redrawAreas = function() areaKey = nil end
+-- the strips drawn again on the next update, whatever moved
+Q.redrawAreas = function() areaKey, areaWait = nil, 0 end
 Q.update = update
 
 local watcher = CreateFrame("Frame")
