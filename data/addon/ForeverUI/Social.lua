@@ -1,6 +1,7 @@
 -- Social window skinned like camelot: the frame, its tabs and the Contacts page (friends
--- and ignores). The Who, Guild, Chat and Raid pages are in SocialWho.lua, SocialGuild.lua,
--- SocialChat.lua and SocialRaid.lua and register with S.registerPage. Data, row order,
+-- and ignores). The Who, Chat and Raid pages are in SocialWho.lua, SocialChat.lua and
+-- SocialRaid.lua and register with S.registerPage. The guild has its own window, like
+-- camelot's Communities (GuildFrame.lua): no Guild tab here. Data, row order,
 -- colors, menu, tooltip and button actions follow the client's FriendsFrame.lua.
 
 local ForeverUI = ForeverUI or {}
@@ -52,13 +53,13 @@ local TAB_ART = {
 	inactiveLeft = "uiframe-tab-left-c60", inactiveMiddle = "_uiframe-tab-center-c60", inactiveRight = "uiframe-tab-right-c60",
 }
 
--- Bottom tabs: Contacts, then the WotLK ones. id is the client tab's, FriendsFrameTab<id>.
+-- Bottom tabs: Contacts, then the WotLK ones but Guild. id is the client tab's,
+-- FriendsFrameTab<id>.
 -- 3.3.5 lacks camelot's CONTACTS_* strings, so tabs and titles use FRIENDS, FRIENDS_LIST
 -- and IGNORE_LIST.
 local TABS = {
 	{ id = 1, text = "FRIENDS" },
 	{ id = 2, text = "WHO" },
-	{ id = 3, text = "GUILD" },
 	{ id = 4, text = "CHAT" },
 	{ id = 5, text = "RAID" },
 }
@@ -562,8 +563,7 @@ local function selectDefault()
 	end
 end
 
--- Bottom tabs follow the client's selected tab; Guild is disabled outside a guild, like
--- the client's (InGuildCheck).
+-- Bottom tabs follow the client's selected tab.
 function S.updateTabs()
 	local selected = FriendsFrame.selectedTab or 1
 	for _, o in ipairs(S.tabs) do
@@ -944,15 +944,17 @@ function S.skinCell(c)
 	if c.SetHighlightTexture then c:SetHighlightTexture("") end
 end
 
--- Side popup: member details, guild info, log, saved instances. One at a time, right of
--- the window, like GuildFramePopup_Show; the same portrait-less frame as arena team
--- details.
-function S.createPopup(name, width, height)
-	local a = CreateFrame("Frame", name, S.frame)
+-- Side popup: saved instances, arena team details, and the guild window's (member details,
+-- guild info, guild control). One at a time, right of its window, like GuildFramePopup_Show;
+-- the same portrait-less frame as arena team details. owner: its window (the Social one by
+-- default); annexes: the list of that window's outer frames (WindowStack); x: gap to it.
+function S.createPopup(name, width, height, owner, annexes, x)
+	owner = owner or S.frame
+	local a = CreateFrame("Frame", name, owner)
 	a:SetWidth(width)
 	a:SetHeight(height)
-	a:SetPoint("TOPLEFT", S.frame, "TOPRIGHT", 12, 0)
-	a:SetFrameLevel(S.frame:GetFrameLevel() + 30)
+	a:SetPoint("TOPLEFT", owner, "TOPRIGHT", x or 12, 0)
+	a:SetFrameLevel(owner:GetFrameLevel() + 30)
 	a:EnableMouse(true)
 	a:Hide()
 	ForeverUI.SetPanelArt(a, { topLeftCorner = "ui-frame-metal-cornertopleft", level = 5 })
@@ -995,7 +997,7 @@ function S.createPopup(name, width, height)
 		PlaySound("igSpellBookClose")
 	end)
 	S.annexes = S.annexes or {}
-	table.insert(S.annexes, a)
+	table.insert(annexes or S.annexes, a)
 	return a
 end
 

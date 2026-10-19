@@ -258,4 +258,12 @@ ForeverUI.AddTexts("ruRU", {
 	WORLDMAP_PLAYER_COORDS = "Игрок: %d, %d",
 	WORLDMAP_TITLE = "Карта и журнал заданий",
 	WORLDMAP_WORLD = "Мир",
+
+	-- GuildFrame.lua, GuildChat.lua, GuildInfo.lua
+	GUILD_TAB_CHAT = "Чат",
+	GUILD_TAB_ROSTER = "Список участников",
+	GUILD_CHAT_PROMPT = "Сообщение: %s",
+	GUILD_MEMBERS_ONLINE = "В сети: %d/%d",
+	GUILD_EDIT_TEXT = "Изменить",
+	GUILD_NO_EVENTS = "Событий гильдии нет.",
 })

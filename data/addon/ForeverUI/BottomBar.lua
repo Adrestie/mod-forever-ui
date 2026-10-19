@@ -367,6 +367,9 @@ local function guildTabard()
 	return cf, tonumber(motif), ce
 end
 
+-- The guild window's portrait reads it too (GuildFrame.lua)
+ForeverUI.GuildTabard = guildTabard
+
 local social
 for _, entry in ipairs(microButtons) do
 	if entry.button:GetName() == "SocialsMicroButton" then social = entry end
@@ -569,6 +572,14 @@ function ForeverUI.UpdateMicro(role, isOpen)
 			applyMicroState(entry)
 		end
 	end
+end
+
+-- Client micro buttons pushed while a window of ours is open, not the client's: the Guild
+-- button with the guild window (GuildFrame.lua). The client's UpdateMicroButtons only knows
+-- its own windows; the hook below corrects it. name -> function returning whether it is open
+local microOwners = {}
+function ForeverUI.SetMicroOwner(name, isOpen)
+	microOwners[name] = isOpen
 end
 
 -- professions button: pushed while the book or the crafting page is open
@@ -939,6 +950,14 @@ end)
 if hooksecurefunc then
 	hooksecurefunc("UpdateMicroButtons", function()
 		for _, entry in ipairs(microButtons) do
+			local isOpen = microOwners[entry.button:GetName() or ""]
+			if isOpen then
+				if isOpen() then
+					entry.button:SetButtonState("PUSHED", 1)
+				else
+					entry.button:SetButtonState("NORMAL")
+				end
+			end
 			applyMicroState(entry)
 		end
 	end)

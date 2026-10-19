@@ -258,4 +258,12 @@ ForeverUI.AddTexts("frFR", {
 	WORLDMAP_PLAYER_COORDS = "Joueur : %d, %d",
 	WORLDMAP_TITLE = "Carte et journal de quêtes",
 	WORLDMAP_WORLD = "Monde",
+
+	-- GuildFrame.lua, GuildChat.lua, GuildInfo.lua
+	GUILD_TAB_CHAT = "Discussion",
+	GUILD_TAB_ROSTER = "Liste des membres",
+	GUILD_CHAT_PROMPT = "Message : %s",
+	GUILD_MEMBERS_ONLINE = "%d/%d en ligne",
+	GUILD_EDIT_TEXT = "Modifier",
+	GUILD_NO_EVENTS = "Aucun événement de guilde.",
 })
