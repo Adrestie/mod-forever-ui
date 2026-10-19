@@ -29,6 +29,7 @@ local GRID = 32                  -- cells across the minimap's diameter
 local FILL = { 0.25, 0.55, 1, 0.3 }       -- an area's inside
 local EDGE = { 0.45, 0.7, 1, 0.65 }       -- its edge
 local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
+local PROBE_ALPHA = 0.01
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
 local ARROW_SIZE = 18
@@ -126,11 +127,10 @@ local function build()
 	-- arrows stay)
 	local ok, frame = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
 	if ok and frame then
+		-- drawn, but too faint to see: the engine lays its areas out at the frame's size and may
+		-- skip a frame it does not draw (placed on the map's rectangle in update)
 		probe = frame
-		probe:SetWidth(1)
-		probe:SetHeight(1)
-		probe:SetPoint("CENTER", holder, "CENTER", 0, 0)
-		probe:SetAlpha(0)
+		probe:SetAlpha(PROBE_ALPHA)
 		if probe.SetFillTexture then
 			probe:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 			probe:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
@@ -243,8 +243,8 @@ local function areaAt(fx, fy)
 	if not (probe and probe.UpdateMouseOverTooltip) or fx < 0 or fx > 1 or fy < 0 or fy > 1 then
 		return nil
 	end
-	local index, objectives = probe:UpdateMouseOverTooltip(fx, fy)
-	return objectives and index or nil
+	local index = probe:UpdateMouseOverTooltip(fx, fy)
+	return index
 end
 
 -- The grid: each cell inside an area shows, those along its edge brighter
@@ -336,6 +336,14 @@ local function update(elapsed)
 	for i = shownArrows + 1, #arrows do arrows[i]:Hide() end
 	hidePOIs(keptPOIs)
 
+	-- the probe on the map's rectangle at the minimap's scale, its corner placed from the player
+	if probe then
+		local mw, mh = w * k, h * k
+		probe:SetWidth(mw)
+		probe:SetHeight(mh)
+		probe:ClearAllPoints()
+		probe:SetPoint("TOPLEFT", holder, "CENTER", -px * mw, py * mh)
+	end
 	Q.view = { px = px, py = py, w = w, h = h, k = k, rotate = rotate, facing = facing, c = c, s = s }
 	showAreas(Q.view, elapsed)
 end
