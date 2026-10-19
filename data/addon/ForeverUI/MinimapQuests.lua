@@ -305,15 +305,19 @@ local function showAreas(v, elapsed)
 	end
 	local k = string.format("%s:%.4f:%.4f:%.3f", tostring(drawnKey), v.px, v.py, v.k)
 	local mw, mh = v.w * v.k, v.h * v.k
-	-- A new size (the zoom changed) reaches the engine on the next frame: the areas are drawn again
-	-- on the two frames after it, whatever the wait
+	-- A new place or size reaches the engine on the next frame: after a move the areas are drawn
+	-- again on the next frame, after a zoom on the two next, whatever the wait
 	if math.abs(mw - drawnWidth) > 0.01 then
 		drawnWidth, sizeFrames = mw, 2
-	elseif sizeFrames > 0 and k == areaKey then
-		sizeFrames = sizeFrames - 1
-		areaKey = nil
 	end
-	if k == areaKey or (areaWait > 0 and sizeFrames == 0) then return end
+	if sizeFrames > 0 then
+		-- a frame after a draw: drawn again where the engine now has the frame
+		sizeFrames = sizeFrames - 1
+	elseif k == areaKey or areaWait > 0 then
+		return
+	else
+		sizeFrames = 1
+	end
 	areaKey, areaWait = k, AREA_WAIT
 	local left, top = -v.px * mw, v.py * mh      -- the map's corner, from the minimap's center
 	for _, strip in ipairs(strips) do

@@ -313,8 +313,8 @@ local function placeClip(x, y, w, h)
 	areas.child:SetHeight(h)
 end
 
--- Draws the mirror at the current zoom and view
-function Z.drawAreas()
+-- Draws the mirror at the current zoom and view. again: the drawing of a frame after a change
+function Z.drawAreas(again)
 	if not (Z.active and areaFrames()) then return end
 	local z, blob = Z.z, areas.blob
 	local mw, mh = CARD_W * z, CARD_H * z
@@ -340,9 +340,11 @@ function Z.drawAreas()
 	placeClip(x0 * z, y0 * z, (x1 - x0) * z, (y1 - y0) * z)
 	blob:ClearAllPoints()
 	blob:SetPoint("TOPLEFT", areas.child, "TOPLEFT", -x0 * z, y0 * z)
-	-- a new size reaches the engine on the next frame: drawn again on the two after
-	if math.abs(mw - (areas.width or 0)) > 0.01 then
-		areas.width, areas.again = mw, 2
+	-- a new place or size reaches the engine on the next frame: drawn again on the frame after a
+	-- pan, on the two after a zoom
+	if not again then
+		areas.again = math.abs(mw - (areas.width or 0)) > 0.01 and 2 or math.max(areas.again or 0, 1)
+		areas.width = mw
 	end
 end
 
@@ -561,10 +563,10 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
 			end
 		end
 	end
-	-- A new zoom reaches the engine on the next frame: the areas are drawn again on the two after
+	-- A new place or zoom reaches the engine on the next frame: the areas are drawn again after
 	if areas.again and areas.again > 0 then
 		areas.again = areas.again - 1
-		Z.drawAreas()
+		Z.drawAreas(true)
 	end
 	-- Markers move with their units: ten passes a second are enough (Z.apply sorts at once).
 	-- Each pass reads every child of the map buttons (about sixty) and builds three tables.
