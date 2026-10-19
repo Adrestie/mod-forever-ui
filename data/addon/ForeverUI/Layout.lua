@@ -486,6 +486,8 @@ SlashCmdList["FOREVERUI"] = function(message)
 		else
 			say(L.LAYOUT_NO_MODEL_TUNE)
 		end
+	elseif command == "tabicons" then
+		ForeverUI.TabMacros.Debug()
 	elseif command == "tabs" then
 		if ForeverUI.CharacterTabsDebug then
 			ForeverUI.CharacterTabsDebug()

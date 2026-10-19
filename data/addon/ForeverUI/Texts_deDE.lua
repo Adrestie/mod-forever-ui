@@ -140,7 +140,7 @@ ForeverUI.AddTexts("deDE", {
 
 	-- Layout.lua
 	LAYOUT_EDIT_MODE_COMBAT = "der Bearbeitungsmodus ist im Kampf nicht verfügbar.",
-	LAYOUT_HELP = "Befehle: /fui (Bearbeitungsmodus), /fui reset [Element], /fui list, /fui debug, /fui bar, /fui bottom, /fui statusbars, /fui bags, /fui character, /fui close, /fui tabs, /fui model, /fui sets, /fui rep [Fraktion], /fui skills, /fui currency, /fui pet, /fui pvp [0..1], /fui arena, /fui bg, /fui social, /fui finder, /fui chat, /fui chatlines, /fui titles, /fui minimap [scale k], /fui map, /fui mouse, /fui questlog, /fui tracking, /fui spellbook, /fui micro",
+	LAYOUT_HELP = "Befehle: /fui (Bearbeitungsmodus), /fui reset [Element], /fui list, /fui debug, /fui bar, /fui bottom, /fui statusbars, /fui bags, /fui character, /fui close, /fui tabs, /fui tabicons, /fui model, /fui sets, /fui rep [Fraktion], /fui skills, /fui currency, /fui pet, /fui pvp [0..1], /fui arena, /fui bg, /fui social, /fui finder, /fui chat, /fui chatlines, /fui titles, /fui minimap [scale k], /fui map, /fui mouse, /fui questlog, /fui tracking, /fui spellbook, /fui micro",
 	LAYOUT_LIST_HEADER = "registrierte Elemente:",
 	LAYOUT_LIST_MOVED = " - verschoben",
 	LAYOUT_NO_CHAT_LINES = "kein Bericht über die Chatzeilen verfügbar.",
@@ -388,6 +388,8 @@ ForeverUI.AddTexts("deDE", {
 	STATUSBARS_EDIT_LABEL_REPUTATION = "Rufleiste",
 
 	-- TabMacros.lua
+	TABMACROS_DEBUG_COUNT = "Makrosymbole: %d, Kopien von Reitersymbolen (<Modul>_...): %d",
+	TABMACROS_DEBUG_TAB = "Reiter %s | Symbol %s | in der Liste: %s (%s) | Makro: %s (%s)",
 	TABMACROS_FULL = "Kein freier Makroplatz: Löscht ein Makro, um diesen Reiter auf eine Leiste zu legen.",
 
 	-- TabardFrame.lua

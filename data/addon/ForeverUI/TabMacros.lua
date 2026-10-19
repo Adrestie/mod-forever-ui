@@ -216,3 +216,31 @@ function M.EnableDrag(button, body, info)
 end
 
 M.registry = registry
+
+-- /fui tabicons: what the client's macro icon list holds for the registered tabs
+function M.Debug()
+	local say = function(text) DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text) end
+	local total = GetNumMacroIcons and GetNumMacroIcons() or 0
+	local copies = {}
+	for index = 1, total do
+		local texture = GetMacroIconInfo(index)
+		local name = texture and fileName(normalized(texture)) or ""
+		if name:find("^foreverui_") or name:find("^spheregrid_") or name:find("^stellartarot_")
+			or name:find("^attriboost_") then
+			copies[#copies + 1] = index .. "=" .. texture
+		end
+	end
+	say(string.format(L.TABMACROS_DEBUG_COUNT, total, #copies))
+	for i = 1, math.min(#copies, 6) do
+		say("   " .. copies[i])
+	end
+	for body, info in pairs(registry) do
+		local icon = value(info.icon)
+		local found = findIcon(icon)
+		local macro = find(body)
+		local _, macroTexture = macro and GetMacroInfo(macro)
+		say(string.format(L.TABMACROS_DEBUG_TAB, tostring(value(info.name)), tostring(icon),
+			tostring(found), tostring(found and GetMacroIconInfo(found)), tostring(macro),
+			tostring(macroTexture)))
+	end
+end

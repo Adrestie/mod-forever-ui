@@ -140,7 +140,7 @@ ForeverUI.AddTexts("esES", {
 
 	-- Layout.lua
 	LAYOUT_EDIT_MODE_COMBAT = "el modo de edición no está disponible en combate.",
-	LAYOUT_HELP = "comandos: /fui (modo de edición), /fui reset [elemento], /fui list, /fui debug, /fui bar, /fui bottom, /fui statusbars, /fui bags, /fui character, /fui close, /fui tabs, /fui model, /fui sets, /fui rep [facción], /fui skills, /fui currency, /fui pet, /fui pvp [0..1], /fui arena, /fui bg, /fui social, /fui finder, /fui chat, /fui chatlines, /fui titles, /fui minimap [scale k], /fui map, /fui mouse, /fui questlog, /fui tracking, /fui spellbook, /fui micro",
+	LAYOUT_HELP = "comandos: /fui (modo de edición), /fui reset [elemento], /fui list, /fui debug, /fui bar, /fui bottom, /fui statusbars, /fui bags, /fui character, /fui close, /fui tabs, /fui tabicons, /fui model, /fui sets, /fui rep [facción], /fui skills, /fui currency, /fui pet, /fui pvp [0..1], /fui arena, /fui bg, /fui social, /fui finder, /fui chat, /fui chatlines, /fui titles, /fui minimap [scale k], /fui map, /fui mouse, /fui questlog, /fui tracking, /fui spellbook, /fui micro",
 	LAYOUT_LIST_HEADER = "elementos registrados:",
 	LAYOUT_LIST_MOVED = " - movido",
 	LAYOUT_NO_CHAT_LINES = "no hay ningún informe de líneas del chat disponible.",
@@ -388,6 +388,8 @@ ForeverUI.AddTexts("esES", {
 	STATUSBARS_EDIT_LABEL_REPUTATION = "Barra de reputación",
 
 	-- TabMacros.lua
+	TABMACROS_DEBUG_COUNT = "iconos de macro: %d, copias de iconos de pestañas (<Módulo>_...): %d",
+	TABMACROS_DEBUG_TAB = "pestaña %s | icono %s | en la lista: %s (%s) | macro: %s (%s)",
 	TABMACROS_FULL = "No queda espacio para macros: borra una para poner esta pestaña en una barra.",
 
 	-- TabardFrame.lua
