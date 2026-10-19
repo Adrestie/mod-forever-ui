@@ -7,7 +7,8 @@ local ForeverUI = ForeverUI or {}
 _G.ForeverUI = ForeverUI
 local S = ForeverUI.Social
 local G = ForeverUI.Guild
-if not (S and G) then
+local Tpl = ForeverUI.Templates
+if not (S and G and Tpl) then
 	return
 end
 
@@ -38,6 +39,8 @@ local P = {
 	absent = "Interface" .. SEP .. "FriendsFrame" .. SEP .. "StatusIcon-Away",
 	busy = "Interface" .. SEP .. "FriendsFrame" .. SEP .. "StatusIcon-DnD",
 	nameW = 95, zoneW = 90, rankW = 80,
+	-- the member detail's rank menu
+	rankMenuW = 150, rankMenuH = 22,
 	-- Show offline (ShowOfflineButton) and the totals, above the inset
 	offlineX = 198, offlineY = -30, totalsRight = -12, totalsY = -36,
 	buttonBottom = 5, buttonRight = -5, controlW = 130, addW = 130,
@@ -273,43 +276,33 @@ local function detailNote(a, caption, popup)
 end
 
 local function createDetail()
-	local a = G.createPopup("ForeverUIGuildMemberDetail", 232, 290)
+	local a = G.createPopup("ForeverUIGuildMemberDetail", 232, 296)
 	D.frame = a
 	D.level = a:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	D.level:SetPoint("TOPLEFT", a, "TOPLEFT", 18, -30)
 	D.zoneLabel, D.zone = detailField(a, "ZONE_COLON", -48)
 	D.rankLabel, D.rank = detailField(a, "RANK_COLON", -64)
 	D.rank:SetPoint("RIGHT", a, "RIGHT", -52, 0)
-	D.lastSeenLabel, D.found = detailField(a, "LAST_ONLINE_COLON", -80)
-	-- Promote / demote: camelot scroll bar arrows.
-	local function arrow(atlas, hover, onClick)
-		local f = CreateFrame("Button", nil, a)
-		f:SetWidth(17)
-		f:SetHeight(11)
-		local e = ForeverUI.AtlasEntry(atlas)
-		f:SetNormalTexture(e and e[1] or "")
-		local n = f:GetNormalTexture()
-		if n then ForeverUI.SetAtlas(n, atlas, true) n:SetAllPoints(f) end
-		f:SetHighlightTexture(e and e[1] or "")
-		local h = f:GetHighlightTexture()
-		if h then ForeverUI.SetAtlas(h, hover, true) h:SetAllPoints(f) end
-		f:SetScript("OnClick", onClick)
-		return f
-	end
-	D.promote = arrow("minimal-scrollbar-arrow-top-c60", "minimal-scrollbar-arrow-top-over-c60", function(self)
-		GuildPromote(GuildFrame.selectedName)
-		PlaySound("UChatScrollButton")
-		self:Disable()
+	D.lastSeenLabel, D.found = detailField(a, "LAST_ONLINE_COLON", -86)
+	-- The rank as camelot changes it (CommunitiesGuildMemberDetailMixin:SetupRankDropdown): a
+	-- menu of the ranks within reach in place of the rank's text.
+	local dd = CreateFrame("Frame", "ForeverUIGuildRankDropDown", a, "UIDropDownMenuTemplate")
+	dd:SetPoint("LEFT", D.rankLabel, "RIGHT", 6, 0)
+	UIDropDownMenu_Initialize(dd, function()
+		local r = D.ranks
+		if not r then return end
+		for rankIndex = r.highest, r.lowest do
+			local info = UIDropDownMenu_CreateInfo()
+			info.text = GuildControlGetRankName(rankIndex + 1)
+			info.checked = rankIndex == r.current
+			info.func = function() G.setRank(r.name, r.current, rankIndex) end
+			UIDropDownMenu_AddButton(info)
+		end
 	end)
-	D.promote:SetPoint("LEFT", D.rank, "RIGHT", 4, 6)
-	D.demote = arrow("minimal-scrollbar-arrow-bottom-c60", "minimal-scrollbar-arrow-bottom-over-c60", function(self)
-		GuildDemote(GuildFrame.selectedName)
-		PlaySound("UChatScrollButton")
-		self:Disable()
-	end)
-	D.demote:SetPoint("TOP", D.promote, "BOTTOM", 0, -2)
+	Tpl.MenuStyle1(dd, P.rankMenuW, P.rankMenuH)
+	D.rankMenu = dd
 	D.noteLabel, D.note, D.noteText = detailNote(a, "NOTE_COLON", "SET_GUILDPLAYERNOTE")
-	D.noteLabel:SetPoint("TOPLEFT", a, "TOPLEFT", 18, -102)
+	D.noteLabel:SetPoint("TOPLEFT", a, "TOPLEFT", 18, -108)
 	D.officerLabel, D.officer, D.officerText = detailNote(a, "OFFICER_NOTE_COLON", "SET_GUILDOFFICERNOTE")
 	D.officerLabel:SetPoint("TOPLEFT", D.note, "BOTTOMLEFT", 2, -10)
 	D.remove = G.button(a, txt("REMOVE"), 100)
@@ -361,26 +354,43 @@ function G.updateDetail()
 		D.officerText:SetText(officer or "")
 		D.officerLabel:Show()
 		D.officer:Show()
-		a:SetHeight(290)
+		a:SetHeight(296)
 	else
 		D.officerLabel:Hide()
 		D.officer:Hide()
-		a:SetHeight(230)
+		a:SetHeight(236)
 	end
-	-- Promote, demote, remove, invite
+	-- Rank menu (camelot: promotion up to the rank under ours, demotion down to the last),
+	-- remove, invite. 3.3.5 rank indexes start at 0, the guild master.
 	local canPromote = CanGuildPromote() and rankIndex and rankIndex > 1 and rankIndex > (myRank + 1)
 	local canDemote = CanGuildDemote() and rankIndex and rankIndex >= 1 and rankIndex > myRank and rankIndex ~= maxRank
-	if canPromote then D.promote:Enable() else D.promote:Disable() end
-	if canDemote then D.demote:Enable() else D.demote:Disable() end
 	if canPromote or canDemote then
-		D.promote:Show()
-		D.demote:Show()
+		D.ranks = {
+			name = name, current = rankIndex,
+			highest = canPromote and math.max(1, myRank + 1) or rankIndex,
+			lowest = canDemote and maxRank or rankIndex,
+		}
+		UIDropDownMenu_SetText(D.rankMenu, rank or "")
+		D.rankMenu:Show()
+		D.rank:Hide()
 	else
-		D.promote:Hide()
-		D.demote:Hide()
+		D.ranks = nil
+		D.rankMenu:Hide()
+		D.rank:Show()
 	end
 	active(D.remove, CanGuildRemove() and rankIndex and rankIndex >= 1 and rankIndex > myRank)
 	active(D.inviteButton, UnitName("player") ~= name and online and true or false)
+end
+
+-- Moves member name from rank current to rank wanted. 3.3.5 has no SetGuildRankOrder: as
+-- many promotions or demotions as ranks between them, each one rank (the server takes
+-- them in turn).
+function G.setRank(name, current, wanted)
+	if not name or wanted == current then return end
+	PlaySound("igMainMenuOptionCheckBoxOn")
+	local step = wanted < current and GuildPromote or GuildDemote
+	for _ = 1, math.abs(wanted - current) do step(name) end
+	GuildRoster()
 end
 
 -- Sets the client selection and what its popups read (GuildFrame.selectedName).
