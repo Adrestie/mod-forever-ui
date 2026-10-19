@@ -34,6 +34,7 @@ local FILL = { 56 / 255, 108 / 255, 248 / 255, 128 / 255 }    -- UI-QuestBlob-In
 local RIM = { 101 / 255, 185 / 255, 248 / 255, 192 / 255 }    -- UI-QuestBlob-Outside, border alpha
 local AREA_WAIT = 0.1            -- the grid is read again at most ten times a second
 local PROBE_ALPHA = 1            -- out of 255
+local PROBE_W, PROBE_H = 1002, 668        -- the world map's size (WorldMapBlobFrame)
 local AREA_IDLE = 0.5            -- and twice a second without moving
 local POI_SCALE = 0.5            -- QuestPOITemplate is 32 x 32
 local POI_INSET = 6              -- a POI closer than this to the edge becomes an arrow
@@ -132,12 +133,18 @@ local function build()
 
 	-- The probe: an invisible QuestPOIFrame (made from Lua; without it, no areas: the POIs and
 	-- arrows stay)
-	local ok, frame = pcall(CreateFrame, "QuestPOIFrame", nil, holder)
+	local ok, frame = pcall(CreateFrame, "QuestPOIFrame", "ForeverUIMinimapQuestsProbe", UIParent)
 	if ok and frame then
 		-- drawn, but too faint to see: the engine lays its areas out at the frame's size and may
-		-- skip what it does not draw (placed on the map's rectangle in update). The frame's alpha
-		-- does not reach the areas: their own alphas (0 to 255) do.
+		-- skip what it does not draw. It lays them out once, where and how large the frame is when
+		-- they are drawn, and answers from that: a probe that moved with the player or changed
+		-- size with the zoom answered for a stale picture (seen in game: the areas stood still on
+		-- the minimap). So it never moves: the world map's size, at a fixed place. The frame's
+		-- alpha does not reach the areas: their own alphas (0 to 255) do.
 		probe = frame
+		probe:SetWidth(PROBE_W)
+		probe:SetHeight(PROBE_H)
+		probe:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
 		if probe.SetFillTexture then
 			probe:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 			probe:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
@@ -423,14 +430,6 @@ local function update(elapsed)
 	for i = shownArrows + 1, #arrows do arrows[i]:Hide() end
 	hidePOIs(keptPOIs)
 
-	-- the probe on the map's rectangle at the minimap's scale, its corner placed from the player
-	if probe then
-		local mw, mh = w * k, h * k
-		probe:SetWidth(mw)
-		probe:SetHeight(mh)
-		probe:ClearAllPoints()
-		probe:SetPoint("TOPLEFT", holder, "CENTER", -px * mw, py * mh)
-	end
 	Q.view = { px = px, py = py, w = w, h = h, k = k, rotate = rotate, facing = facing, c = c, s = s }
 	showAreas(Q.view, elapsed)
 end
