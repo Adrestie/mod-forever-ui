@@ -7,13 +7,12 @@
 --   ForeverUI.TabMacros.Register(body, info): the macro with this body is a tab. info:
 --     name      macro name, cut to 16 bytes (a value, or a function returning it)
 --     icon      texture shown on the bars (same)
---     macroIcon an Interface\Icons file name, for the cursor and the macro window when the
---               client's macro icon list lacks icon; the question mark when it lacks both (same)
--- The macro icon list is SpellIcon.dbc, and a macro keeps only its icon's FILE NAME, read again
--- from Interface\Icons (elsewhere: the question mark). A tab's icon is there when its addon or
--- module installs a copy in Interface\Icons, named <Module>_<file name>, with a SpellIcon row
--- (installer.json; ForeverUI's tranche 94 for the character sheet's tabs). The copy is found
--- from the tab's icon: same file name, or ending in _<file name>.
+--     macroIcon an Interface\Icons file name, for the macro window when the client's macro
+--               icon lists lack icon; the question mark when they lack both (same)
+-- A macro's icon comes from the client's two fixed lists (GetMacroIconInfo, 1125 spell icons in
+-- this client, then GetMacroItemIconInfo): no SpellIcon.dbc row or file adds to them (checked in
+-- game with /fui tabicons, 2026-10-19). So while a tab macro is on the cursor, the cursor shows
+-- the tab's icon itself (SetCursor on each frame until it is dropped).
 --   ForeverUI.TabMacros.Pickup(body, info): registers, then puts the macro on the cursor.
 --   ForeverUI.TabMacros.EnableDrag(button, body, info): a left drag of the button does Pickup.
 --     body may be a function(button) returning body, info, for a button reused by several tabs.
@@ -74,18 +73,34 @@ local function fileName(path)
 	return path:match("([^\\]+)$") or path
 end
 
+-- An icon of the two macro lists by its CreateMacro index: spell icons, then item icons
+local function iconTexture(index)
+	local spells = GetNumMacroIcons and GetNumMacroIcons() or 0
+	if index <= spells then
+		return GetMacroIconInfo(index)
+	elseif GetMacroItemIconInfo then
+		return GetMacroItemIconInfo(index - spells)
+	end
+end
+
+local function iconCount()
+	return (GetNumMacroIcons and GetNumMacroIcons() or 0)
+		+ (GetNumMacroItemIcons and GetNumMacroItemIcons() or 0)
+end
+
 -- Index of an icon in the client's macro list, nil when absent. wanted: a full path (found in
 -- Interface\Icons by its file name, or a <Module>_ copy of it), or a bare file name
 local function findIcon(wanted)
 	if type(wanted) ~= "string" or wanted == "" or not GetNumMacroIcons or not GetMacroIconInfo then
 		return nil
 	end
+	local total = iconCount()
 	wanted = normalized(wanted)
 	local base = fileName(wanted)
 	local copy = "_" .. base
 	local best, rank
-	for index = 1, GetNumMacroIcons() do
-		local texture = GetMacroIconInfo(index)
+	for index = 1, total do
+		local texture = iconTexture(index)
 		if texture then
 			texture = normalized(texture)
 			local name = fileName(texture)
@@ -166,7 +181,7 @@ function M.Pickup(body, info)
 	if index and not InCombatLockdown() and EditMacro then
 		local name, texture, macroBody = GetMacroInfo(index)
 		local better = findIcon(info and value(info.icon))
-		if better and normalized(texture or "") ~= normalized(GetMacroIconInfo(better) or "") then
+		if better and normalized(texture or "") ~= normalized(iconTexture(better) or "") then
 			EditMacro(index, name, better, macroBody)
 		end
 	end
@@ -217,13 +232,34 @@ end
 
 M.registry = registry
 
+-- The cursor: a tab macro held shows the tab's icon instead of the macro's (from the bars too)
+local cursor = CreateFrame("Frame")
+cursor:SetScript("OnUpdate", function(self)
+	if not GetCursorInfo then return end
+	local kind, id = GetCursorInfo()
+	local info
+	if kind == "macro" and id and GetMacroInfo then
+		local _, _, body = GetMacroInfo(id)
+		info = registry[trim(body) or ""]
+	end
+	local texture = info and value(info.icon)
+	if texture and SetCursor then
+		SetCursor(texture)
+		self.shown = true
+	elseif self.shown then
+		self.shown = nil
+		if ResetCursor then ResetCursor() end
+	end
+end)
+M.cursor = cursor
+
 -- /fui tabicons: what the client's macro icon list holds for the registered tabs
 function M.Debug()
 	local say = function(text) DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffForeverUI|r " .. text) end
-	local total = GetNumMacroIcons and GetNumMacroIcons() or 0
+	local total = iconCount()
 	local copies = {}
 	for index = 1, total do
-		local texture = GetMacroIconInfo(index)
+		local texture = iconTexture(index)
 		local name = texture and fileName(normalized(texture)) or ""
 		if name:find("^foreverui_") or name:find("^spheregrid_") or name:find("^stellartarot_")
 			or name:find("^attriboost_") then
@@ -236,11 +272,11 @@ function M.Debug()
 	end
 	for body, info in pairs(registry) do
 		local icon = value(info.icon)
-		local found = findIcon(icon)
+		local found = findIcon(icon) or findIcon(value(info.macroIcon))
 		local macro = find(body)
 		local _, macroTexture = macro and GetMacroInfo(macro)
 		say(string.format(L.TABMACROS_DEBUG_TAB, tostring(value(info.name)), tostring(icon),
-			tostring(found), tostring(found and GetMacroIconInfo(found)), tostring(macro),
+			tostring(found), tostring(found and iconTexture(found)), tostring(macro),
 			tostring(macroTexture)))
 	end
 end
