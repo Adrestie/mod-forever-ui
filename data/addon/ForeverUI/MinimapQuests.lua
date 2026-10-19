@@ -172,12 +172,28 @@ local function build()
 	end
 	-- Above the terrain: the strips (holder + 1 to + 3), the POIs over them (+ 4), then the ring
 	-- (MinimapBackdrop, Minimap.lua) and the buttons it carries, then the edge arrows
+	-- The ring sits one level above the terrain: room is made under it. Every frame of the minimap's
+	-- group at the ring's level or above (the ring, its buttons, the bar, mail, tracking...) goes up
+	-- by the same amount, so their order among themselves stays as Minimap.lua left it.
 	local backdrop = _G["MinimapBackdrop"]
 	local ringLevel = holder:GetFrameLevel() + POI_LEVEL + 2
-	if backdrop and backdrop:GetFrameLevel() < ringLevel then
-		backdrop:SetFrameLevel(ringLevel)
-		for _, c in ipairs({ backdrop:GetChildren() }) do
-			if c:GetFrameLevel() <= ringLevel then c:SetFrameLevel(ringLevel + 1) end
+	local oldRing = backdrop and backdrop:GetFrameLevel()
+	if oldRing and oldRing < ringLevel then
+		local delta = ringLevel - oldRing
+		local levels = {}
+		local function walk(f)
+			for _, c in ipairs({ f:GetChildren() }) do
+				if c ~= holder then
+					-- the minimap itself stays: the quest layer must stay above it
+					if c ~= Minimap then levels[c] = c:GetFrameLevel() end
+					walk(c)
+				end
+			end
+		end
+		walk(_G["MinimapCluster"] or Minimap:GetParent())
+		-- one more for all but the ring: what shared its level stays strictly above it
+		for f, level in pairs(levels) do
+			if level >= oldRing then f:SetFrameLevel(level + delta + (f == backdrop and 0 or 1)) end
 		end
 	end
 	over = CreateFrame("Frame", nil, Minimap)
