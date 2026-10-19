@@ -7,8 +7,10 @@
 --   ForeverUI.TabMacros.Register(body, info): the macro with this body is a tab. info:
 --     name      macro name, cut to 16 bytes (a value, or a function returning it)
 --     icon      texture shown on the bars (same)
---     macroIcon an Interface\Icons file name, for the cursor and the macro window; the question
---               mark when the client's macro icon list does not have it (same)
+--     macroIcon an Interface\Icons file name, for the cursor and the macro window when the
+--               client's macro icon list lacks icon; the question mark when it lacks both (same)
+-- The macro icon list is SpellIcon.dbc: a tab icon is there when its addon or module adds a row
+-- for it (installer.json, ForeverUI's tranche 94 for the character sheet's tabs).
 --   ForeverUI.TabMacros.Pickup(body, info): registers, then puts the macro on the cursor.
 --   ForeverUI.TabMacros.EnableDrag(button, body, info): a left drag of the button does Pickup.
 --     body may be a function(button) returning body, info, for a button reused by several tabs.
@@ -61,19 +63,33 @@ local function find(body)
 	end
 end
 
--- Index of an icon in the client's macro list, 1 (the question mark) when absent
-local function iconIndex(wanted)
-	if type(wanted) ~= "string" or not GetNumMacroIcons or not GetMacroIconInfo then
-		return 1
+local function normalized(path)
+	return (path:lower():gsub("/", "\\"))
+end
+
+-- Index of an icon in the client's macro list, nil when absent. wanted: a full path, or a
+-- file name of any folder
+local function findIcon(wanted)
+	if type(wanted) ~= "string" or wanted == "" or not GetNumMacroIcons or not GetMacroIconInfo then
+		return nil
 	end
-	wanted = "\\" .. wanted:lower()
+	wanted = normalized(wanted)
+	local full = wanted:find("\\", 1, true) ~= nil
+	local suffix = "\\" .. wanted
 	for index = 1, GetNumMacroIcons() do
 		local texture = GetMacroIconInfo(index)
-		if texture and texture:lower():sub(-#wanted) == wanted then
-			return index
+		if texture then
+			texture = normalized(texture)
+			if texture == wanted or (not full and texture:sub(-#suffix) == suffix) then
+				return index
+			end
 		end
 	end
-	return 1
+end
+
+-- The tab's own icon, else the nearest one, else 1 (the question mark)
+local function iconIndex(info)
+	return findIcon(info and value(info.icon)) or findIcon(info and value(info.macroIcon)) or 1
 end
 
 -- An action button holding a tab macro shows the tab's icon. Called after ActionButton_Update
@@ -127,6 +143,14 @@ function M.Pickup(body, info)
 	end
 	M.Register(body, info)
 	local index = find(body)
+	-- A macro made before its icon was in the list (the question mark) gets the tab's icon
+	if index and not InCombatLockdown() and EditMacro then
+		local name, texture, macroBody = GetMacroInfo(index)
+		local better = findIcon(info and value(info.icon))
+		if better and normalized(texture or "") ~= normalized(GetMacroIconInfo(better) or "") then
+			EditMacro(index, name, better, macroBody)
+		end
+	end
 	if not index then
 		if InCombatLockdown() then
 			UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1, 0.1, 0.1, 1)
@@ -145,7 +169,7 @@ function M.Pickup(body, info)
 		if name == "" then
 			name = "?"
 		end
-		index = CreateMacro(name, iconIndex(info and value(info.macroIcon)), body,
+		index = CreateMacro(name, iconIndex(info), body,
 			perCharacter, perCharacter)
 		if not index then
 			return

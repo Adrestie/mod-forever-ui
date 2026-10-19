@@ -95,6 +95,35 @@
         {"0": 64320, "1": 64185, "2": 16, "3": 469, "9": "Blackwing Lair", "10": "Blackwing Lair", "11": "Blackwing Lair", "12": "Blackwing Lair", "13": "Blackwing Lair", "14": "Blackwing Lair", "15": "Blackwing Lair", "16": "Blackwing Lair", "17": "Blackwing Lair", "18": "Blackwing Lair", "19": "Blackwing Lair", "20": "Blackwing Lair", "21": "Blackwing Lair", "22": "Blackwing Lair", "23": "Blackwing Lair", "24": "Blackwing Lair", "25": 16712190, "30": 1},
         {"0": 64321, "1": 64185, "2": 16, "3": 531, "9": "Ahn'Qiraj Temple", "10": "Ahn'Qiraj Temple", "11": "Ahn'Qiraj Temple", "12": "Ahn'Qiraj Temple", "13": "Ahn'Qiraj Temple", "14": "Ahn'Qiraj Temple", "15": "Ahn'Qiraj Temple", "16": "Ahn'Qiraj Temple", "17": "Ahn'Qiraj Temple", "18": "Ahn'Qiraj Temple", "19": "Ahn'Qiraj Temple", "20": "Ahn'Qiraj Temple", "21": "Ahn'Qiraj Temple", "22": "Ahn'Qiraj Temple", "23": "Ahn'Qiraj Temple", "24": "Ahn'Qiraj Temple", "25": 16712190, "30": 1}
       ]
+    },
+    {
+      "file": "SpellIcon.dbc",
+      "fields": 2,
+      "text_fields": [1],
+      "client": true,
+      "rows": [
+        {"0": 94001, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_WARRIOR"},
+        {"0": 94002, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_PALADIN"},
+        {"0": 94003, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_HUNTER"},
+        {"0": 94004, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_ROGUE"},
+        {"0": 94005, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_PRIEST"},
+        {"0": 94006, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_DEATHKNIGHT"},
+        {"0": 94007, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_SHAMAN"},
+        {"0": 94008, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_MAGE"},
+        {"0": 94009, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_WARLOCK"},
+        {"0": 94010, "1": "Interface\\ForeverUI\\TabIcons\\ClassIcon_DRUID"},
+        {"0": 94011, "1": "Interface\\ForeverUI\\TabIcons\\Ability_Hunter_BeastTaming"},
+        {"0": 94012, "1": "Interface\\ForeverUI\\TabIcons\\Spell_Shadow_SummonImp"},
+        {"0": 94013, "1": "Interface\\ForeverUI\\TabIcons\\Spell_Shadow_AnimateDead"},
+        {"0": 94014, "1": "Interface\\ForeverUI\\TabIcons\\MountJournalPortrait"},
+        {"0": 94015, "1": "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Reputation2_c60"},
+        {"0": 94016, "1": "Interface\\ForeverUI\\TabIcons\\Ability_Racial_JackofAllTrades"},
+        {"0": 94017, "1": "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Honor_Alliance_c60"},
+        {"0": 94018, "1": "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Honor_Horde_c60"},
+        {"0": 94019, "1": "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Currency_c60"},
+        {"0": 94020, "1": "Interface\\ForeverUI\\TabIcons\\Inv_SideTab_Stats_c60"},
+        {"0": 94021, "1": "Interface\\ForeverUI\\TabIcons\\Trade_Blacksmithing"}
+      ]
     }
   ]
 }
