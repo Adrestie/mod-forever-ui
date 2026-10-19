@@ -77,6 +77,7 @@ ForeverUI.AddTexts("ruRU", {
 	CHARACTERFRAME_MODEL_USAGE = "модель: echelle <n> | position <x> <y> <z> | position defaut",
 	CHARACTERFRAME_PANES_MISSING = "Panes.lua не загружен. Файл, добавленный в модификацию, появляется только при следующем запуске игры: закройте и снова откройте клиент. До тех пор окно персонажа будет неактивно.",
 	CHARACTERFRAME_SHOW_DETAILS = "Показать подробности",
+	CHARACTERFRAME_TAB_MACROS_FULL = "Нет места для нового макроса: удалите макрос, чтобы поместить эту вкладку на панель.",
 	CHARACTERFRAME_TITLES = "Звания",
 
 	-- Chat.lua

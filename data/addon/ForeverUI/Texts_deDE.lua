@@ -77,6 +77,7 @@ ForeverUI.AddTexts("deDE", {
 	CHARACTERFRAME_MODEL_USAGE = "Modell: echelle <n> | position <x> <y> <z> | position defaut",
 	CHARACTERFRAME_PANES_MISSING = "Panes.lua ist nicht geladen. Eine dem Addon hinzugefügte Datei wird erst beim nächsten Spielstart geladen: Schließt den Client und öffnet ihn erneut. Bis dahin bleibt das Charakterfenster inaktiv.",
 	CHARACTERFRAME_SHOW_DETAILS = "Details anzeigen",
+	CHARACTERFRAME_TAB_MACROS_FULL = "Kein freier Makroplatz: Löscht ein Makro, um diesen Reiter auf eine Leiste zu legen.",
 	CHARACTERFRAME_TITLES = "Titel",
 
 	-- Chat.lua

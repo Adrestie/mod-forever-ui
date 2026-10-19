@@ -439,6 +439,10 @@ end
 -- The client rewrites the normal texture on every button update: silence it again after.
 if hooksecurefunc then
 	hooksecurefunc("ActionButton_Update", function(self)
+		-- a character sheet tab on the bar shows the tab's icon (CharacterFrame.lua)
+		if ForeverUI.ShowCharacterTabIcon then
+			ForeverUI.ShowCharacterTabIcon(self)
+		end
 		if self and self.foreverSkinned then
 			silenceNormalTexture(self)
 			keepGrid(self)

@@ -77,6 +77,7 @@ ForeverUI.AddTexts("frFR", {
 	CHARACTERFRAME_MODEL_USAGE = "modèle : echelle <n> | position <x> <y> <z> | position defaut",
 	CHARACTERFRAME_PANES_MISSING = "Panes.lua n'est pas chargé. Un fichier ajouté à l'addon n'arrive qu'au prochain démarrage du jeu : fermez et rouvrez le client. La feuille de personnage reste inactive d'ici là.",
 	CHARACTERFRAME_SHOW_DETAILS = "Afficher les détails",
+	CHARACTERFRAME_TAB_MACROS_FULL = "Plus de place pour une macro : supprimez-en une pour poser cet onglet sur une barre.",
 	CHARACTERFRAME_TITLES = "Titres",
 
 	-- Chat.lua
