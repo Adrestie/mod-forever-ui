@@ -485,7 +485,9 @@ local function raw(units, a, b, oneLine)
 end
 
 -- Two hidden measuring strings, one on a single line, one at the message width;
--- they take the font and settings of the measured font string
+-- they take the font and settings of the measured font string, and its window: glyphs are
+-- rounded to the screen's pixels at the window's scale, so measured elsewhere a text is not
+-- quite as wide
 local measureStrings
 local function measureMessage(r, c)
 	if not measureStrings then
@@ -493,18 +495,23 @@ local function measureMessage(r, c)
 		frame:SetAlpha(0)
 		frame:SetWidth(1)
 		frame:SetHeight(1)
-		frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
-		measureStrings = { row = frame:CreateFontString(nil, "ARTWORK"), block = frame:CreateFontString(nil, "ARTWORK") }
+		measureStrings = { frame = frame, row = frame:CreateFontString(nil, "ARTWORK"), block = frame:CreateFontString(nil, "ARTWORK") }
 		measureStrings.row:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
 		measureStrings.block:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
 	end
+	local frame, parent = measureStrings.frame, r:GetParent() or UIParent
+	if frame:GetParent() ~= parent then
+		frame:SetParent(parent)
+		frame:ClearAllPoints()
+		frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+	end
 	local font, size, outline = r:GetFont()
-	for _, m in pairs(measureStrings) do
+	for _, m in ipairs({ measureStrings.row, measureStrings.block }) do
 		m:SetFont(font, size, outline)
 		if m.SetSpacing then m:SetSpacing(call(r, "GetSpacing") or 0) end
 	end
 	measureStrings.row:SetWidth(0)
-	measureStrings.block:SetWidth(c and c.width or r:GetWidth())
+	measureStrings.block:SetWidth(c and (c.wrapWidth or c.width) or r:GetWidth())
 	if measureStrings.block.SetIndentedWordWrap then measureStrings.block:SetIndentedWordWrap(call(r, "GetIndentedWordWrap") and true or false) end
 	if measureStrings.block.SetNonSpaceWrap then measureStrings.block:SetNonSpaceWrap(call(r, "CanNonSpaceWrap") and true or false) end
 	return measureStrings
@@ -534,49 +541,65 @@ function C.layout(r)
 	-- Each paragraph (text between line breaks) wraps on its own: its lines are counted from
 	-- its first unit; a break ends a line, the next starts after it (an empty line when the
 	-- message ends with one)
-	local starts, n = {}, #u
-	local first = 1
-	while true do
-		local last = first
-		while last <= n and not u[last].newline do last = last + 1 end
-		local breakAt = last
-		last = last - 1
-		local base = #starts
-		starts[base + 1] = first
-		local function rows(b)
-			m.block:SetText(raw(u, first, b))
-			return math.floor(m.block:GetStringHeight() / c.lineHeight + 0.5)
-		end
-		local done, a = 1, first
-		while a <= last do
-			while a <= last and u[a].space do a = a + 1 end
-			if a > last then break end
-			local b = a
-			while b < last and not u[b + 1].space do b = b + 1 end
-			local L = rows(b)
-			if L > done then
-				m.row:SetText(raw(u, a, b))
-				if m.row:GetStringWidth() <= width then
-					-- the word moves to the next line
-					for k = done + 1, L do starts[base + k] = a end
-				else
-					-- a word longer than a line: break by letter
-					for v = a, b do
-						local Lv = rows(v)
-						for k = done + 1, Lv do starts[base + k] = v end
-						if Lv > done then done = Lv end
-					end
-				end
-				done = math.max(done, L)
+	local function wrap()
+		local starts, n = {}, #u
+		local first = 1
+		while true do
+			local last = first
+			while last <= n and not u[last].newline do last = last + 1 end
+			local breakAt = last
+			last = last - 1
+			local base = #starts
+			starts[base + 1] = first
+			local function rows(b)
+				m.block:SetText(raw(u, first, b))
+				return math.floor(m.block:GetStringHeight() / c.lineHeight + 0.5)
 			end
-			a = b + 1
+			local done, a = 1, first
+			while a <= last do
+				while a <= last and u[a].space do a = a + 1 end
+				if a > last then break end
+				local b = a
+				while b < last and not u[b + 1].space do b = b + 1 end
+				local L = rows(b)
+				if L > done then
+					m.row:SetText(raw(u, a, b))
+					if m.row:GetStringWidth() <= c.wrapWidth then
+						-- the word moves to the next line
+						for k = done + 1, L do starts[base + k] = a end
+					else
+						-- a word longer than a line: break by letter
+						for v = a, b do
+							local Lv = rows(v)
+							for k = done + 1, Lv do starts[base + k] = v end
+							if Lv > done then done = Lv end
+						end
+					end
+					done = math.max(done, L)
+				end
+				a = b + 1
+			end
+			if breakAt > n then break end
+			first = breakAt + 1
+			if first > n then
+				starts[#starts + 1] = n + 1
+				break
+			end
 		end
-		if breakAt > n then break end
-		first = breakAt + 1
-		if first > n then
-			starts[#starts + 1] = n + 1
-			break
-		end
+		return starts
+	end
+
+	-- The lines the engine drew (the font string's height) tell whether the wrap matches; if
+	-- it found fewer, the wrap width is narrowed a little at a time until they agree
+	c.wrapWidth = width
+	local starts = wrap()
+	local drawn = math.floor((r:GetHeight() or 0) / c.lineHeight + 0.5)
+	local tries = 0
+	while #starts < drawn and tries < 20 do
+		tries = tries + 1
+		c.wrapWidth = width * (1 - 0.01 * tries)
+		m.block:SetWidth(c.wrapWidth)
+		starts = wrap()
 	end
 	c.starts, c.lineCount = starts, #starts
 	S.hidden[r] = c
