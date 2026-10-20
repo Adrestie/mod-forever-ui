@@ -404,7 +404,8 @@ end
 -- selection: Ctrl released, a click, moving, casting, another edit box, a panel, Escape, scrolling.
 -- The engine draws one font string per message, wrapped at the chat width without indent; a
 -- measuring string with the same font and width wraps the same way, so a word's line comes from
--- the text height up to that word. A word longer than a line is measured letter by letter.
+-- the text height up to that word. A word longer than a line is measured letter by letter. A line
+-- break in the message (a newline or |n, as in error stacks) starts a line of its own.
 
 local S = { hidden = {} }
 C.selection = S
@@ -451,7 +452,7 @@ function C.units(text)
 				table.insert(u, { raw = raw, copy = imageTag(raw) })
 				i = finish + 2
 			elseif s == "n" then
-				table.insert(u, { raw = "", copy = "\n" })
+				table.insert(u, { raw = "\n", copy = "\n", newline = true })
 				i = i + 2
 			else
 				table.insert(u, { raw = "||", copy = "|" })
@@ -461,17 +462,23 @@ function C.units(text)
 			local b = string.byte(c)
 			local l = (b >= 240 and 4) or (b >= 224 and 3) or (b >= 192 and 2) or 1
 			local letter = string.sub(text, i, i + l - 1)
-			table.insert(u, { raw = letter, copy = letter, space = (letter == " ") })
+			if letter == "\n" then
+				table.insert(u, { raw = "\n", copy = "\n", newline = true })
+			else
+				table.insert(u, { raw = letter, copy = letter, space = (letter == " ") })
+			end
 			i = i + l
 		end
 	end
 	return u
 end
 
--- Raw text of units a to b
-local function raw(units, a, b)
+-- Raw text of units a to b; without the line breaks when measuring one line
+local function raw(units, a, b, oneLine)
 	local t = {}
-	for k = a, b do t[#t + 1] = units[k].raw end
+	for k = a, b do
+		if not (oneLine and units[k].newline) then t[#t + 1] = units[k].raw end
+	end
 	return table.concat(t)
 end
 
@@ -513,34 +520,52 @@ function C.layout(r)
 	c.lineHeight = math.max(1, m.row:GetStringHeight())
 	local u = C.units(text)
 	c.units = u
-	local function rows(b)
-		m.block:SetText(raw(u, 1, b))
-		return math.floor(m.block:GetStringHeight() / c.lineHeight + 0.5)
-	end
-	local starts, done = { 1 }, 1
-	local a, n = 1, #u
-	while a <= n do
-		while a <= n and u[a].space do a = a + 1 end
-		if a > n then break end
-		local b = a
-		while b < n and not u[b + 1].space do b = b + 1 end
-		local L = rows(b)
-		if L > done then
-			m.row:SetText(raw(u, a, b))
-			if m.row:GetStringWidth() <= width then
-				-- the word moves to the next line
-				for k = done + 1, L do starts[k] = a end
-			else
-				-- a word longer than a line: break by letter
-				for v = a, b do
-					local Lv = rows(v)
-					for k = done + 1, Lv do starts[k] = v end
-					if Lv > done then done = Lv end
-				end
-			end
-			done = math.max(done, L)
+	-- Each paragraph (text between line breaks) wraps on its own: its lines are counted from
+	-- its first unit; a break ends a line, the next starts after it (an empty line when the
+	-- message ends with one)
+	local starts, n = {}, #u
+	local first = 1
+	while true do
+		local last = first
+		while last <= n and not u[last].newline do last = last + 1 end
+		local breakAt = last
+		last = last - 1
+		local base = #starts
+		starts[base + 1] = first
+		local function rows(b)
+			m.block:SetText(raw(u, first, b))
+			return math.floor(m.block:GetStringHeight() / c.lineHeight + 0.5)
 		end
-		a = b + 1
+		local done, a = 1, first
+		while a <= last do
+			while a <= last and u[a].space do a = a + 1 end
+			if a > last then break end
+			local b = a
+			while b < last and not u[b + 1].space do b = b + 1 end
+			local L = rows(b)
+			if L > done then
+				m.row:SetText(raw(u, a, b))
+				if m.row:GetStringWidth() <= width then
+					-- the word moves to the next line
+					for k = done + 1, L do starts[base + k] = a end
+				else
+					-- a word longer than a line: break by letter
+					for v = a, b do
+						local Lv = rows(v)
+						for k = done + 1, Lv do starts[base + k] = v end
+						if Lv > done then done = Lv end
+					end
+				end
+				done = math.max(done, L)
+			end
+			a = b + 1
+		end
+		if breakAt > n then break end
+		first = breakAt + 1
+		if first > n then
+			starts[#starts + 1] = n + 1
+			break
+		end
 	end
 	c.starts, c.lineCount = starts, #starts
 	S.hidden[r] = c
@@ -554,7 +579,7 @@ local function widthUpTo(r, c, n, b)
 	local key = n * 100000 + b
 	if not c.widths[key] then
 		local m = measureMessage(r, c)
-		m.row:SetText(raw(c.units, start, b - 1))
+		m.row:SetText(raw(c.units, start, b - 1, true))
 		c.widths[key] = m.row:GetStringWidth()
 	end
 	return c.widths[key]
@@ -592,6 +617,8 @@ function C.hitTest(list, x, y)
 			local n = math.min(c.lineCount, math.max(1, math.floor((r:GetTop() - y) / c.lineHeight) + 1))
 			local start = c.starts[n]
 			local finish = c.starts[n + 1] or (#c.units + 1)
+			-- a line ended by a break: the boundary before the break is its last
+			if finish > start and c.units[finish - 1] and c.units[finish - 1].newline then finish = finish - 1 end
 			local xr = x - r:GetLeft()
 			local down, top = start, finish
 			while down < top do
