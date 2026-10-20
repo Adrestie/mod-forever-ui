@@ -213,6 +213,7 @@ local function updatePower()
 	end
 	ForeverUI.SetAtlasFill(powerFill, atlas, fraction,
 		frame.inVehicle and VEHICLE_HEALTH_WIDTH or nil)
+	ForeverUI.TintPower(powerFill, unit)
 end
 
 local function updateName()

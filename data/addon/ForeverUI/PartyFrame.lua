@@ -405,6 +405,7 @@ local function updateResource(m)
 	local type, token = UnitPowerType(u)
 	local value, max = UnitPower(u, type), UnitPowerMax(u, type)
 	ForeverUI.SetAtlasFill(m.resource, resourceAtlas(token, m.vehicle), fraction(value, max), geo.resource[3])
+	ForeverUI.TintPower(m.resource, u)
 	-- 3.3.5 has no masks. Camelot's mask hides the bar's first pixel, so the bar starts one pixel
 	-- further, 73 wide (P.player.resource); its 1-3 px top-left bevel is not reproduced.
 	m.resourceText:ClearAllPoints()

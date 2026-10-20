@@ -34,6 +34,22 @@ function ForeverUI.SetAtlas(texture, name, keepSize)
 	return true
 end
 
+-- Power fill of a unit whose class gives its bar a color of its own: the custom classes of
+-- mod-custom-classes, whose FrameXML defines CustomClassPower_GetColor (the Demon Hunter's fury
+-- lives in the focus slot). The atlas is desaturated and tinted; any other unit keeps its colors.
+function ForeverUI.TintPower(texture, unit)
+	local r, g, b
+	if CustomClassPower_GetColor then
+		r, g, b = CustomClassPower_GetColor(unit)
+	end
+	texture:SetDesaturated(r ~= nil)
+	if r then
+		texture:SetVertexColor(r, g, b)
+	else
+		texture:SetVertexColor(1, 1, 1)
+	end
+end
+
 -- Left-to-right fill: the rectangle is cropped to the fraction. fullWidth: width at 100 %.
 -- The client rejects a zero width, so the texture is hidden instead.
 function ForeverUI.SetAtlasFill(texture, name, fraction, fullWidth)
