@@ -405,7 +405,9 @@ end
 -- The engine draws one font string per message, wrapped at the chat width without indent; a
 -- measuring string with the same font and width wraps the same way, so a word's line comes from
 -- the text height up to that word. A word longer than a line is measured letter by letter. A line
--- break in the message (a newline or |n, as in error stacks) starts a line of its own.
+-- break in the message (a newline or |n, as in error stacks) starts a line of its own. The chat
+-- indents every line after the first (indented word wrap, seen in game on error stacks): the
+-- indent is measured once per layout, as the width a second line adds.
 
 local S = { hidden = {} }
 C.selection = S
@@ -516,8 +518,17 @@ function C.layout(r)
 	if c and c.text == text and c.width == width then return c end
 	c = { text = text, width = width, widths = {} }
 	local m = measureMessage(r, c)
-	m.row:SetText("A")
+	m.row:SetText("W")
 	c.lineHeight = math.max(1, m.row:GetStringHeight())
+	-- Indent of the lines after the first: a two-line "W" is as wide as the indented second
+	c.indent = 0
+	if call(r, "GetIndentedWordWrap") then
+		local one = m.row:GetStringWidth()
+		m.block:SetWidth(4000)
+		m.block:SetText("W\nW")
+		c.indent = math.max(0, (m.block:GetStringWidth() or one) - one)
+		m.block:SetWidth(width)
+	end
 	local u = C.units(text)
 	c.units = u
 	-- Each paragraph (text between line breaks) wraps on its own: its lines are counted from
@@ -619,7 +630,7 @@ function C.hitTest(list, x, y)
 			local finish = c.starts[n + 1] or (#c.units + 1)
 			-- a line ended by a break: the boundary before the break is its last
 			if finish > start and c.units[finish - 1] and c.units[finish - 1].newline then finish = finish - 1 end
-			local xr = x - r:GetLeft()
+			local xr = x - r:GetLeft() - (n > 1 and c.indent or 0)
 			local down, top = start, finish
 			while down < top do
 				local middle = math.floor((down + top) / 2)
@@ -668,7 +679,7 @@ function C.paint()
 							d.highlights[k] = t
 						end
 						t:ClearAllPoints()
-						t:SetPoint("TOPLEFT", r, "TOPLEFT", x1, -(n - 1) * c.lineHeight)
+						t:SetPoint("TOPLEFT", r, "TOPLEFT", x1 + (n > 1 and c.indent or 0), -(n - 1) * c.lineHeight)
 						t:SetWidth(x2 - x1)
 						t:SetHeight(c.lineHeight)
 						t:Show()
