@@ -45,6 +45,14 @@
 //     0x200 bytes, executable), declared in the free space of the section table and called
 //     from the barber body and the creation cave. Its calls into the game are relocated for
 //     the section address, which depends on the file (after .rsrc, or after .wxl).
+//   * Classes, for classes past Blizzard's ten (mod-custom-classes), after TSWoW's
+//     ClientPatches.ts. The creation screen lists the classes in a table of 10 slots on the
+//     stack (0x4E0F50: sub esp, 0x28; [ebp+esi*4-0x28]): 15 classes overflow it and crash the
+//     game; 4 bytes make it 30 slots ("unlimited race/class pairs"). The dungeon finder reads the
+//     roles a class may take from one byte per class at 0xA394AF, which ends after class 11: a
+//     33-byte table replaces it in an unused error text of .rdata (0x9E3237), and its 5 reads
+//     point there ("class roles"). Blizzard's classes keep their bytes; CUSTOM_ROLES gives those
+//     of the new ones.
 // Nothing else changes.
 //
 // Safety: the file is changed only if every piece is recognized byte for byte: original,
@@ -187,6 +195,24 @@ namespace ForeverUI
             "6a0256e80000000083c40885c07501c36a0256e800000000db5dfce800000000" +
             "8b80d0000000ff75fc0fb64846510fb648445153e80000000085c0740e8b4008" +
             "ff700856e800000000eb0656e800000000b8010000008d65e85f5b5e89ec5dc3");
+
+        // Classes: the creation screen's class list, 10 slots -> 30
+        static readonly int[] OFFSET_CLASS_LIST = { 0xE0355, 0xE038E, 0xE03A3, 0xE03C3 };  // VA 0x4E0F55...
+        static readonly byte[] CLASS_LIST_ORIGINAL = { 0x28, 0xD8, 0xD8, 0xD8 };
+        static readonly byte[] CLASS_LIST_PATCHED = { 0x78, 0x88, 0x88, 0x88 };
+        // Classes: the dungeon finder's roles, one byte per class (leader 1, tank 2, healer 4,
+        // damage 8). The game's table (VA 0xA394AF) ends after class 11; the new one, 33 bytes for
+        // classes 0 to 32, takes the place of an unused error text of .rdata (VA 0x9E3237).
+        const int OFFSET_ROLE_TABLE = 0x637CAF;
+        const int OFFSET_ROLE_CAVE = 0x5E1A37;
+        const int ROLE_TABLE_SIZE = 33;
+        static readonly byte[] ROLE_CAVE_ORIGINAL = Hex("5468697320696e6469636174657320612062756720696e20796f7572206170706c");
+        static readonly int[] OFFSET_ROLE_READS = { 0x151D48, 0x152F7D, 0x152F94, 0x1531E7, 0x153D22 };
+        static readonly byte[] ROLE_READ_ORIGINAL = { 0xAF, 0x94, 0xA3, 0x00 };
+        static readonly byte[] ROLE_READ_PATCHED = { 0x37, 0x32, 0x9E, 0x00 };
+        // Roles of the classes of mod-custom-classes, as (class, roles) pairs: Monk tank, healer,
+        // damage; Demon Hunter and Mercenary tank, damage; Evoker and Sage healer, damage
+        static readonly int[] CUSTOM_ROLES = { 10, 0x0F, 12, 0x0B, 13, 0x0D, 14, 0x0B, 15, 0x0D };
 
         static byte[] Hex(string s)
         {
@@ -340,6 +366,46 @@ namespace ForeverUI
             return Piece.Unknown;
         }
 
+        // The dungeon finder's new role table: classes 0 to 11 as the game has them, then
+        // CUSTOM_ROLES
+        static byte[] RoleTable(byte[] d)
+        {
+            byte[] t = new byte[ROLE_TABLE_SIZE];
+            Array.Copy(d, OFFSET_ROLE_TABLE, t, 0, 12);
+            for (int i = 0; i < CUSTOM_ROLES.Length; i += 2)
+                t[CUSTOM_ROLES[i]] = (byte)CUSTOM_ROLES[i + 1];
+            return t;
+        }
+
+        // State of the classes piece: class list, role table and its reads
+        static Piece Classes(byte[] d)
+        {
+            bool original = Matches(d, OFFSET_ROLE_CAVE, ROLE_CAVE_ORIGINAL);
+            bool patched = Matches(d, OFFSET_ROLE_CAVE, RoleTable(d));
+            for (int i = 0; i < OFFSET_CLASS_LIST.Length; i++)
+            {
+                original &= d[OFFSET_CLASS_LIST[i]] == CLASS_LIST_ORIGINAL[i];
+                patched &= d[OFFSET_CLASS_LIST[i]] == CLASS_LIST_PATCHED[i];
+            }
+            foreach (int o in OFFSET_ROLE_READS)
+            {
+                original &= Matches(d, o, ROLE_READ_ORIGINAL);
+                patched &= Matches(d, o, ROLE_READ_PATCHED);
+            }
+            return original ? Piece.Original : patched ? Piece.Current : Piece.Unknown;
+        }
+
+        // Writes the classes piece, patched or original
+        static void SetClasses(byte[] d, bool patched)
+        {
+            byte[] cave = patched ? RoleTable(d) : ROLE_CAVE_ORIGINAL;
+            Array.Copy(cave, 0, d, OFFSET_ROLE_CAVE, cave.Length);
+            for (int i = 0; i < OFFSET_CLASS_LIST.Length; i++)
+                d[OFFSET_CLASS_LIST[i]] = patched ? CLASS_LIST_PATCHED[i] : CLASS_LIST_ORIGINAL[i];
+            foreach (int o in OFFSET_ROLE_READS)
+                Array.Copy(patched ? ROLE_READ_PATCHED : ROLE_READ_ORIGINAL, 0, d, o, 4);
+        }
+
         // Overall state of the file. d: its contents, null if it cannot be read
         public static State Read(string path, out byte[] d)
         {
@@ -348,16 +414,16 @@ namespace ForeverUI
             try { d = File.ReadAllBytes(path); }
             catch (IOException) { return State.Locked; }
             catch (UnauthorizedAccessException) { return State.Locked; }
-            if (d.Length < OFFSET_CAVE + CAVE_PATCHED.Length || d[0] != 'M' || d[1] != 'Z')
+            if (d.Length < OFFSET_ROLE_TABLE + ROLE_TABLE_SIZE || d[0] != 'M' || d[1] != 'Z')
                 return State.Unknown;
             if (!Matches(d, OFFSET_FUNCTION, FINGERPRINT))
                 return State.Unknown;
-            Piece creation = Creation(d), barber = Barber(d), section = Section(d);
-            if (creation == Piece.Unknown || barber == Piece.Unknown || section == Piece.Unknown)
+            Piece creation = Creation(d), barber = Barber(d), section = Section(d), classes = Classes(d);
+            if (creation == Piece.Unknown || barber == Piece.Unknown || section == Piece.Unknown || classes == Piece.Unknown)
                 return State.Unknown;
-            if (creation == Piece.Original && barber == Piece.Original && section == Piece.Original)
+            if (creation == Piece.Original && barber == Piece.Original && section == Piece.Original && classes == Piece.Original)
                 return State.Original;
-            if (creation == Piece.Current && barber == Piece.Current && section == Piece.Current)
+            if (creation == Piece.Current && barber == Piece.Current && section == Piece.Current && classes == Piece.Current)
                 return State.Patched;
             return State.Partial;
         }
@@ -428,7 +494,7 @@ namespace ForeverUI
             if (e != State.Original && e != State.Partial) return e;
             // Read the piece states before touching the section: the creation and barber
             // versions depend on it.
-            Piece creation = Creation(d), barber = Barber(d);
+            Piece creation = Creation(d), barber = Barber(d), classes = Classes(d);
             int va, raw;
             Piece section = Section(d, out va, out raw);
             if (section == Piece.Original)
@@ -455,6 +521,8 @@ namespace ForeverUI
                 Array.Copy(JUMP_PATCHED, 0, d, OFFSET_JUMP, JUMP_PATCHED.Length);
                 Array.Copy(BarberV2(va), 0, d, OFFSET_BARBER, BARBER_V2.Length);
             }
+            if (classes == Piece.Original)
+                SetClasses(d, true);
             Write(path, d);
             return Read(path, out d);
         }
@@ -465,7 +533,9 @@ namespace ForeverUI
             byte[] d;
             State e = Read(path, out d);
             if (e != State.Patched && e != State.Partial) return e;
-            Piece creation = Creation(d), barber = Barber(d), section = Section(d);
+            Piece creation = Creation(d), barber = Barber(d), section = Section(d), classes = Classes(d);
+            if (classes == Piece.Current)
+                SetClasses(d, false);
             if (creation == Piece.Current || creation == Piece.Old)
             {
                 Array.Copy(SITE_ORIGINAL, 0, d, OFFSET_SITE, SITE_ORIGINAL.Length);
@@ -498,7 +568,7 @@ namespace ForeverUI
             switch (e)
             {
                 case ForeverUI.State.Original: return T("Client d'origine : prêt à être patché.", "Original client: ready to be patched.");
-                case ForeverUI.State.Patched: return T("Client patché : ForeverUI numérote les choix d'apparence.", "Patched client: ForeverUI numbers the appearance choices.");
+                case ForeverUI.State.Patched: return T("Client patché : ForeverUI numérote les choix d'apparence, et le client accepte plus de dix classes.", "Patched client: ForeverUI numbers the appearance choices, and the client takes more than ten classes.");
                 case ForeverUI.State.Partial: return T("Client patché par une version précédente : patchez pour le mettre à jour.", "Client patched by an earlier version: patch it to update.");
                 case ForeverUI.State.Absent: return T("Wow.exe introuvable à cet emplacement.", "Wow.exe not found at this location.");
                 case ForeverUI.State.Locked: return T("Wow.exe est ouvert ou protégé : fermez le jeu.", "Wow.exe is open or protected: close the game.");
