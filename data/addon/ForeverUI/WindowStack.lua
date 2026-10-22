@@ -38,11 +38,16 @@ end
 
 -- Moves the root to a level and shifts its descendants by the same gap. Depending on the
 -- client, SetFrameLevel may already move the children, so only misplaced frames are reset.
+-- The gap never takes a frame below 0: clamped there, a list and its rows ended on the same
+-- level and the list, which takes the mouse, caught their clicks (spellbook settings, search
+-- results).
 local function placeLevel(root, level)
 	local gap = level - root:GetFrameLevel()
+	local low = lowestLevel(root)
+	if low + gap < 0 then gap = -low end
 	if gap == 0 then return end
 	for _, e in ipairs(collect(root, {})) do
-		local wanted = math.max(0, e[2] + gap)
+		local wanted = e[2] + gap
 		if e[1]:GetFrameLevel() ~= wanted then e[1]:SetFrameLevel(wanted) end
 	end
 end
