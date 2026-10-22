@@ -839,7 +839,7 @@ function T.read()
 				-- The rank SHOWN is the preview rank: learned + pending
 				table.insert(tab.talents, { tab = o, index = i, name = n, icon = ic, tier = tier,
 					column = column, rank = previewRank or rank or 0, learned = rank or 0, max = max or 1,
-					prereq = (previewPrereq ~= nil and previewPrereq or prereq) and true or false,
+					prereq = (previewPrereq == nil and prereq or previewPrereq) and true or false,
 					square = squares[tier .. ":" .. column] and true or false })
 			end
 		end
@@ -1522,13 +1522,29 @@ function T.update()
 	local bySlot = {}
 	for _, o in ipairs(tabs) do
 		for _, t in ipairs(o.talents) do
+			bySlot[t.tab .. ":" .. t.tier .. ":" .. t.column] = t
+		end
+	end
+	-- A talent behind an arrow can be bought only once its source is full, counting the points
+	-- placed but not yet learned: read from the sources' shown ranks, as the client's flag
+	-- alone left the target green as soon as its tier opened
+	for _, o in ipairs(tabs) do
+		for _, t in ipairs(o.talents) do
+			local p = { GetTalentPrereqs(t.tab, t.index, T.inspection ~= nil, T.pet, T.group) }
+			for k = 1, #p, 4 do
+				local source = bySlot[t.tab .. ":" .. p[k] .. ":" .. p[k + 1]]
+				if source and source.rank < source.max then t.prereq = false end
+			end
+		end
+	end
+	for _, o in ipairs(tabs) do
+		for _, t in ipairs(o.talents) do
 			n = n + 1
 			local b = tree.nodes[n] or createNode(n)
 			tree.nodes[n] = b
 			local isOpen = (t.tier - 1) * perTier <= o.spent
 			t.state = stateOf(t, isOpen, T.inspection and 0 or points)
 			fillNode(b, t, t.state)
-			bySlot[t.tab .. ":" .. t.tier .. ":" .. t.column] = t
 		end
 	end
 	for i = n + 1, #tree.nodes do
