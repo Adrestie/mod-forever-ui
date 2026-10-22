@@ -84,6 +84,14 @@ local function startCast(channel)
 		name, _subtext, text, texture, startTime, endTime, _isTrade, castID, notInterruptible = UnitCastingInfo("player")
 	end
 
+	-- A spell without cast time started during a channel the server keeps (the Monk's Surging and
+	-- Enveloping Mist during Soothing Mist): the channel's bar stays as it is, as in MoP. A channel
+	-- the server ends still ends its bar (UNIT_SPELLCAST_CHANNEL_STOP); a spell with a cast time
+	-- takes the bar
+	if not channel and frame.channeling and (not name or endTime <= startTime) then
+		return
+	end
+
 	if not name then
 		stopBar()
 		return
