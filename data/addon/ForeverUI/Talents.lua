@@ -183,6 +183,14 @@ local COLOR = {
 -- Backgrounds: one per class; death knights get one per tree
 local BACKGROUND_DK = { "talents-background-deathknight-blood", "talents-background-deathknight-frost",
 	"talents-background-deathknight-unholy" }
+-- The classes whose art is one modern image per tree, in the order of their tabs: death
+-- knights, and the monk of mod-custom-classes (Brewmaster, Mistweaver, Windwalker; Camelot's
+-- monk background is not in the game files at hand, the modern one is)
+local BACKGROUND_TREES = {
+	DEATHKNIGHT = BACKGROUND_DK,
+	MONK = { "talents-background-monk-brewmaster", "talents-background-monk-mistweaver",
+		"talents-background-monk-windwalker" },
+}
 
 local function atlas(t, name, keep)
 	return ForeverUI.SetAtlas(t, name, keep)
@@ -1398,20 +1406,21 @@ local function placeBackground(tabs)
 	local _, token = UnitClass(T.inspection or "player")
 	-- Portrait: the class shown (the inspected unit's during inspection)
 	T.book.portrait:SetTexture(PORTRAIT .. string.lower(token or "warrior"))
-	-- One background per tree: death knights (the middle third of each modern image), and
-	-- inspection (the tree's own third of the class art, cropped on each side like its column)
-	local dk = token == "DEATHKNIGHT"
-	if (dk or T.inspection) and not T.narrow then
+	-- One background per tree: the classes with modern art by tree (death knights, monks: the
+	-- middle third of each modern image), and inspection (the tree's own third of the class art,
+	-- cropped on each side like its column)
+	local trees = BACKGROUND_TREES[token or ""]
+	if (trees or T.inspection) and not T.narrow then
 		local l = T.inspection and G.inspectionColumn or G.pageW / 3
 		local keep = l / (G.pageW / 3)
 		for i = 1, 3 do
 			local t = className.textures[i] or className:CreateTexture(nil, "BACKGROUND")
 			className.textures[i] = t
-			local e = ForeverUI.AtlasEntry(dk and BACKGROUND_DK[i] or ("talent-background-" .. string.lower(token or "warrior")))
+			local e = ForeverUI.AtlasEntry(trees and trees[i] or ("talent-background-" .. string.lower(token or "warrior")))
 			if e then
 				t:SetTexture(e[1])
 				local du = (e[3] - e[2]) / 3
-				local start = e[2] + du * (dk and 1 or (i - 1))
+				local start = e[2] + du * (trees and 1 or (i - 1))
 				local margin = du * (1 - keep) / 2
 				t:SetTexCoord(start + margin, start + du - margin, e[4], e[5])
 			end
@@ -1425,7 +1434,8 @@ local function placeBackground(tabs)
 	end
 	local t = className.textures[1] or className:CreateTexture(nil, "BACKGROUND")
 	className.textures[1] = t
-	local name = "talent-background-" .. string.lower(token or "warrior")
+	-- a class with art by tree: its first tree's, in the reduced window
+	local name = trees and trees[1] or ("talent-background-" .. string.lower(token or "warrior"))
 	atlas(t, name, true)
 	-- The reduced window shows the first third of the art: the one of the column it keeps
 	if T.narrow then

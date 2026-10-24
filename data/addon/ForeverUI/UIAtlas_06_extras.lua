@@ -138,6 +138,8 @@ local S = {
 	[132] = "interface\\ForeverUI\\tooltips\\uiframetooltipc60", -- 16 x 64
 	[133] = "interface\\ForeverUI\\tooltips\\uiframetooltipverticalc60", -- 32 x 16
 	[134] = "interface\\ForeverUI\\unknown\\8203433", -- 512 x 512
+	[135] = "interface\\ForeverUI\\talentframe\\talentsclassbackgroundmonk1", -- 2048 x 2048
+	[136] = "interface\\ForeverUI\\talentframe\\talentsclassbackgroundmonk2", -- 2048 x 1024
 }
 
 local D = {
@@ -1850,6 +1852,9 @@ local D = {
 	["talents-background-deathknight-blood"] = {127, 0.000488, 0.787598, 0.000488, 0.378418, 1612, 774},
 	["talents-background-deathknight-frost"] = {127, 0.000488, 0.787598, 0.379395, 0.757324, 1612, 774},
 	["talents-background-deathknight-unholy"] = {128, 0.000488, 0.787598, 0.000977, 0.756836, 1612, 774},
+	["talents-background-monk-brewmaster"] = {135, 0.000488, 0.787598, 0.000488, 0.378418, 1612, 774},
+	["talents-background-monk-mistweaver"] = {135, 0.000488, 0.787598, 0.379395, 0.757324, 1612, 774},
+	["talents-background-monk-windwalker"] = {136, 0.000488, 0.787598, 0.000977, 0.756836, 1612, 774},
 	["talent-background-shaman"] = {129, 0.000488, 0.999512, 0.000488, 0.575195, 2046, 1177},
 	["tooltip-compare-label"] = {130, 0.007812, 0.742188, 0.031250, 0.937500, 94, 29},
 	["tooltip-nineslice-center-c60"] = {131, 0.000000, 1.000000, 0.000000, 1.000000, 64, 64},
