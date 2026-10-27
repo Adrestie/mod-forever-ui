@@ -281,7 +281,6 @@ local function updatePower()
 		fraction = UnitPower("target", powerType) / maximum
 	end
 	ForeverUI.SetAtlasFill(powerFill, atlas, fraction, layout.power[3])
-	ForeverUI.TintPower(powerFill, "target")
 end
 
 -- Health and power texts: shown with the targetStatusText CVar or on hover.
@@ -694,7 +693,6 @@ local function updateTargetOfTarget()
 		powerFraction = UnitPower("targettarget", powerType) / powerMax
 	end
 	ForeverUI.SetAtlasFill(totPower, TOT_POWER[powerToken or ""] or TOT_POWER.MANA, powerFraction)
-	ForeverUI.TintPower(totPower, "targettarget")
 
 	totName:SetText(UnitName("targettarget"))
 	SetPortraitTexture(totPortrait, "targettarget")
